@@ -232,6 +232,9 @@ def convert(exporter, scene, context=None, engine=None):
             definitions["lightstrategy.restir.spatialreuse.enable"] = (
                 config.restir_spatial_enable
             )
+            definitions["lightstrategy.restir.visibility.enable"] = (
+                config.restir_visibility_enable
+            )
             if config.restir_candidates > 0:
                 definitions["lightstrategy.restir.candidates"] = (
                     config.restir_candidates
@@ -565,6 +568,13 @@ def _convert_final_engine(scene, definitions, config):
         definitions["opencl.outofcore.film.enable"] = True
     if config.using_out_of_core():
         definitions["opencl.outofcore.enable"] = True
+
+    if config.low_vram():
+        # Low-resource profile: shrink the GPU wavefront task count so
+        # the per-task buffers (rays/hits, ReSTIR reservoirs, MNEE state,
+        # visibility candidate rays) fit a small-VRAM GPU and leave
+        # headroom for the driver and the OS compositor.
+        definitions["opencl.task.count"] = config.LOW_RESOURCE_TASK_COUNT
 
     return luxcore_engine, sampler
 

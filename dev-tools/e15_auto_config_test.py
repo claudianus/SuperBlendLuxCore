@@ -223,6 +223,61 @@ expected_ooc = resolved == "OCL" and (
 )
 check("device.ooc-consistency", cfg3.using_out_of_core() == expected_ooc)
 
+# --- low-resource profile ---------------------------------------------
+
+# Without a detected low-VRAM GPU the wavefront task count stays at the
+# LuxCore default (property left undefined)
+props = export_config.convert(None, scene3)
+check(
+    "lowres.taskcount-untouched",
+    not props.IsDefined("opencl.task.count"),
+)
+
+# Force the low-resource profile: the wavefront task count is capped so
+# the per-task buffers fit small GPUs
+orig_low_vram = type(cfg3).low_vram
+try:
+    type(cfg3).low_vram = lambda self: True
+    props = export_config.convert(None, scene3)
+    check(
+        "lowres.taskcount-capped",
+        props.IsDefined("opencl.task.count")
+        and props.Get("opencl.task.count").GetInt()
+        == cfg3.LOW_RESOURCE_TASK_COUNT,
+        f"got {props.Get('opencl.task.count').GetInt() if props.IsDefined('opencl.task.count') else 'unset'}",
+    )
+finally:
+    type(cfg3).low_vram = orig_low_vram
+
+# --- ReSTIR visibility export + convergence stat ----------------------
+
+cfg3.light_strategy = "RESTIR_DI"
+cfg3.restir_visibility_enable = True
+props = export_config.convert(None, scene3)
+check(
+    "restir.visibility-exported",
+    props.IsDefined("lightstrategy.restir.visibility.enable")
+    and props.Get("lightstrategy.restir.visibility.enable").GetBool(),
+)
+cfg3.restir_visibility_enable = False
+props = export_config.convert(None, scene3)
+check(
+    "restir.visibility-default-off",
+    props.IsDefined("lightstrategy.restir.visibility.enable")
+    and not props.Get("lightstrategy.restir.visibility.enable").GetBool(),
+)
+cfg3.light_strategy = "AUTO"
+
+from bl_ext.user_default.blendluxcore.properties.statistics import (
+    LuxCoreRenderStats,
+)
+slot_stats = LuxCoreRenderStats()
+check(
+    "stats.convergence-na-default",
+    str(slot_stats.convergence) == "n/a",
+    str(slot_stats.convergence),
+)
+
 print()
 n_pass = sum(1 for _, ok in results if ok)
 print(f"===== auto config: {n_pass}/{len(results)} PASS =====")

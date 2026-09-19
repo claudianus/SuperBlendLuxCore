@@ -644,6 +644,11 @@ class LuxCoreConfig(PropertyGroup):
     # (automatic out-of-core). Apple silicon reports unified memory here,
     # so the threshold only engages on genuinely small GPUs.
     LOW_VRAM_BYTES = 4 * 1024 ** 3  # 4 GiB
+    # Low-resource profile: the GPU wavefront task count is capped so
+    # the per-task buffers (rays/hits, ReSTIR reservoirs, MNEE state,
+    # visibility candidate rays) fit a small GPU and leave headroom for
+    # the driver and the OS compositor. LuxCore's default is 512K.
+    LOW_RESOURCE_TASK_COUNT = 131072
 
     def _enabled_gpu_devices(self):
         """Enabled devices matching the GPU backend selected in the
@@ -851,6 +856,11 @@ class LuxCoreConfig(PropertyGroup):
                                   description="EXPERIMENTAL: share reservoirs with neighboring pixels (GRIS merge). "
                                               "Unbiased, but currently variance-neutral without shift mapping — "
                                               "expect similar noise, not less")
+    restir_visibility_enable: BoolProperty(name="Visibility-Weighted Target", default=False,
+                                  description="Trace each candidate's shadow ray and fold binary visibility "
+                                              "into the reservoir target. Improves light selection on scenes "
+                                              "with heavy occlusion; on mostly-visible scenes the extra binary "
+                                              "term reallocates noise into penumbra edges instead of reducing it")
 
     # MNEE (specular chain direct light sampling)
     mnee_enable: BoolProperty(name="MNEE Specular Caustics", default=False,

@@ -1582,6 +1582,9 @@ class Exporter(object):
     def _init_stats(self, stats, config_props, scene):
         render_engine = config_props.Get("renderengine.type").GetString()
         stats.render_engine.value = utils_render.engine_to_str(render_engine)
+        # The convergence test only runs on tiled engines; -1 renders
+        # as "n/a" and is never overwritten by update_from_luxcore_stats
+        stats.convergence.value = 0.0 if "TILE" in render_engine else -1.0
         sampler = config_props.Get("sampler.type").GetString()
         stats.sampler.value = utils_render.sampler_to_str(sampler)
 

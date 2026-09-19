@@ -213,9 +213,20 @@ gradients on CPU and Metal/OpenCL.
 - **Auto device selection** (`config.device = "AUTO"`, the default): uses
   the GPU(s) when an enabled device of the backend selected in the addon
   preferences exists, falls back to CPU otherwise. Enabled GPUs below
-  4 GiB automatically run out-of-core so large scenes still fit.
+  4 GiB automatically run out-of-core so large scenes still fit, and get
+  a capped wavefront task count (`opencl.task.count = 131072` vs the
+  512K default) so the per-task buffers fit and leave headroom for the
+  driver/compositor.
 - **Quality presets**: Draft / Standard / Final buttons on top of the
   Quick Setup quality slider.
+- **ReSTIR DI visibility weighting** (`restir_visibility_enable`): exposes
+  LuxCore's `lightstrategy.restir.visibility.enable` — candidates' shadow
+  rays steer the reservoir target. Opt-in; honest description in the
+  tooltip (it can reallocate noise into penumbra edges on mostly-visible
+  scenes instead of reducing it).
+- **Convergence stat**: the render statistics panel shows the tile-based
+  convergence percentage for tiled engines ("n/a" elsewhere — only
+  TILEPATH* engines run a convergence test).
 - Production defaults on new scenes: denoiser enabled, halt conditions
   enabled with a convergence stop (noise threshold) plus a 1024-spp cap.
 - Viewport: black-flash and UI-freeze fixes; engine-teardown hardening; an
