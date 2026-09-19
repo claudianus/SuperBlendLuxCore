@@ -3291,6 +3291,9 @@ def _convert_to_float(color_or_texture, props):
         return tex_name
     elif isinstance(color_or_texture, list):
         return sum(color_or_texture) / len(color_or_texture)
+    # Scalar constants pass through unchanged — dropping them here turned
+    # e.g. MULTIPLY(attr, 50.0) into attr * 0.
+    return color_or_texture
 
 
 def _is_zero(value):
