@@ -32,8 +32,9 @@ auto-route Blender node trees to the Cycles reader`).
 | Subsurface Scattering | Disney `subsurface` | approximation (no BSSRDF) |
 
 **Validation:** exported SDL parses + renders; coverage measured at 71/101.
-Remaining unmapped: Sky/Environment, PointDensity, VectorRotate,
-VectorTransform, RayPortal — tracked on the roadmap.
+Remaining unmapped: Sky/Environment (material context), PointDensity,
+RayPortal — tracked on the roadmap. VectorRotate/VectorTransform are
+mapped for constant transforms; texture-driven axes warn.
 
 **References:** Blender/Cycles node reference (Blender manual); the mapping
 table above is the API surface.
