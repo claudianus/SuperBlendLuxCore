@@ -364,7 +364,7 @@ class LuxCoreConfigSimple(PropertyGroup):
             config.photongi.caustic_periodic_update = True
             config.photongi.caustic_updatespp = 16 if q < 0.7 else 8
             # Sharp caustics via light tracing at mid quality and above
-            if q >= 0.5 and config.device == "CPU":
+            if q >= 0.5 and config.effective_device() == "CPU":
                 config.path.hybridbackforward_enable = True
                 config.path.hybridbackforward_lightpartition = 20
 
@@ -640,8 +640,82 @@ class LuxCoreConfig(PropertyGroup):
     ]
     sampler_gpu: EnumProperty(name="Sampler", items=samplers_gpu, default="SOBOL")
     
+    # GPUs with less local memory than this trigger the low-resource path
+    # (automatic out-of-core). Apple silicon reports unified memory here,
+    # so the threshold only engages on genuinely small GPUs.
+    LOW_VRAM_BYTES = 4 * 1024 ** 3  # 4 GiB
+
+    def _enabled_gpu_devices(self):
+        """Enabled devices matching the GPU backend selected in the
+        addon preferences. Empty when the device list was never scanned
+        or the backend is unsupported."""
+        try:
+            from ..utils import get_addon_preferences
+            backend = get_addon_preferences(bpy.context).gpu_backend
+            wanted = {
+                "OPENCL": "OPENCL_GPU",
+                "CUDA": "CUDA_GPU",
+                "METAL": "METAL_GPU",
+            }.get(backend)
+            if wanted is None:
+                return []
+            # id_data is the owning Scene for a nested PropertyGroup
+            devices = self.id_data.luxcore.devices
+            if len(devices.devices) == 0:
+                # Lazily populate on first use (new scenes have no
+                # load_post pass to initialize the list)
+                devices.update_devices_if_necessary()
+            return [
+                d for d in devices.devices
+                if d.enabled and d.type == wanted
+            ]
+        except Exception:
+            return []
+
+    def effective_device(self):
+        """Resolve AUTO: GPU when an enabled GPU of the selected backend
+        exists, CPU otherwise."""
+        if self.device != "AUTO":
+            return self.device
+        return "OCL" if self._enabled_gpu_devices() else "CPU"
+
+    def low_vram(self):
+        """True when every enabled GPU is below the out-of-core
+        threshold. Empty device list counts as not low-resource."""
+        gpus = self._enabled_gpu_devices()
+        if not gpus:
+            return False
+        try:
+            mems = [
+                # maxmemory is not stored on the device collection; re-read
+                # the descs and match by name
+                self._gpu_max_memory(d)
+                for d in gpus
+            ]
+        except Exception:
+            return False
+        mems = [m for m in mems if m > 0]
+        return bool(mems) and min(mems) < self.LOW_VRAM_BYTES
+
+    def _gpu_max_memory(self, device_entry):
+        try:
+            devices = self.id_data.luxcore.devices
+            props = devices.get_device_props()
+            for prefix in props.GetAllUniqueSubNames("opencl.device"):
+                if (
+                    props.Get(prefix + ".name").GetString()
+                    == device_entry.name
+                    and props.Get(prefix + ".type").GetString()
+                    == device_entry.type
+                ):
+                    # u64 value — GetString avoids int32 truncation
+                    return int(props.Get(prefix + ".maxmemory").GetString())
+        except Exception:
+            pass
+        return 0
+
     def get_sampler(self):
-        return self.sampler_gpu if (self.engine == "PATH" and self.device == "OCL") else self.sampler
+        return self.sampler_gpu if (self.engine == "PATH" and self.effective_device() == "OCL") else self.sampler
 
     # SOBOL properties
     sobol_adaptive_strength: FloatProperty(name="Adaptive Strength", default=0.9, min=0, max=0.95,
@@ -685,7 +759,13 @@ class LuxCoreConfig(PropertyGroup):
                                           "Enabling this option causes the scene to use more CPU RAM")
 
     def using_out_of_core(self):
-        return self.device == "OCL" and self.out_of_core and self.out_of_core_mode == "EVERYTHING"
+        if self.effective_device() != "OCL":
+            return False
+        if self.out_of_core and self.out_of_core_mode == "EVERYTHING":
+            return True
+        # Low-resource auto-detection: small-VRAM GPUs always run
+        # out-of-core so scenes still fit
+        return self.low_vram()
 
     # METROPOLIS properties
     # sampler.metropolis.largesteprate
@@ -702,14 +782,17 @@ class LuxCoreConfig(PropertyGroup):
 
     # Only available when engine is PATH (not BIDIR)
     devices = [
-        ("CPU", "CPU", "CPU only", 0),
+        ("AUTO", "Auto", "Use the GPU(s) when an enabled device of the backend "
+                         "selected in the addon preferences is available, "
+                         "otherwise fall back to the CPU", 0),
+        ("CPU", "CPU", "CPU only", 1),
         # Identifier stays OCL for blend-file compatibility; it means any GPU
         # backend selected in the addon preferences (OpenCL / CUDA / Metal).
         ("OCL", "GPU", "Use GPU(s) and optionally the CPU. The GPU backend (OpenCL/CUDA/Metal) "
                        "is chosen in the addon preferences. "
-                       "You can enable/disable each device in the Devices panel below", 1),
+                       "You can enable/disable each device in the Devices panel below", 2),
     ]
-    device: EnumProperty(name="Device", items=devices, default="CPU")
+    device: EnumProperty(name="Device", items=devices, default="AUTO")
     # A trick so we can show the user that bidir can only be used on the CPU (see UI code)
     bidir_device: EnumProperty(name="Device", items=devices, default="CPU",
                                description="Bidir is only available on CPU. Switch to the Path engine if you want to render on the GPU")
@@ -824,5 +907,5 @@ class LuxCoreConfig(PropertyGroup):
     image_resize_policy: PointerProperty(type=LuxCoreConfigImageResizePolicy)
 
     def using_only_lighttracing(self):
-        return (self.engine == "PATH" and self.device == "CPU" and self.path.hybridbackforward_enable
+        return (self.engine == "PATH" and self.effective_device() == "CPU" and self.path.hybridbackforward_enable
                 and self.path.hybridbackforward_lightpartition == 100)

@@ -170,8 +170,11 @@ check(
 scene2.luxcore.config.path.auto_clamping = True
 
 # --- production defaults on a fresh scene -----------------------------
+# NOTE: bpy.ops.scene.new copies the active scene's addon properties even
+# for type="EMPTY" — use bpy.data.scenes.new to get real defaults.
 
-scene3 = fresh_scene()
+scene3 = bpy.data.scenes.new("defaults-scene")
+scene3.render.engine = "LUXCORE"
 halt = scene3.luxcore.halt
 check("defaults.denoiser", scene3.luxcore.denoiser.enabled)
 check("defaults.halt-enabled", halt.enable)
@@ -179,6 +182,46 @@ check("defaults.halt-noise", halt.use_noise_thresh)
 check("defaults.halt-samples-cap", halt.use_samples and halt.samples >= 256)
 check("defaults.auto-clamp", scene3.luxcore.config.path.auto_clamping)
 check("defaults.strategy-auto", scene3.luxcore.config.light_strategy == "AUTO")
+check(
+    "defaults.device-auto",
+    scene3.luxcore.config.device == "AUTO",
+    f"got {scene3.luxcore.config.device}",
+)
+
+# --- device AUTO resolution -------------------------------------------
+
+cfg3 = scene3.luxcore.config
+resolved = cfg3.effective_device()
+check(
+    "device.resolves",
+    resolved in ("CPU", "OCL"),
+    f"resolved={resolved}",
+)
+# Whatever it resolved to, convert() must emit a concrete engine tag
+props = export_config.convert(None, scene3)
+engine_tag = props.Get("renderengine.type").GetString()
+expected = "PATH" + resolved
+check(
+    "device.engine-tag",
+    engine_tag == expected,
+    f"engine={engine_tag}",
+)
+# explicit CPU still wins
+cfg3.device = "CPU"
+props = export_config.convert(None, scene3)
+check(
+    "device.explicit-cpu",
+    props.Get("renderengine.type").GetString() == "PATHCPU",
+)
+cfg3.device = "AUTO"
+
+# low_vram() is bool and consistent with using_out_of_core()
+lv = cfg3.low_vram()
+check("device.low-vram-bool", isinstance(lv, bool))
+expected_ooc = resolved == "OCL" and (
+    lv or (cfg3.out_of_core and cfg3.out_of_core_mode == "EVERYTHING")
+)
+check("device.ooc-consistency", cfg3.using_out_of_core() == expected_ooc)
 
 print()
 n_pass = sum(1 for _, ok in results if ok)

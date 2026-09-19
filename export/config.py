@@ -449,13 +449,17 @@ def convert_viewport_engine(context, scene, definitions, config):
 
 
 def _convert_final_engine(scene, definitions, config):
+    # AUTO resolves to the concrete backend here so every downstream
+    # check (engine tag, hybrid split, OpenCL settings) sees the resolved
+    # device, not the enum placeholder.
+    device = config.effective_device()
     if config.engine == "PATH":
         # Specific settings for PATH and TILEPATH
         _convert_path(
             config,
             definitions,
             config.path.hybridbackforward_enable,
-            config.device,
+            device,
             False,
             scene,
         )
@@ -484,9 +488,9 @@ def _convert_final_engine(scene, definitions, config):
             luxcore_engine = "PATH"
 
         # Add CPU/OCL suffix
-        luxcore_engine += config.device
+        luxcore_engine += device
 
-        if config.device == "OCL":
+        if device == "OCL":
             # OpenCL specific settings
             _convert_opencl_settings(scene, definitions, True)
     else:

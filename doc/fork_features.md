@@ -210,6 +210,12 @@ gradients on CPU and Metal/OpenCL.
 - **Auto clamp**: once an unclamped render has produced a suggested clamp
   value, subsequent renders apply it automatically. Manual "Clamp Output"
   takes precedence.
+- **Auto device selection** (`config.device = "AUTO"`, the default): uses
+  the GPU(s) when an enabled device of the backend selected in the addon
+  preferences exists, falls back to CPU otherwise. Enabled GPUs below
+  4 GiB automatically run out-of-core so large scenes still fit.
+- **Quality presets**: Draft / Standard / Final buttons on top of the
+  Quick Setup quality slider.
 - Production defaults on new scenes: denoiser enabled, halt conditions
   enabled with a convergence stop (noise threshold) plus a 1024-spp cap.
 - Viewport: black-flash and UI-freeze fixes; engine-teardown hardening; an
