@@ -188,6 +188,9 @@ class LUXCORE_RENDER_PT_lightpaths_clamping(RenderButtonsPanel, Panel):
         layout.active = config.path.use_clamping
         layout.prop(config.path, "clamping")
 
+        if not config.path.use_clamping:
+            layout.prop(config.path, "auto_clamping")
+
         if config.path.suggested_clamping_value == -1:
             # Optimal clamp value not yet found, need to start a render first
             if config.path.use_clamping:
@@ -203,6 +206,12 @@ class LUXCORE_RENDER_PT_lightpaths_clamping(RenderButtonsPanel, Panel):
                 )
         else:
             # Show a button that can be used to set the optimal clamp value
+            if config.path.auto_clamping and not config.path.use_clamping:
+                layout.label(
+                    text="Auto-clamping at %g"
+                    % config.path.suggested_clamping_value,
+                    icon=icons.INFO,
+                )
             op_text = (
                 "Set Suggested Value: %f"
                 % config.path.suggested_clamping_value

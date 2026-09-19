@@ -202,6 +202,16 @@ gradients on CPU and Metal/OpenCL.
 
 - Corona-style **Quick Setup**: a quality slider + denoise toggle; caustics
   auto-enabled when the scene has glass; progressive caustics refinement.
+- **Automatic light strategy** (`light_strategy = "AUTO"`, the default):
+  counts scene emitters — light objects, the world background, and
+  emissive meshes weighted by polygon count — and picks ReSTIR DI above
+  `AUTO_LIGHT_STRATEGY_EMITTER_THRESHOLD` (16) on engines that support it,
+  log-power sampling otherwise. Explicit strategy choices always win.
+- **Auto clamp**: once an unclamped render has produced a suggested clamp
+  value, subsequent renders apply it automatically. Manual "Clamp Output"
+  takes precedence.
+- Production defaults on new scenes: denoiser enabled, halt conditions
+  enabled with a convergence stop (noise threshold) plus a 1024-spp cap.
 - Viewport: black-flash and UI-freeze fixes; engine-teardown hardening; an
   error-log file for fatal errors.
 - Backend options: **Metal GPU** (Apple silicon) and a **spectral render**

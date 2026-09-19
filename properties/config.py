@@ -89,6 +89,13 @@ POWER_DESC = (
 
 UNIFORM_DESC = "Sample all lights equally, not according to their brightness"
 
+AUTO_LIGHT_STRATEGY_DESC = (
+    "(Default) Pick the light strategy from the scene's emitter count: "
+    "ReSTIR DI when the scene has many emitters, log-power sampling otherwise. "
+    "Mesh lights are weighted by their polygon count since every triangle "
+    "becomes a separate light"
+)
+
 RESTIR_DI_DESC = (
     "Reservoir importance resampling: pick each candidate light by its estimated "
     "contribution at the shading point (recommended for scenes with many lights; "
@@ -395,6 +402,15 @@ class LuxCoreConfigPath(PropertyGroup):
                                                       description=HYBRID_BACKFORWARD_GLOSSINESS_DESC)
 
     use_clamping: BoolProperty(name="Clamp Output", default=False, description=CLAMPING_DESC)
+    auto_clamping: BoolProperty(
+        name="Auto Clamp",
+        default=True,
+        description="Once a render has produced a suggested clamp value, "
+                    "apply it automatically on subsequent renders. Manual "
+                    "clamping (Clamp Output) takes precedence when enabled. "
+                    "First render of a scene still runs unclamped so the "
+                    "suggestion can be measured"
+    )
     # path.clamping.variance.maxvalue
     clamping: FloatProperty(name="Max Brightness", default=10, min=0,soft_max=10000,  description=CLAMPING_DESC)
     # This should only be set in the engine code after export. Only show a read-only label to the user.
@@ -734,12 +750,13 @@ class LuxCoreConfig(PropertyGroup):
 
     # Light strategy
     light_strategy_items = [
-        ("LOG_POWER", "Log Power", LOG_POWER_DESC, 0),
-        ("POWER", "Power", POWER_DESC, 1),
-        ("UNIFORM", "Uniform", UNIFORM_DESC, 2),
-        ("RESTIR_DI", "ReSTIR DI (reservoir)", RESTIR_DI_DESC, 3),
+        ("AUTO", "Auto", AUTO_LIGHT_STRATEGY_DESC, 0),
+        ("LOG_POWER", "Log Power", LOG_POWER_DESC, 1),
+        ("POWER", "Power", POWER_DESC, 2),
+        ("UNIFORM", "Uniform", UNIFORM_DESC, 3),
+        ("RESTIR_DI", "ReSTIR DI (reservoir)", RESTIR_DI_DESC, 4),
     ]
-    light_strategy: EnumProperty(name="Light Strategy", items=light_strategy_items, default="LOG_POWER",
+    light_strategy: EnumProperty(name="Light Strategy", items=light_strategy_items, default="AUTO",
                                   description="Decides how the lights in the scene are sampled")
 
     # ReSTIR DI options
