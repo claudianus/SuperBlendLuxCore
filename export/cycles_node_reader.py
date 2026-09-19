@@ -23,7 +23,6 @@ _UNSUPPORTED_NODE_NOTES = {
     "ShaderNodeCameraData": "view vector/depth is not available to LuxCore textures",
     "ShaderNodeRaycast": "scene raycast queries are not available to LuxCore textures",
     "ShaderNodeRadialTiling": "no polar/radial tiling texture in LuxCore",
-    "ShaderNodeTexGabor": "no Gabor texture in LuxCore",
     "ShaderNodeTexIES": "IES profiles live on LuxCore light definitions, not material textures",
     "ShaderNodeTexSky": "sky models exist as LuxCore lights (sky2/sun), not material textures",
     "ShaderNodeSqueeze": "Freestyle squeeze value has no shading meaning",
@@ -2557,12 +2556,54 @@ def _node(node, output_socket, props, material, luxcore_name=None, obj_name="", 
         else:
             # Unlinked Vector defaults to the position seed
             seed_tex = node.name + "::wnseed"
-            props.Set(utils.ParseString(
-                f"{prefix}{seed_tex}.type position"))
+            props.Set(utils.luxutils.create_props(
+                f"{prefix}{seed_tex}.", {"type": "position"}))
 
         definitions = {
             "type": "whitenoise",
             "texture": seed_tex,
+        }
+    elif node.bl_idname == "ShaderNodeTexGabor":
+        prefix = "scene.textures."
+
+        # LuxCore gabornoise implements Lagae 2009 sparse Gabor
+        # convolution (2D), normalized after Tavernier 2019, with phasor
+        # phase/intensity outputs (Tricard 2019).
+        if node.gabor_type != "2D":
+            LuxCoreErrorLog.add_warning(
+                f'Gabor node "{node.name}": 3D mode is approximated by 2D '
+                "evaluation of xy", obj_name=obj_name)
+
+        def _fin(name, default):
+            sk = node.inputs[name]
+            if sk.is_linked:
+                LuxCoreErrorLog.add_warning(
+                    f'Gabor node "{node.name}": linked {name} input is not '
+                    "supported, using its default", obj_name=obj_name)
+            return sk.default_value if not sk.is_linked else default
+
+        vector_socket = node.inputs["Vector"]
+        if vector_socket.is_linked:
+            vec_tex = _socket(vector_socket, props, material, obj_name,
+                              group_node_stack)
+        else:
+            vec_tex = node.name + "::gaborpos"
+            props.Set(utils.luxutils.create_props(
+                f"{prefix}{vec_tex}.", {"type": "position"}))
+
+        out_map = {"Value": "value", "Phase": "phase",
+                   "Intensity": "intensity"}
+        definitions = {
+            "type": "gabornoise",
+            "vector": vec_tex,
+            "scale": _fin("Scale", 1.0),
+            "frequency": _fin("Frequency", 2.0),
+            "isotropy": _fin("Anisotropy", 0.0),
+            # Orientation 2D/3D share the display name "Orientation";
+            # address the 2D one by identifier
+            "orientation": next((sk.default_value for sk in node.inputs
+                                 if sk.identifier == "Orientation 2D"), 0.0),
+            "output": out_map.get(output_socket.name, "value"),
         }
     elif node.bl_idname == "ShaderNodeTexBrick":
         prefix = "scene.textures."

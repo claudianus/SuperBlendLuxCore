@@ -60,7 +60,7 @@ with no LuxCore equivalent additionally carry a specific reason via
 | ShaderNodeTexMagic | approx | blender_magic |
 | ShaderNodeTexWave | approx | wave-type subset |
 | ShaderNodeTexWhiteNoise | mapped | whitenoise |
-| ShaderNodeTexGabor | warn | no Gabor texture in LuxCore |
+| ShaderNodeTexGabor | mapped | `gabornoise` (native; 2D only, 3D mode warns+approximates) |
 | ShaderNodeTexIES | warn | IES lives on LuxCore light definitions |
 | ShaderNodeTexSky | warn | sky2/sun are lights, not material textures |
 

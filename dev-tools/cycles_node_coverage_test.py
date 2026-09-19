@@ -466,18 +466,58 @@ def test_math_floormod_textured():
           f"types={types}")
 
 
-def test_gabor_specific_warning():
-    LuxCoreErrorLog.clear(force_ui_update=False)
+def _gabor_prop(props, suffix):
+    for n in all_prop_names(props):
+        if n.endswith(".type") and "textures." in n and \
+                prop_str(props, n) == "gabornoise":
+            return prop_str(props, n[:-5] + "." + suffix)
+    return None
+
+
+def test_gabor_value_output():
+    mat, nt, out = new_tree()
+    gabor = nt.nodes.new("ShaderNodeTexGabor")
+    gabor.inputs["Frequency"].default_value = 5.0
+    em = nt.nodes.new("ShaderNodeEmission")
+    nt.links.new(gabor.outputs["Value"], em.inputs["Color"])
+    nt.links.new(em.outputs["Emission"], out.inputs["Surface"])
+    props = convert(mat)
+    types = emitted_texture_types(props)
+    check("gabor value -> gabornoise texture", "gabornoise" in types,
+          f"types={types}")
+    check("gabor output=value", _gabor_prop(props, "output") == "value",
+          f"output={_gabor_prop(props, 'output')}")
+    check("gabor frequency=5", _gabor_prop(props, "frequency") == "5",
+          f"freq={_gabor_prop(props, 'frequency')}")
+
+
+def test_gabor_phase_output():
     mat, nt, out = new_tree()
     gabor = nt.nodes.new("ShaderNodeTexGabor")
     em = nt.nodes.new("ShaderNodeEmission")
-    nt.links.new(gabor.outputs[0], em.inputs["Color"])
+    nt.links.new(gabor.outputs["Phase"], em.inputs["Color"])
     nt.links.new(em.outputs["Emission"], out.inputs["Surface"])
-    convert(mat)
+    props = convert(mat)
+    check("gabor phase -> output=phase",
+          _gabor_prop(props, "output") == "phase",
+          f"output={_gabor_prop(props, 'output')}")
+
+
+def test_gabor_3d_warns():
+    LuxCoreErrorLog.clear(force_ui_update=False)
+    mat, nt, out = new_tree()
+    gabor = nt.nodes.new("ShaderNodeTexGabor")
+    gabor.gabor_type = "3D"
+    em = nt.nodes.new("ShaderNodeEmission")
+    nt.links.new(gabor.outputs["Value"], em.inputs["Color"])
+    nt.links.new(em.outputs["Emission"], out.inputs["Surface"])
+    props = convert(mat)
     msgs = [w.message if hasattr(w, "message") else str(w)
             for w in LuxCoreErrorLog.warnings]
-    check("gabor specific warning",
-          any("Gabor" in m for m in msgs), f"warns={msgs}")
+    check("gabor 3D warns + still emits gabornoise",
+          any("3D" in m for m in msgs) and
+          "gabornoise" in emitted_texture_types(props),
+          f"warns={msgs} types={emitted_texture_types(props)}")
 
 
 def main():
