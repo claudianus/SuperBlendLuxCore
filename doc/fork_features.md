@@ -32,7 +32,7 @@ auto-route Blender node trees to the Cycles reader`).
 | Subsurface Scattering | Disney `subsurface` | approximation (no BSSRDF) |
 
 **Validation:** exported SDL parses + renders; coverage measured at 71/101.
-Remaining unmapped: IES, Sky/Environment, PointDensity, VectorRotate,
+Remaining unmapped: Sky/Environment, PointDensity, VectorRotate,
 VectorTransform, RayPortal — tracked on the roadmap.
 
 **References:** Blender/Cycles node reference (Blender manual); the mapping
