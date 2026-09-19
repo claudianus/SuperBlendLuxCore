@@ -30,6 +30,7 @@ auto-route Blender node trees to the Cycles reader`).
 | Blackbody | `blackbody` texture | linked Temperature input |
 | Map Range | `remap` | clamped (LuxCore remap always clamps) |
 | Subsurface Scattering | Disney `subsurface` | approximation (no BSSRDF) |
+| Attribute (generic/named) | `hitpointvertexaov` / `hitpointtriangleaov` / `hitpointcolor` | GN "Store Named Attribute" output and hand-authored `mesh.attributes`: scalar float/int/bool → vertex or triangle AOV, vector/float2 → extra color layer. Fac/Color/Vector outputs resolved; edge-domain and string attributes warn |
 
 **Validation:** exported SDL parses + renders; coverage measured at 71/101.
 Remaining unmapped: Sky/Environment (material context), PointDensity,

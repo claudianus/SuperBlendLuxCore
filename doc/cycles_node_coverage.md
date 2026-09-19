@@ -71,7 +71,7 @@ with no LuxCore equivalent additionally carry a specific reason via
 | ShaderNodeTexCoord | approx | UV/Normal/Object mapped; Generated→UV, Reflection→normal approximations warn; Window/Camera warn |
 | ShaderNodeNewGeometry | approx | per-output support varies; unsupported outputs warn |
 | ShaderNodeUVMap | mapped | incl. named-layer index lookup |
-| ShaderNodeAttribute | approx | color attributes + vertex AOVs |
+| ShaderNodeAttribute | mapped | color attrs, UV layers (Vector out), generic named attrs — float/int/bool→`hitpointvertexaov`/`hitpointtriangleaov`, vector/float2→extra color layer; edge-domain/string warn |
 | ShaderNodeVertexColor | approx | |
 | ShaderNodeObjectInfo | approx | Random→objectidnormalized; per-field subset warns |
 | ShaderNodeParticleInfo | approx | per-field subset warns |
