@@ -224,9 +224,11 @@ gradients on CPU and Metal/OpenCL.
   rays steer the reservoir target. Opt-in; honest description in the
   tooltip (it can reallocate noise into penumbra edges on mostly-visible
   scenes instead of reducing it).
-- **Convergence stat**: the render statistics panel shows the tile-based
-  convergence percentage for tiled engines ("n/a" elsewhere — only
-  TILEPATH* engines run a convergence test).
+- **Convergence stat**: the render statistics panel shows the converged-
+  pixel percentage whenever a convergence test runs — always on tiled
+  engines, and on PATH*/PATHOCL when the noise-threshold halt condition is
+  enabled (`batch.haltthreshold`/`batch.haltnoisethreshold`). "n/a" only
+  when no convergence test is configured.
 - Production defaults on new scenes: denoiser enabled, halt conditions
   enabled with a convergence stop (noise threshold) plus a 1024-spp cap.
 - Viewport: black-flash and UI-freeze fixes; engine-teardown hardening; an

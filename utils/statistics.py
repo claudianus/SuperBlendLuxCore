@@ -88,7 +88,8 @@ def clamping_to_string(clamping):
 
 def convergence_to_string(convergence):
     if convergence < 0:
-        # Engine does not run a convergence test (non-tiled engines)
+        # Engine does not run a convergence test (no noise-threshold halt
+        # configured; tiled engines always run one)
         return "n/a"
     if convergence < 0.95:
         return "%d%%" % round(convergence * 100)

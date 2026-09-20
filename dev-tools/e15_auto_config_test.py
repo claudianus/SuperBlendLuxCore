@@ -278,6 +278,42 @@ check(
     str(slot_stats.convergence),
 )
 
+# _init_stats: the convergence row must light up whenever a convergence
+# test actually runs — TILE engines always, PATH engines when the
+# noise-threshold halt (batch.haltthreshold) is configured.
+import pyluxcore
+from bl_ext.user_default.blendluxcore.export import Exporter
+
+
+def init_convergence(engine_type, extra=None):
+    props = pyluxcore.Properties()
+    props.Set(pyluxcore.Property("renderengine.type", [engine_type]))
+    props.Set(pyluxcore.Property("sampler.type", ["SOBOL"]))
+    for key, value in (extra or {}).items():
+        props.Set(pyluxcore.Property(key, [value]))
+    stats = LuxCoreRenderStats()
+    Exporter._init_stats(None, stats, props, scene3)
+    return stats.convergence.value
+
+
+check(
+    "stats.convergence-tile",
+    init_convergence("TILEPATHOCL") == 0.0,
+)
+check(
+    "stats.convergence-path-na",
+    init_convergence("PATHOCL") == -1.0,
+)
+check(
+    "stats.convergence-path-noise-halt",
+    init_convergence("PATHOCL", {"batch.haltthreshold": "0.02"}) == 0.0,
+)
+check(
+    "stats.convergence-pathcpu-noise-halt",
+    init_convergence("PATHCPU", {"batch.haltnoisethreshold": "0.02"})
+    == 0.0,
+)
+
 print()
 n_pass = sum(1 for _, ok in results if ok)
 print(f"===== auto config: {n_pass}/{len(results)} PASS =====")

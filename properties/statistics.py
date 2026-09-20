@@ -104,8 +104,9 @@ class LuxCoreRenderStats:
     def update_from_luxcore_stats(self, stat_props):
         self.render_time.value = stat_props.Get("stats.renderengine.time").GetFloat()
         self.samples_eye.value = stat_props.Get("stats.renderengine.pass.eye").GetInt()
-        # Only engines with a convergence test (TILEPATH*) ever report a
-        # positive value; the row stays "n/a" (-1) elsewhere.
+        # Engines running a convergence test (TILEPATH*, or any engine with
+        # the noise-threshold halt enabled) report a positive value; the row
+        # stays "n/a" (-1) elsewhere.
         convergence = stat_props.Get("stats.renderengine.convergence").GetFloat()
         if convergence > 0 or self.convergence.value >= 0:
             self.convergence.value = max(convergence, 0.0)
