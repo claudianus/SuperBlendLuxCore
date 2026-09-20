@@ -862,6 +862,18 @@ class LuxCoreConfig(PropertyGroup):
                                               "with heavy occlusion; on mostly-visible scenes the extra binary "
                                               "term reallocates noise into penumbra edges instead of reducing it")
 
+    # ReSTIR GI (G1 first-bounce reservoir, CPU only)
+    restir_gi_enable: BoolProperty(name="ReSTIR GI (CPU)", default=False,
+                                  description="EXPERIMENTAL: resample the first-bounce continuation vertex "
+                                              "from a per-pixel reservoir (ReSTIR GI stage G1). Helps "
+                                              "indirect-heavy scenes; currently CPU engine only")
+    restir_gi_candidates: IntProperty(name="GI Candidates", default=0, min=0, max=32,
+                                  description="Fresh first-bounce candidates per reservoir "
+                                              "(0 = engine default of 4)")
+    restir_gi_temporal_enable: BoolProperty(name="GI Temporal Reuse", default=True,
+                                  description="Merge the pixel's reservoir across passes with a "
+                                              "Jacobian-corrected reconnection shift")
+
     # MNEE (specular chain direct light sampling)
     mnee_enable: BoolProperty(name="MNEE Specular Caustics", default=False,
                                   description="Direct light through delta specular surfaces (mirrors, glass) via manifold next event estimation. Fix dark caustics from point/spot lights behind mirrors or glass")

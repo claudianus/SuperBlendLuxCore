@@ -268,6 +268,35 @@ check(
 )
 cfg3.light_strategy = "AUTO"
 
+# ReSTIR GI export: CPU engine only (the property is a silent no-op on
+# GPU engines, so convert() must not emit it there)
+cfg3.device = "CPU"
+cfg3.restir_gi_enable = True
+cfg3.restir_gi_candidates = 8
+props = export_config.convert(None, scene3)
+check(
+    "restir.gi-exported-cpu",
+    props.IsDefined("path.restir.gi.enable")
+    and props.Get("path.restir.gi.enable").GetBool()
+    and props.Get("path.restir.gi.candidates").GetInt() == 8,
+)
+cfg3.device = "OCL" if resolved == "OCL" else "CPU"
+props = export_config.convert(None, scene3)
+check(
+    "restir.gi-not-on-gpu",
+    (resolved != "OCL")
+    or not props.IsDefined("path.restir.gi.enable"),
+    f"resolved={resolved}",
+)
+cfg3.restir_gi_enable = False
+cfg3.restir_gi_candidates = 0
+cfg3.device = "AUTO"
+props = export_config.convert(None, scene3)
+check(
+    "restir.gi-default-off",
+    not props.IsDefined("path.restir.gi.enable"),
+)
+
 from bl_ext.user_default.blendluxcore.properties.statistics import (
     LuxCoreRenderStats,
 )

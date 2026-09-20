@@ -224,6 +224,10 @@ gradients on CPU and Metal/OpenCL.
   rays steer the reservoir target. Opt-in; honest description in the
   tooltip (it can reallocate noise into penumbra edges on mostly-visible
   scenes instead of reducing it).
+- **ReSTIR GI** (`restir_gi_enable`): exposes LuxCore's
+  `path.restir.gi.enable` (G1 first-bounce reservoir). CPU engine only —
+  the export is gated on PATHCPU so enabling it on a GPU engine is never
+  a silent no-op. Experimental, opt-in.
 - **Convergence stat**: the render statistics panel shows the converged-
   pixel percentage whenever a convergence test runs — always on tiled
   engines, and on PATH*/PATHOCL when the noise-threshold halt condition is

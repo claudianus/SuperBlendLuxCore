@@ -240,6 +240,18 @@ def convert(exporter, scene, context=None, engine=None):
                     config.restir_candidates
                 )
 
+        # ReSTIR GI (G1) is implemented on PATHCPU only; exporting the
+        # properties for other engines would be a silent no-op.
+        if config.restir_gi_enable and luxcore_engine == "PATHCPU":
+            definitions["path.restir.gi.enable"] = True
+            definitions["path.restir.gi.temporal.enable"] = (
+                config.restir_gi_temporal_enable
+            )
+            if config.restir_gi_candidates > 0:
+                definitions["path.restir.gi.candidates"] = (
+                    config.restir_gi_candidates
+                )
+
         if config.mnee_enable:
             definitions["path.mnee.enable"] = True
             if config.mnee_maxspecular > 1:
