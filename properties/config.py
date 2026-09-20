@@ -862,11 +862,11 @@ class LuxCoreConfig(PropertyGroup):
                                               "with heavy occlusion; on mostly-visible scenes the extra binary "
                                               "term reallocates noise into penumbra edges instead of reducing it")
 
-    # ReSTIR GI (G1 first-bounce reservoir, CPU only)
-    restir_gi_enable: BoolProperty(name="ReSTIR GI (CPU)", default=False,
+    # ReSTIR GI (G1+G2 first-bounce reservoir, CPU + pathoclbase GPU)
+    restir_gi_enable: BoolProperty(name="ReSTIR GI", default=False,
                                   description="EXPERIMENTAL: resample the first-bounce continuation vertex "
-                                              "from a per-pixel reservoir (ReSTIR GI stage G1). Helps "
-                                              "indirect-heavy scenes; currently CPU engine only")
+                                              "from a per-pixel reservoir (ReSTIR GI). Helps "
+                                              "indirect-heavy scenes; PATHCPU/PATHOCL/TILEPATHOCL")
     restir_gi_candidates: IntProperty(name="GI Candidates", default=0, min=0, max=32,
                                   description="Fresh first-bounce candidates per reservoir "
                                               "(0 = engine default of 4)")

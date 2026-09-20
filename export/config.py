@@ -240,9 +240,13 @@ def convert(exporter, scene, context=None, engine=None):
                     config.restir_candidates
                 )
 
-        # ReSTIR GI (G1) is implemented on PATHCPU only; exporting the
-        # properties for other engines would be a silent no-op.
-        if config.restir_gi_enable and luxcore_engine == "PATHCPU":
+        # ReSTIR GI runs on PATHCPU and the pathoclbase GPU engines
+        # (PATHOCL/TILEPATHOCL); RTPATHOCL and BIDIR* do not implement
+        # the reservoir machinery, so exporting there would be a
+        # silent no-op.
+        if config.restir_gi_enable and luxcore_engine in (
+            "PATHCPU", "PATHOCL", "TILEPATHOCL"
+        ):
             definitions["path.restir.gi.enable"] = True
             definitions["path.restir.gi.temporal.enable"] = (
                 config.restir_gi_temporal_enable

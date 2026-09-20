@@ -268,8 +268,9 @@ check(
 )
 cfg3.light_strategy = "AUTO"
 
-# ReSTIR GI export: CPU engine only (the property is a silent no-op on
-# GPU engines, so convert() must not emit it there)
+# ReSTIR GI export: PATHCPU and the pathoclbase GPU engines
+# (PATHOCL/TILEPATHOCL) implement the reservoir machinery; RTPATHOCL
+# and BIDIR* must not see the property (silent no-op).
 cfg3.device = "CPU"
 cfg3.restir_gi_enable = True
 cfg3.restir_gi_candidates = 8
@@ -283,9 +284,10 @@ check(
 cfg3.device = "OCL" if resolved == "OCL" else "CPU"
 props = export_config.convert(None, scene3)
 check(
-    "restir.gi-not-on-gpu",
+    "restir.gi-exported-ocl",
     (resolved != "OCL")
-    or not props.IsDefined("path.restir.gi.enable"),
+    or (props.IsDefined("path.restir.gi.enable")
+        and props.Get("path.restir.gi.enable").GetBool()),
     f"resolved={resolved}",
 )
 cfg3.restir_gi_enable = False

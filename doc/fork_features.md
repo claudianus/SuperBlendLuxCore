@@ -225,9 +225,10 @@ gradients on CPU and Metal/OpenCL.
   tooltip (it can reallocate noise into penumbra edges on mostly-visible
   scenes instead of reducing it).
 - **ReSTIR GI** (`restir_gi_enable`): exposes LuxCore's
-  `path.restir.gi.enable` (G1 first-bounce reservoir). CPU engine only —
-  the export is gated on PATHCPU so enabling it on a GPU engine is never
-  a silent no-op. Experimental, opt-in.
+  `path.restir.gi.enable` (first-bounce reservoir, temporal + gated
+  spatial reuse). Runs on PATHCPU and the pathoclbase GPU engines
+  (PATHOCL/TILEPATHOCL); the export is gated so RTPATHOCL/BIDIR* never
+  see a silent no-op. Experimental, opt-in.
 - **Convergence stat**: the render statistics panel shows the converged-
   pixel percentage whenever a convergence test runs — always on tiled
   engines, and on PATH*/PATHOCL when the noise-threshold halt condition is
