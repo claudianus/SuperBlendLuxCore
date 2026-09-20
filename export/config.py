@@ -556,6 +556,18 @@ def _convert_final_engine(scene, definitions, config):
             definitions["sampler.sobol.bluenoise.enable"] = (
                 config.sobol_bluenoise_enable
             )
+            definitions["sampler.sobol.owen.enable"] = (
+                config.sobol_owen_enable
+            )
+            definitions["sampler.sobol.owen.tile.enable"] = (
+                config.sobol_owen_tile_enable
+            )
+            definitions["sampler.sobol.adaptive.moments.enable"] = (
+                config.sobol_adaptive_moments_enable
+            )
+            definitions["sampler.sobol.adaptive.relerr"] = (
+                config.sobol_adaptive_relerr
+            )
 
         # Sampler pattern
         if config.using_out_of_core():
@@ -625,6 +637,16 @@ def _convert_path(
     if not utils.using_photongi_debug_mode(is_viewport_render, scene):
         if device == "OCL":
             partition_raw = path.hybridbackforward_lightpartition_opencl
+            # GPU light tracing (PATHOCL/RTPATHOCL): a fraction of the GPU
+            # task population runs light subpaths and splats caustic-class
+            # contributions into the film. The "Light Rays" percentage maps
+            # directly onto the light-task fraction. The engine
+            # automatically enables eye-side caustic suppression, so the
+            # estimator stays unbiased without a CPU light pass.
+            definitions["path.lighttracing.enable"] = use_hybridbackforward
+            definitions["path.lighttracing.taskfraction"] = min(
+                partition_raw / 100, 0.9
+            )
         else:
             partition_raw = path.hybridbackforward_lightpartition
         # Note that our partition property is inverted compared to LuxCore's (it is the probability to

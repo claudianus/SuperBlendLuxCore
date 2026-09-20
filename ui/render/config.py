@@ -125,9 +125,9 @@ class LUXCORE_RENDER_PT_add_light_tracing(RenderButtonsPanel, Panel):
         )
 
     def error(self, context):
-        use_native_cpu = context.scene.luxcore.devices.use_native_cpu
-        config = context.scene.luxcore.config
-        return config.effective_device() == "OCL" and not use_native_cpu
+        # GPU light tracing runs natively on the device (no CPU threads
+        # needed since path.lighttracing.* replaced the CPU light pass)
+        return False
 
     def draw_header(self, context):
         layout = self.layout

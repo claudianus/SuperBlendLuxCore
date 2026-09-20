@@ -160,8 +160,8 @@ HYBRID_BACKFORWARD_LIGHTPART_DESC = (
     "to caustic rendering. Using 0% disables light tracing, using 100% disables camera rays completely"
 )
 HYBRID_BACKFORWARD_LIGHTPART_OPENCL_DESC = (
-    "Controls the amount of light rays computed on the CPU (the GPU can only compute camera rays). "
-    "Using 0% disables light tracing, using 100% means that the CPU only performs light tracing"
+    "Fraction of the GPU task population dedicated to light paths (caustics). "
+    "25% is a balanced default; 100% devotes nearly all tasks to light tracing"
 )
 HYBRID_BACKFORWARD_GLOSSINESS_DESC = (
     "If a material's roughness is lower than this threshold, it is sampled from lights, "
@@ -395,7 +395,7 @@ class LuxCoreConfigPath(PropertyGroup):
                                                     subtype="PERCENTAGE",
                                                     description=HYBRID_BACKFORWARD_LIGHTPART_DESC)
     # Separate property so we can use a different default that makes more sense for OpenCL
-    hybridbackforward_lightpartition_opencl: FloatProperty(name="Light Rays", default=100, min=0, max=100,
+    hybridbackforward_lightpartition_opencl: FloatProperty(name="Light Rays", default=25, min=0, max=100,
                                                     subtype="PERCENTAGE",
                                                     description=HYBRID_BACKFORWARD_LIGHTPART_OPENCL_DESC)
     hybridbackforward_glossinessthresh: FloatProperty(name="Glossiness Threshold", default=0.049, min=0, max=1,
@@ -734,6 +734,24 @@ class LuxCoreConfig(PropertyGroup):
                                           description="Blue-noise dithered Sobol sampling (Heitz 2019): "
                                           "each pixel gets a hashed per-dimension scramble and offset, "
                                           "decorrelating neighboring pixels to remove low-spp sampling artifacts")
+    sobol_owen_enable: BoolProperty(name="Owen Scrambling", default=True,
+                                     description="Hash-based Owen-scrambled Sobol (Burley 2020): "
+                                     "nested digit permutation of the Sobol sequence plus per-pixel "
+                                     "index shuffling gives fully decorrelated pixel sequences")
+    sobol_owen_tile_enable: BoolProperty(name="Blue-Noise Offset Tile", default=True,
+                                          description="Per-pixel Cranley-Patterson offsets from a "
+                                          "blue-noise rank tile: pushes residual error toward high "
+                                          "frequencies so low-spp renders look cleaner")
+    sobol_adaptive_moments_enable: BoolProperty(name="Variance-Driven Adaptive", default=True,
+                                               description="Per-pixel luminance second-moment estimate: "
+                                               "convergence is decided live on the device from each "
+                                               "pixel's relative standard error instead of the periodic "
+                                               "host-side noise heuristic")
+    sobol_adaptive_relerr: FloatProperty(name="Error Target", default=0.02, min=0.001, max=0.5,
+                                          precision=4,
+                                          description="Per-pixel relative standard error target for "
+                                          "variance-driven adaptive sampling: lower values sample "
+                                          "converged pixels more conservatively")
 
     # Quick Setup (Corona-style simplified interface)
     simple: PointerProperty(type=LuxCoreConfigSimple)
