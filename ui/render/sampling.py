@@ -235,6 +235,7 @@ class LUXCORE_RENDER_PT_sampling_advanced(RenderButtonsPanel, Panel):
         col.prop(config, "restir_gi_enable")
         if config.restir_gi_enable:
             col.prop(config, "restir_gi_temporal_enable")
+            col.prop(config, "restir_gi_spatial_enable")
             col.prop(config, "restir_gi_candidates")
 
         col.prop(config, "mnee_enable")

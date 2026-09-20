@@ -247,6 +247,9 @@ def convert(exporter, scene, context=None, engine=None):
             definitions["path.restir.gi.temporal.enable"] = (
                 config.restir_gi_temporal_enable
             )
+            definitions["path.restir.gi.spatial.enable"] = (
+                config.restir_gi_spatial_enable
+            )
             if config.restir_gi_candidates > 0:
                 definitions["path.restir.gi.candidates"] = (
                     config.restir_gi_candidates

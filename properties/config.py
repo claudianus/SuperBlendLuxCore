@@ -873,6 +873,9 @@ class LuxCoreConfig(PropertyGroup):
     restir_gi_temporal_enable: BoolProperty(name="GI Temporal Reuse", default=True,
                                   description="Merge the pixel's reservoir across passes with a "
                                               "Jacobian-corrected reconnection shift")
+    restir_gi_spatial_enable: BoolProperty(name="GI Spatial Reuse", default=True,
+                                  description="Merge up to 2 same-surface-gated neighbour pixels "
+                                              "with reconnection shift + visibility test")
 
     # MNEE (specular chain direct light sampling)
     mnee_enable: BoolProperty(name="MNEE Specular Caustics", default=False,
