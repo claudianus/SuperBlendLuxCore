@@ -34,6 +34,30 @@ FALLBACK_COLOR = [0.5, 0.5, 0.5]
 FALLBACK_FLOAT = 0.5
 FALLBACK_VECTOR = [0.0, 0.0, 0.0]
 
+# ShaderNodeLightPath output socket -> LuxCore "rayinfo" texture channel.
+# The engine fills HitPoint with the context of the incoming ray during
+# Scene::Intersect() (ray flags, generating BSDF event, path depth
+# counters, segment length). See LuxCore slg/textures/hitpoint/rayinfo.h.
+_LIGHT_PATH_CHANNELS = {
+    "Is Camera Ray": "iscameraray",
+    "Is Shadow Ray": "isshadowray",
+    "Is Diffuse Ray": "isdiffuseray",
+    "Is Glossy Ray": "isglossyray",
+    "Is Singular Ray": "issingularray",
+    "Is Reflection Ray": "isreflectionray",
+    "Is Transmission Ray": "istransmissionray",
+    # Blender 4.x output; also 1 for hits inside volumes
+    "Is Volume Scatter Ray": "isvolumescatterray",
+    "Ray Length": "raylength",
+    "Ray Depth": "raydepth",
+    "Diffuse Depth": "diffusedepth",
+    "Glossy Depth": "glossydepth",
+    # Cycles counts transparent BSDF crossings; LuxCore increments the
+    # path transparentDepth while stepping through pass-through materials
+    "Transparent Depth": "transparentdepth",
+    "Transmission Depth": "transmissiondepth",
+}
+
 math_operation_map = {
     "MULTIPLY": "scale",
     "GREATER_THAN": "greaterthan",
@@ -2245,12 +2269,20 @@ def _node(node, output_socket, props, material, luxcore_name=None, obj_name="", 
                 node, "'Facing' output is not supported (no angular falloff "
                 "texture); using 0.5", FALLBACK_FLOAT, obj_name)
     elif node.bl_idname == "ShaderNodeLightPath":
-        # LuxCore textures have no access to the ray type; assume a camera
-        # visible path so renders don't silently turn black
-        value = 1.0 if output_socket.name == "Is Camera Ray" else 0.0
-        return _warn_unsupported(
-            node, f"'{output_socket.name}' is not supported (no ray-type "
-            f"information); using constant {value}", value, obj_name)
+        # The LuxCore "rayinfo" texture exposes the context of the ray that
+        # generated the current hit point (stored in HitPoint by
+        # Scene::Intersect()). All Light Path outputs are supported.
+        channel = _LIGHT_PATH_CHANNELS.get(output_socket.name)
+        if channel is None:
+            return _warn_unsupported(
+                node, f"unknown Light Path output '{output_socket.name}'; "
+                "using constant 0", 0.0, obj_name)
+
+        prefix = "scene.textures."
+        definitions = {
+            "type": "rayinfo",
+            "channel": channel,
+        }
     elif node.bl_idname == "ShaderNodeMix":
         prefix = "scene.textures."
         data_type = node.data_type

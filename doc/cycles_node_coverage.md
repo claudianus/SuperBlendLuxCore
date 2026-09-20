@@ -78,7 +78,7 @@ with no LuxCore equivalent additionally carry a specific reason via
 | ShaderNodeHairInfo | approx | per-output subset warns |
 | ShaderNodePointInfo | approx | Random→objectidnormalized (per-point instance id); Position→hit position approx; Radius→warn 1.0 |
 | ShaderNodeCameraData | warn | view vector/depth unavailable to LuxCore textures |
-| ShaderNodeLightPath | warn | no ray-type info; Is Camera Ray→1 else 0 |
+| ShaderNodeLightPath | mapped | all outputs via `rayinfo` texture (HitPoint ray context): Is Camera/Shadow/Diffuse/Glossy/Singular/Reflection/Transmission/Volume Scatter Ray, Ray Length/Depth, Diffuse/Glossy/Transparent/Transmission Depth |
 | ShaderNodeLayerWeight | approx | Facing→0.5; Fresnel→Schlick F0 |
 | ShaderNodeFresnel | approx | Schlick F0 (no angular Fresnel texture) |
 | ShaderNodeVolumeInfo | approx | per-output subset warns |
@@ -153,7 +153,7 @@ thin-film on glass, and per-feature warning assertions.
     --factory-startup --python dev-tools/e23_cycles_compat_e2e_test.py
 ```
 
-Builds 13 small scenes (128×128, ~32 samples) that use only native
+Builds 14 small scenes (128×128, ~32 samples) that use only native
 Cycles node trees, renders each with LuxCore (PATH, CPU) and asserts the
 output is finite, non-black and plausibly bright. Where the result is
 physically comparable the same scene is also rendered with Cycles (CPU)
@@ -177,8 +177,9 @@ Scene coverage:
 | s09_world_background | world Background flat color | asserted |
 | s10_world_sky | world TexSky(Hosek-Wilkie) -> sky2 | asserted, loose |
 | s11_volume_principled | VolumePrincipled interior volume | asserted, loose |
-| s12_lightpath_fallback | LightPath warn-tier fallback | asserted + warning check |
+| s12_lightpath | LightPath Is Camera Ray -> MixShader | asserted |
 | s13_shadertorgb_fallback | ShaderToRGB warn-tier fallback | LuxCore-only + warning check |
+| s14_lightpath_mirror | LightPath Is Camera Ray across a mirror bounce | asserted + quadrant hues |
 
 Notes:
 
@@ -194,4 +195,14 @@ Notes:
 - Measured luminance factors on this suite are ~1.0–1.6 for mapped nodes
   and ~2.0 for the approx-tier noise texture; the warn-tier scenes render
   non-black via the documented fallbacks.
+- `ShaderNodeLightPath` is backed by the `rayinfo` texture:
+  `Scene::Intersect()` records the incoming ray's flags (camera/shadow/
+  indirect), the generating BSDF event and the path depth counters on the
+  shaded `HitPoint` (`rayFlags`, `rayEvent`, `rayDepth`, `rayDiffuseDepth`,
+  `rayGlossyDepth`, `raySpecularDepth`, `rayTransmissionDepth`,
+  `rayTransparentDepth`, `rayLength`). Camera and shadow rays mask the
+  event-based outputs to 0 (they have no generating bounce), matching
+  Cycles where `is_*_ray` flags other than camera/shadow are 0 on the
+  first path vertex. Works on PATHCPU and PATHOCL; BiDir/light-tracing
+  hits carry the corresponding light-path context.
 

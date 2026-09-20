@@ -27,9 +27,9 @@
 #   * auto-clamping — the default auto-clamp applies the previous render's
 #                     suggested variance clamp, silently crushing bright
 #                     emitters (~13x on s04); disabled here for parity
-#   * light path    — the IsCameraRay fallback is 1.0 for all rays, so the
-#                     emissive branch also fires on GI paths (brighter
-#                     bounce light than Cycles)
+#   * light path    — mapped to the LuxCore rayinfo texture (HitPoint ray
+#                     context filled by Scene::Intersect); only physically
+#                     different integrator behaviour should remain
 #
 # Run:
 #   /Applications/Blender.app/Contents/MacOS/Blender --background \
@@ -482,8 +482,9 @@ def build_s11_volume_principled(scene):
     add_camera(scene)
 
 
-def build_s12_lightpath_fallback(scene):
-    """Warn-tier: Light Path IsCameraRay drives a MixShader."""
+def build_s12_lightpath(scene):
+    """Light Path IsCameraRay drives a MixShader (camera: emission,
+    indirect: diffuse)."""
     black_world(scene)
     add_floor(scene)
     mat, nt, out = new_mat("lp")
@@ -499,6 +500,41 @@ def build_s12_lightpath_fallback(scene):
     nt.links.new(em.outputs["Emission"], mix.inputs[2])
     nt.links.new(mix.outputs["Shader"], out.inputs["Surface"])
     add_subject(scene, mat)
+    add_camera(scene)
+
+
+def build_s14_lightpath_mirror(scene):
+    """Light Path across a mirror bounce: the subject shows the
+    'camera ray' branch in the direct view and the 'secondary ray'
+    branch inside the reflection."""
+    black_world(scene)
+    add_floor(scene)
+    mat, nt, out = new_mat("lpmirror")
+    lp = nt.nodes.new("ShaderNodeLightPath")
+    red = nt.nodes.new("ShaderNodeBsdfDiffuse")
+    red.inputs["Color"].default_value = (0.9, 0.1, 0.1, 1.0)
+    green = nt.nodes.new("ShaderNodeBsdfDiffuse")
+    green.inputs["Color"].default_value = (0.1, 0.9, 0.2, 1.0)
+    mix = nt.nodes.new("ShaderNodeMixShader")
+    nt.links.new(lp.outputs["Is Camera Ray"], mix.inputs["Fac"])
+    nt.links.new(green.outputs["BSDF"], mix.inputs[1])
+    nt.links.new(red.outputs["BSDF"], mix.inputs[2])
+    nt.links.new(mix.outputs["Shader"], out.inputs["Surface"])
+    add_subject(scene, mat)
+
+    # Sharp mirror wall behind the subject -> the reflected view of the
+    # cube uses the secondary-ray (green) branch
+    bpy.ops.mesh.primitive_plane_add(
+        size=8.0, location=(0, 3.2, 2.2), rotation=(1.5708, 0, 0))
+    mirror = bpy.context.active_object
+    mmat, mnt, mout = new_mat("mirror")
+    glossy = mnt.nodes.new("ShaderNodeBsdfGlossy")
+    glossy.inputs["Roughness"].default_value = 0.0
+    glossy.inputs["Color"].default_value = (1.0, 1.0, 1.0, 1.0)
+    mnt.links.new(glossy.outputs["BSDF"], mout.inputs["Surface"])
+    mirror.data.materials.append(mmat)
+
+    add_light(scene, "POINT", location=(1.8, -1.8, 4.0), energy=160)
     add_camera(scene)
 
 
@@ -555,6 +591,20 @@ def check_high_variance(rgb):
              f"std={s['std']:.3f} mean={s['mean']:.3f}")]
 
 
+def check_camera_vs_mirror_colors(rgb):
+    """s14: the direct view must contain red pixels (camera ray) and the
+    mirror reflection green ones (secondary ray)."""
+    flat = rgb.reshape(-1, 3)
+    reddish = float((flat[:, 0] > 2.0 * flat[:, 1]).mean())
+    greenish = float((flat[:, 1] > 2.0 * flat[:, 0]).mean())
+    return [
+        ("camera-ray branch (red) visible", reddish > 0.01,
+         f"red={reddish:.3f}"),
+        ("secondary-ray branch (green) visible in reflection",
+         greenish > 0.005, f"green={greenish:.3f}"),
+    ]
+
+
 # ---------------------------------------------------------------------------
 # Scene table
 # ---------------------------------------------------------------------------
@@ -590,12 +640,15 @@ SCENES = [
     dict(id="s11", name="s11_volume_principled", build=build_s11_volume_principled,
          # color*density -> sigma_s approximation; stochastic
          parity=1.8, rmse=0.9, samples=64),
-    dict(id="s12", name="s12_lightpath_fallback", build=build_s12_lightpath_fallback,
-         # fallback makes ALL rays camera rays -> emission bounces too
-         parity=2.5, rmse=1.0, warn="ShaderNodeLightPath"),
+    dict(id="s12", name="s12_lightpath", build=build_s12_lightpath,
+         # real rayinfo mapping: emission fires on camera rays only
+         parity=1.8, rmse=0.8),
     dict(id="s13", name="s13_shadertorgb_fallback",
          build=build_s13_shadertorgb_fallback, parity=None,
          warn="ShaderNodeShaderToRGB"),
+    dict(id="s14", name="s14_lightpath_mirror", build=build_s14_lightpath_mirror,
+         # glossy2@0 roughness is a delta mirror; reflected cube must be green
+         parity=2.0, rmse=0.9, verify=check_camera_vs_mirror_colors),
 ]
 
 
