@@ -22,7 +22,7 @@ with no LuxCore equivalent additionally carry a specific reason via
 
 | Node | Status | Notes |
 |---|---|---|
-| ShaderNodeBsdfPrincipled | approx | Disney mapping; subsurface radius, coat IOR/tint/normal, sheen roughness, anisotropic rotation, thin wall unsupported (warn) |
+| ShaderNodeBsdfPrincipled | approx | Disney mapping: base/metallic/roughness/IOR/alpha/normal, specular level+tint (tint = luminance of free color, warns when colored), subsurface weight (diffuse-profile approx — radius/scale/IOR/anisotropy and random-walk methods warn), anisotropic (rotation/tangent warn), sheen weight+tint (sheen roughness warns), coat weight/roughness → clearcoat/gloss; non-default coat IOR/tint/normal → real `glossycoating` layer (ks=weight, index=IOR, ka/d=tint absorption matching `pow(tint, w/cosNT)`, bumptex=coat normal); coat also wraps the glass path; transmission weight/roughness → integrated lobe or glass/roughglass; Thin Wall + sharp full transmission → archglass (else warn); thin film → film params (disney + glass families); emission = color×strength; diffuse roughness warns |
 | ShaderNodeBsdfDiffuse | mapped | matte |
 | ShaderNodeBsdfGlossy | mapped | glossy2 |
 | ShaderNodeBsdfAnisotropic | mapped | glossy2 anisotropic |
@@ -139,5 +139,7 @@ light definitions).
 
 `dev-tools/cycles_node_coverage_test.py` (headless Blender, non-render):
 constant-fold checks for the composed vector ops, material-type checks
-for the new BSDF mappings, and warning-content checks for the warn-tier
-nodes.
+for the new BSDF mappings, warning-content checks for the warn-tier
+nodes, and Principled coverage: disney/glossycoating coat wrap
+(`base`/`ks`/`index`/`ka`/`d`/coat `bumptex`), archglass thin-wall path,
+thin-film on glass, and per-feature warning assertions.
