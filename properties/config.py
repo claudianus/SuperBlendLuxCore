@@ -173,10 +173,12 @@ LIGHTTRACING_ONLY_DESC = (
     "inspecting caustic contributions. GPU devices only"
 )
 LIGHTTRACING_FOCUS_DESC = (
-    "Caustic focus cache: the engine learns where caustic-generating "
-    "surfaces (glass etc.) are and steers a share of light emissions "
-    "toward them. Speeds up caustic convergence, especially when the "
-    "reflector is small or far from the light. GPU light tracing only"
+    "Guided light emission: the engine learns which surfaces produce "
+    "camera-visible light - caustic-generating glass/mirror and surfaces "
+    "seen only through such occluders - and steers a share of emissions "
+    "toward them. Speeds up caustics and refracted-view lighting, "
+    "especially when the target is small or far from the light. Works "
+    "with point, spot and area lights. GPU light tracing only"
 )
 LIGHTTRACING_FOCUS_RATIO_DESC = (
     "Fraction of light emissions steered toward learned caustic hotspots. "
@@ -185,8 +187,9 @@ LIGHTTRACING_FOCUS_RATIO_DESC = (
 )
 LIGHTTRACING_FOCUS_RADIUS_DESC = (
     "Aim radius of each learned hotspot, as a fraction of the scene "
-    "radius. Smaller aims tighter; too small under-covers the "
-    "caustic-forming surface"
+    "radius. Smaller aims tighter - good for pinpoint caustic hotspots; "
+    "diffuse surfaces seen through glass already get a broad floor, so "
+    "raise this only if a scene's productive surfaces stay under-covered"
 )
 
 ENVLIGHT_CACHE_DESC = (
