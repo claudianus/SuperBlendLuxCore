@@ -149,6 +149,7 @@ class LUXCORE_RENDER_PT_add_light_tracing(RenderButtonsPanel, Panel):
             layout.prop(config.path, "hybridbackforward_lightpartition")
         else:
             layout.prop(config.path, "hybridbackforward_lightpartition_opencl")
+            layout.prop(config.path, "lighttracing_only")
         layout.prop(config.path, "hybridbackforward_glossinessthresh")
 
         if self.error(context):

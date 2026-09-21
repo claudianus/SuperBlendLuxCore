@@ -167,6 +167,11 @@ HYBRID_BACKFORWARD_GLOSSINESS_DESC = (
     "If a material's roughness is lower than this threshold, it is sampled from lights, "
     "otherwise it is sampled from the camera (normal path tracing)"
 )
+LIGHTTRACING_ONLY_DESC = (
+    "Render using only light paths (no camera rays). Shows the image the "
+    "light-tracing pass alone produces - useful for isolating and "
+    "inspecting caustic contributions. GPU devices only"
+)
 
 ENVLIGHT_CACHE_DESC = (
     "Enable in scenes where the world environment is only visible through small openings (e.g. a room with small windows). "
@@ -400,6 +405,10 @@ class LuxCoreConfigPath(PropertyGroup):
                                                     description=HYBRID_BACKFORWARD_LIGHTPART_OPENCL_DESC)
     hybridbackforward_glossinessthresh: FloatProperty(name="Glossiness Threshold", default=0.049, min=0, max=1,
                                                       description=HYBRID_BACKFORWARD_GLOSSINESS_DESC)
+    # path.lighttracing.only - GPU light paths replace the eye pass
+    # entirely (PATHOCL/RTPATHOCL debug + caustic-isolation output)
+    lighttracing_only: BoolProperty(name="Light Tracing Only", default=False,
+                                    description=LIGHTTRACING_ONLY_DESC)
 
     use_clamping: BoolProperty(name="Clamp Output", default=False, description=CLAMPING_DESC)
     auto_clamping: BoolProperty(

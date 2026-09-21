@@ -647,6 +647,11 @@ def _convert_path(
             definitions["path.lighttracing.taskfraction"] = min(
                 partition_raw / 100, 0.9
             )
+            # Light-pass-only output (LIGHTCPU-style image produced by the
+            # GPU light tasks; the eye pass is not run at all)
+            definitions["path.lighttracing.only"] = (
+                use_hybridbackforward and path.lighttracing_only
+            )
         else:
             partition_raw = path.hybridbackforward_lightpartition
         # Note that our partition property is inverted compared to LuxCore's (it is the probability to
