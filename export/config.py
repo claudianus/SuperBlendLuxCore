@@ -652,6 +652,14 @@ def _convert_path(
             definitions["path.lighttracing.only"] = (
                 use_hybridbackforward and path.lighttracing_only
             )
+            # Caustic focus cache (guided emission): learns productive
+            # refraction entry points per light and steers a share of
+            # emissions toward them (unbiased mixture pdf on device)
+            definitions["path.lighttracing.focus.enable"] = path.lighttracing_focus
+            definitions["path.lighttracing.focus.ratio"] = min(
+                path.lighttracing_focus_ratio / 100, 0.9
+            )
+            definitions["path.lighttracing.focus.radius"] = path.lighttracing_focus_radius
         else:
             partition_raw = path.hybridbackforward_lightpartition
         # Note that our partition property is inverted compared to LuxCore's (it is the probability to

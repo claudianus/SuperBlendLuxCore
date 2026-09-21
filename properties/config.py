@@ -172,6 +172,22 @@ LIGHTTRACING_ONLY_DESC = (
     "light-tracing pass alone produces - useful for isolating and "
     "inspecting caustic contributions. GPU devices only"
 )
+LIGHTTRACING_FOCUS_DESC = (
+    "Caustic focus cache: the engine learns where caustic-generating "
+    "surfaces (glass etc.) are and steers a share of light emissions "
+    "toward them. Speeds up caustic convergence, especially when the "
+    "reflector is small or far from the light. GPU light tracing only"
+)
+LIGHTTRACING_FOCUS_RATIO_DESC = (
+    "Fraction of light emissions steered toward learned caustic hotspots. "
+    "Higher concentrates more on caustics; the mixture keeps the result "
+    "unbiased either way"
+)
+LIGHTTRACING_FOCUS_RADIUS_DESC = (
+    "Aim radius of each learned hotspot, as a fraction of the scene "
+    "radius. Smaller aims tighter; too small under-covers the "
+    "caustic-forming surface"
+)
 
 ENVLIGHT_CACHE_DESC = (
     "Enable in scenes where the world environment is only visible through small openings (e.g. a room with small windows). "
@@ -409,6 +425,14 @@ class LuxCoreConfigPath(PropertyGroup):
     # entirely (PATHOCL/RTPATHOCL debug + caustic-isolation output)
     lighttracing_only: BoolProperty(name="Light Tracing Only", default=False,
                                     description=LIGHTTRACING_ONLY_DESC)
+    # path.lighttracing.focus.* - caustic focus cache (guided emission)
+    lighttracing_focus: BoolProperty(name="Caustic Focus", default=True,
+                                     description=LIGHTTRACING_FOCUS_DESC)
+    lighttracing_focus_ratio: FloatProperty(name="Focus Ratio", default=50, min=0, max=90,
+                                            subtype="PERCENTAGE",
+                                            description=LIGHTTRACING_FOCUS_RATIO_DESC)
+    lighttracing_focus_radius: FloatProperty(name="Focus Radius", default=0.01, min=0.0001, max=1.0,
+                                             description=LIGHTTRACING_FOCUS_RADIUS_DESC)
 
     use_clamping: BoolProperty(name="Clamp Output", default=False, description=CLAMPING_DESC)
     auto_clamping: BoolProperty(
