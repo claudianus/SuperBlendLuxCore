@@ -11,6 +11,15 @@ PHASE_DESC = (
     "(legacy default) with nearly identical cost"
 )
 
+DISTSAMP_DESC = (
+    "Scattering distance sampling strategy. 'Equiangular + Transmittance' "
+    "mixes two distributions with MIS: vertices are preferentially placed "
+    "in the glow around point/spot lights (god rays, candle-lit fog), "
+    "which lowers noise there. Only active when point-like lights exist; "
+    "CPU engines only, GPU rendering falls back to transmittance sampling. "
+    "'Transmittance' is the classic exponential sampler"
+)
+
 
 class LuxCoreNodeVolHomogeneous(LuxCoreNodeVolume, bpy.types.Node):
     bl_label = "Homogeneous Volume"
@@ -31,6 +40,12 @@ class LuxCoreNodeVolHomogeneous(LuxCoreNodeVolume, bpy.types.Node):
                              ("hg", "Henyey-Greenstein (Exact)", PHASE_DESC),
                          ],
                          description=PHASE_DESC)
+    distance_sampling: EnumProperty(update=utils_node.force_viewport_update, name="Distance Sampling", default="equiangular",
+                         items=[
+                             ("equiangular", "Equiangular + Transmittance (MIS)", DISTSAMP_DESC),
+                             ("transmittance", "Transmittance (Classic)", DISTSAMP_DESC),
+                         ],
+                         description=DISTSAMP_DESC)
 
     def init(self, context):
         self.add_common_inputs()
@@ -43,6 +58,7 @@ class LuxCoreNodeVolHomogeneous(LuxCoreNodeVolume, bpy.types.Node):
     def draw_buttons(self, context, layout):
         layout.prop(self, "multiscattering")
         layout.prop(self, "phase")
+        layout.prop(self, "distance_sampling")
         self.draw_common_buttons(context, layout)
 
     def sub_export(self, exporter, depsgraph, props, luxcore_name=None, output_socket=None):
@@ -51,6 +67,7 @@ class LuxCoreNodeVolHomogeneous(LuxCoreNodeVolume, bpy.types.Node):
             "asymmetry": self.inputs["Asymmetry"].export(exporter, depsgraph, props),
             "multiscattering": self.multiscattering,
             "phase": self.phase,
+            "distancesampling": self.distance_sampling,
         }
         self.export_common_inputs(exporter, depsgraph, props, definitions)
         return self.create_props(props, definitions, luxcore_name)
