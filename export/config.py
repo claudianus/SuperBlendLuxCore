@@ -265,6 +265,8 @@ def convert(exporter, scene, context=None, engine=None):
                 definitions["path.mnee.maxspecular"] = config.mnee_maxspecular
             if config.mnee_maxiterations != 12:
                 definitions["path.mnee.maxiterations"] = config.mnee_maxiterations
+            if not config.mnee_seedcache:
+                definitions["path.mnee.seedcache"] = False
 
         if config.guiding_enable and luxcore_engine in (
             "PATHCPU", "PATHOCL", "TILEPATHCPU", "TILEPATHOCL",

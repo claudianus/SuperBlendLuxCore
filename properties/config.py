@@ -946,6 +946,11 @@ class LuxCoreConfig(PropertyGroup):
                                   description="Newton solver iteration cap per manifold solve. Curved "
                                               "refractive casters and dispersive glass need ~64 to converge; "
                                               "lower values leave the manifold caustic darker")
+    mnee_seedcache: BoolProperty(name="Seed Cache", default=True,
+                                  description="Cache converged manifold vertices as warm-start seeds "
+                                              "(mirrors: skips the seed trace; glass: rescues solves the "
+                                              "cold line seed fails on). Leave on - it never biases the "
+                                              "result and only adds recovered caustic energy")
 
     # Path guiding (P1-3): learned incident-radiance field steers glossy bounces
     guiding_enable: BoolProperty(name="Path Guiding", default=False,
