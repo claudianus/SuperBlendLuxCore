@@ -155,7 +155,13 @@ class LUXCORE_RENDER_PT_add_light_tracing(RenderButtonsPanel, Panel):
             if config.path.lighttracing_focus:
                 col.prop(config.path, "lighttracing_focus_ratio")
                 col.prop(config.path, "lighttracing_focus_radius")
-        layout.prop(config.path, "hybridbackforward_glossinessthresh")
+        layout.prop(config.path, "hybridbackforward_adaptivecaustic")
+        col = layout.column(align=True)
+        if config.path.hybridbackforward_adaptivecaustic:
+            col.prop(config.path, "hybridbackforward_terminalglossiness")
+            col.prop(config.path, "hybridbackforward_connectprob")
+        else:
+            col.prop(config.path, "hybridbackforward_glossinessthresh")
 
         if self.error(context):
             layout.label(

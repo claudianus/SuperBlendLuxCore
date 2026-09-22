@@ -165,7 +165,30 @@ HYBRID_BACKFORWARD_LIGHTPART_OPENCL_DESC = (
 )
 HYBRID_BACKFORWARD_GLOSSINESS_DESC = (
     "If a material's roughness is lower than this threshold, it is sampled from lights, "
-    "otherwise it is sampled from the camera (normal path tracing)"
+    "otherwise it is sampled from the camera (normal path tracing). "
+    "Used only when Adaptive Caustics is disabled"
+)
+HYBRID_ADAPTIVE_CAUSTIC_DESC = (
+    "Classify each light path by how hard it is for camera rays to "
+    "complete: specular chains ending on a glossy lobe whose light "
+    "coverage is small go to light tracing, easy ones stay on the "
+    "camera path. Removes caustic fireflies from rough glass and other "
+    "boundary materials that fall above the fixed glossiness threshold. "
+    "Unbiased - both sides classify the same path identically"
+)
+HYBRID_TERMINAL_GLOSSINESS_DESC = (
+    "Glossiness limit for the light-adjacent vertex of an adaptive "
+    "caustic path. Rougher terminals are easy for camera rays and are "
+    "left to normal path tracing; smoother ones are checked against the "
+    "light's apparent size. Raise to hand rougher caustics to light "
+    "tracing"
+)
+HYBRID_CONNECT_PROB_DESC = (
+    "Eye-connection success probability below which a glossy path is "
+    "assigned to light tracing (estimated as light solid angle vs. lobe "
+    "solid angle). Higher values move more boundary cases to light "
+    "tracing; 0.5 covers paths the camera completes less than half the "
+    "time"
 )
 LIGHTTRACING_ONLY_DESC = (
     "Render using only light paths (no camera rays). Shows the image the "
@@ -424,6 +447,16 @@ class LuxCoreConfigPath(PropertyGroup):
                                                     description=HYBRID_BACKFORWARD_LIGHTPART_OPENCL_DESC)
     hybridbackforward_glossinessthresh: FloatProperty(name="Glossiness Threshold", default=0.049, min=0, max=1,
                                                       description=HYBRID_BACKFORWARD_GLOSSINESS_DESC)
+    # path.hybridbackforward.adaptivecaustic - per-path caustic
+    # classification by connection difficulty instead of a fixed
+    # glossiness threshold
+    hybridbackforward_adaptivecaustic: BoolProperty(name="Adaptive Caustics", default=True,
+                                                    description=HYBRID_ADAPTIVE_CAUSTIC_DESC)
+    hybridbackforward_terminalglossiness: FloatProperty(name="Terminal Glossiness", default=0.3, min=0, max=1,
+                                                        description=HYBRID_TERMINAL_GLOSSINESS_DESC)
+    hybridbackforward_connectprob: FloatProperty(name="Connection Probability", default=0.5, min=0, max=1,
+                                                 subtype="FACTOR",
+                                                 description=HYBRID_CONNECT_PROB_DESC)
     # path.lighttracing.only - GPU light paths replace the eye pass
     # entirely (PATHOCL/RTPATHOCL debug + caustic-isolation output)
     lighttracing_only: BoolProperty(name="Light Tracing Only", default=False,

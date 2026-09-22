@@ -674,6 +674,15 @@ def _convert_path(
         definitions["path.hybridbackforward.glossinessthreshold"] = (
             path.hybridbackforward_glossinessthresh
         )
+        definitions["path.hybridbackforward.adaptivecaustic"] = (
+            path.hybridbackforward_adaptivecaustic
+        )
+        definitions["path.hybridbackforward.terminalglossiness"] = (
+            path.hybridbackforward_terminalglossiness
+        )
+        definitions["path.hybridbackforward.connectprob"] = (
+            path.hybridbackforward_connectprob
+        )
 
 
 def _convert_filesaver(scene, definitions, luxcore_engine):
