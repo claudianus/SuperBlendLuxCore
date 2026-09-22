@@ -33,6 +33,12 @@ MAJORANT_RES_DESC = (
     "samples) at the cost of a slightly longer scene preparation"
 )
 
+PHASE_DESC = (
+    "Scattering phase function. Henyey-Greenstein is the physically exact "
+    "model for the asymmetry parameter. Schlick is a fast approximation "
+    "(legacy default) with nearly identical cost"
+)
+
 
 class LuxCoreNodeVolHeterogeneous(LuxCoreNodeVolume, bpy.types.Node):
     bl_label = "Heterogeneous Volume"
@@ -75,6 +81,12 @@ class LuxCoreNodeVolHeterogeneous(LuxCoreNodeVolume, bpy.types.Node):
     majorant_res: IntProperty(update=utils_node.force_viewport_update, name="Majorant Resolution", default=32,
                                min=1, soft_max=256,
                                description=MAJORANT_RES_DESC)
+    phase: EnumProperty(update=utils_node.force_viewport_update, name="Phase Function", default="schlick",
+                         items=[
+                             ("schlick", "Schlick (Fast)", PHASE_DESC),
+                             ("hg", "Henyey-Greenstein (Exact)", PHASE_DESC),
+                         ],
+                         description=PHASE_DESC)
 
     def init(self, context):
         self.add_common_inputs()
@@ -86,6 +98,7 @@ class LuxCoreNodeVolHeterogeneous(LuxCoreNodeVolume, bpy.types.Node):
 
     def draw_buttons(self, context, layout):
         layout.prop(self, "multiscattering")
+        layout.prop(self, "phase")
 
         layout.prop(self, "tracking")
         if self.tracking == "delta":
@@ -110,6 +123,7 @@ class LuxCoreNodeVolHeterogeneous(LuxCoreNodeVolume, bpy.types.Node):
             "type": "heterogeneous",
             "asymmetry": self.inputs["Asymmetry"].export(exporter, depsgraph, props),
             "multiscattering": self.multiscattering,
+            "phase": self.phase,
             "tracking": self.tracking,
             "majorantres": self.majorant_res,
         }
