@@ -241,6 +241,7 @@ class LUXCORE_RENDER_PT_sampling_advanced(RenderButtonsPanel, Panel):
         col.prop(config, "mnee_enable")
         if config.mnee_enable:
             col.prop(config, "mnee_maxspecular")
+            col.prop(config, "mnee_maxiterations")
 
         col.prop(config, "guiding_enable")
 

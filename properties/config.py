@@ -942,6 +942,10 @@ class LuxCoreConfig(PropertyGroup):
     mnee_maxspecular: IntProperty(name="Max Specular Vertices", default=1, min=1, max=4,
                                   description="Chain length for multi-specular transport (closed glass slabs need 2+). "
                                               "Higher values resolve thicker refractive stacks at extra cost")
+    mnee_maxiterations: IntProperty(name="Max Iterations", default=12, min=1, max=256,
+                                  description="Newton solver iteration cap per manifold solve. Curved "
+                                              "refractive casters and dispersive glass need ~64 to converge; "
+                                              "lower values leave the manifold caustic darker")
 
     # Path guiding (P1-3): learned incident-radiance field steers glossy bounces
     guiding_enable: BoolProperty(name="Path Guiding", default=False,
