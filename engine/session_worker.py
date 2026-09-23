@@ -399,7 +399,9 @@ class SessionWorker:
             session.EndSceneEdit()
             if session.IsInPause():
                 session.Resume()
-        self.mutation_seq += 1
+            # Bump inside the lock so a film read can never observe the
+            # post-edit film while still carrying a pre-edit mut_seq.
+            self.mutation_seq += 1
         # The edit restarted rendering: re-anchor the viewport halt timer
         # at the actual resume point. Without this a queued edit that runs
         # after halt_time elapsed gets re-paused instantly by view_draw
@@ -418,7 +420,7 @@ class SessionWorker:
             return
         with self.session_lock:
             session.Parse(props)
-        self.mutation_seq += 1
+            self.mutation_seq += 1
 
 
 def _replay_ops(scene, ops):

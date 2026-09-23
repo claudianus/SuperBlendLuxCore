@@ -38,6 +38,16 @@ def _worker(engine):
 _LOCK_BUSY = object()
 
 
+def _set_stats(engine, text, sub):
+    """update_stats() with dedup: each call triggers a stats-region
+    redraw, and alternating/identical writes every frame make the
+    viewport text flicker. Only write when the text actually changed."""
+    new = (text, sub)
+    if new != getattr(engine, "_vp_stats_shown", None):
+        engine._vp_stats_shown = new
+        engine.update_stats(text, sub)
+
+
 def _locked_session_call(engine, fn, *args):
     """Call ``fn(*args)`` while holding the worker's session_lock.
 
@@ -188,7 +198,7 @@ def view_update(engine, context, depsgraph, changes=None):
         worker.submit_config(engine.exporter.config_cache.props)
         changes &= ~export.Change.CONFIG
         if engine.framebuffer:
-            engine.framebuffer.begin_reset()
+            engine.framebuffer.begin_reset(engine=engine)
             engine.framebuffer.reset_denoiser()
 
     if changes & (
@@ -217,7 +227,7 @@ def view_update(engine, context, depsgraph, changes=None):
         engine.viewport_start_time = time()
 
         if engine.framebuffer:
-            engine.framebuffer.begin_reset()
+            engine.framebuffer.begin_reset(engine=engine)
             engine.framebuffer.reset_denoiser()
 
 
@@ -230,14 +240,14 @@ def view_draw(engine, context, depsgraph):
         # Show what the worker is doing (export > config > kernels >
         # session start) instead of a frozen window.
         phase = worker.phase or getattr(engine, "viewport_phase", "")
-        engine.update_stats("Starting viewport render", phase)
+        _set_stats(engine, "Starting viewport render", phase)
         if engine.framebuffer:
             engine.framebuffer.draw(context, scene)
         engine.tag_redraw()
         return
 
     if engine.viewport_fatal_error:
-        engine.update_stats("Error:", engine.viewport_fatal_error)
+        _set_stats(engine, "Error:", engine.viewport_fatal_error)
         engine.tag_redraw()
         return
 
@@ -284,7 +294,8 @@ def view_draw(engine, context, depsgraph):
                 )
 
         phase = worker.phase if worker is not None else ""
-        engine.update_stats(
+        _set_stats(
+            engine,
             "Starting viewport render",
             phase or getattr(engine, "viewport_phase", "") or message,
         )
@@ -318,7 +329,7 @@ def view_draw(engine, context, depsgraph):
         worker.submit_config(engine.exporter.config_cache.props)
         changes &= ~export.Change.CONFIG
         engine.viewport_start_time = time()
-        framebuffer.begin_reset()
+        framebuffer.begin_reset(engine=engine)
         framebuffer.reset_denoiser()
         if not changes:
             engine.tag_redraw()
@@ -355,7 +366,8 @@ def view_draw(engine, context, depsgraph):
         framebuffer.begin_reset(
             FrameBuffer.HOLD_LAST_FRAME_CAMERA_S
             if changes & export.Change.CAMERA
-            else None
+            else None,
+            engine=engine,
         )
         framebuffer.reset_denoiser()
     elif changes:
@@ -379,10 +391,10 @@ def view_draw(engine, context, depsgraph):
             try:
                 if session is not None:
                     _locked_session_call(engine, session.UpdateStats)
-                    framebuffer.update(session, engine)
+                    framebuffer.update_async(session, engine)
             except Exception:
                 pass
-            engine.update_stats("", "")
+            _set_stats(engine, "", "")
 
             samples = 0
             if session is not None:
@@ -482,7 +494,13 @@ def view_draw(engine, context, depsgraph):
         pretty_stats = utils_render.get_pretty_stats(
             config, stats, scene, context
         )
+        engine._vp_stats_cache = (pretty_stats, status_message)
     except Exception:
-        # Session being swapped by the worker: show the phase instead.
-        pretty_stats = worker.phase if worker is not None else ""
-    engine.update_stats(pretty_stats, status_message)
+        # Session being swapped by the worker mid-draw: keep the last
+        # real stats instead of flashing a phase/blank line (the stats
+        # text flickers badly if it alternates every frame).
+        cached = getattr(engine, "_vp_stats_cache", None)
+        pretty_stats = cached[0] if cached else (
+            worker.phase if worker is not None else ""
+        )
+    _set_stats(engine, pretty_stats, status_message)

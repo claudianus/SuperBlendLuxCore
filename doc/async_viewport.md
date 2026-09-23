@@ -75,11 +75,20 @@ shadow query) — otherwise it raises AttributeError on the proxy.
   edits; camera moves pass `HOLD_LAST_FRAME_CAMERA_S` (0.15s) because
   the old viewpoint is wrong — the deadline is anchored at the FIRST
   reset of a burst so a sustained orbit can't pin a stale view forever.
-- Stale-read rejection is two-layered: `_reset_seq` (bumped by every
-  `begin_reset`) rejects reads kicked off before the reset call, and
-  `worker.mutation_seq` (bumped after every applied edit/config/parse/
-  start) rejects reads whose pixels predate the latest mutation — the
-  frame that would flash black or ghost is dropped before upload.
+- Stale-read rejection uses `worker.mutation_seq` (bumped under
+  `session_lock` after every applied edit/config/parse/start): a read
+  records the counter at kickoff and, because reads and edits are
+  mutually exclusive under the lock, `box.mut_seq > _reset_mut_seq`
+  (captured at `begin_reset`) proves the read ran after the pending
+  edit landed. Only post-reset *non-empty* reads satisfy the pending
+  hold; newer-but-pre-reset reads still update the held frame, so a
+  sustained orbit tracks live instead of freezing. Do NOT key this on
+  a per-reset counter — `begin_reset` runs every draw during a drag and
+  would reject every in-flight read (the viewport froze on the stale
+  frame: the "sluggish orbit" bug).
+- Measured on M5 Pro (default cube, RTPATHOCL): camera edit submit→apply
+  ~1ms, apply→first post-reset pass ~82ms — so ~100-150ms end-to-end
+  tracking during orbit once the stale-read bug is gone.
 - Readback cadence: 20 Hz for `FAST_READ_WINDOW_S` (1.5s) after each
   reset/first start so the first recognizable frame lands early, then
   10 Hz steady state.

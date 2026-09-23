@@ -42,30 +42,40 @@ def _mutation_seq(engine):
 
 
 def _fetch_pixels(output_type, width, height, transparent,
-                  luxcore_session, execute_imagepipeline, lock=None):
+                  luxcore_session, execute_imagepipeline, lock=None,
+                  seq_probe=None):
     """Blocking film readback + imagepipeline. Runs the device-queue
     drain; with the GIL released by pyluxcore this is safe to call on a
     worker thread. ``lock`` (the session worker's session_lock) keeps
     the read from racing a scene edit / session stop on the worker.
+
+    ``seq_probe`` (optional callable) is invoked while still holding the
+    lock, right after the fetch: sampling the worker's mutation_seq here
+    labels the returned pixels with the exact session generation that
+    produced them - a kickoff-time sample could mislabel post-edit
+    pixels as pre-edit when the edit lands in the kickoff→lock window.
 
     Module-level (not a FrameBuffer method) so read threads never keep a
     FrameBuffer alive: GL objects must die on the main thread."""
     bufferdepth = 4 if transparent else 3
     size = width * height * bufferdepth
     data = np.empty(size, dtype=np.float32)
+    seq = None
     if lock is None:
         luxcore_session.GetFilm().GetOutputFloat(
             output_type, data, 0, execute_imagepipeline
         )
+        seq = seq_probe() if seq_probe else None
     else:
         with lock:
             luxcore_session.GetFilm().GetOutputFloat(
                 output_type, data, 0, execute_imagepipeline
             )
+            seq = seq_probe() if seq_probe else None
     # The gpu buffer uses 16-bit float. Values >= 65520 get cast to
     # infinity, leading to a black viewport.
     data[data > 65519] = 65519
-    return data
+    return data, seq
 
 
 def run_denoiser(session, lock, box):
@@ -134,9 +144,13 @@ class FrameBuffer:
         # _pending_reset is set, updates only swap in once real samples exist.
         self._pending_reset = True
         self._pending_reset_deadline = 0.0
-        # Readback generation: bumped on every reset so a read that started
-        # before the reset cannot satisfy it with pre-edit pixels.
-        self._reset_seq = 0
+        # Worker mutation counter value at the moment begin_reset() ran:
+        # a readback with box.mut_seq > this provably ran AFTER the edit
+        # landed (session_lock makes reads/edits mutually exclusive), so
+        # its pixels are post-reset. ``_shown_mut_seq`` is the generation
+        # of the frame currently on screen.
+        self._reset_mut_seq = 0
+        self._shown_mut_seq = 0
         # Async readback: GetOutputFloat (film download + imagepipeline) runs
         # on a worker thread so the device-queue drain doesn't stall the UI.
         self._read_thread = None
@@ -331,7 +345,7 @@ class FrameBuffer:
     FAST_READ_WINDOW_S = 1.5
     FAST_READ_INTERVAL_S = 0.05
 
-    def begin_reset(self, hold_s=None):
+    def begin_reset(self, hold_s=None, engine=None):
         """Mark that the film was just cleared by a scene/camera edit.
 
         While set, update() keeps displaying the previous frame until the
@@ -341,7 +355,8 @@ class FrameBuffer:
         known to be wrong (camera moves) to avoid visible ghosting.
         """
         self._pending_reset = True
-        self._reset_seq += 1
+        if engine is not None:
+            self._reset_mut_seq = _mutation_seq(engine)
         self._fast_read_until = time.time() + self.FAST_READ_WINDOW_S
         hold = hold_s if hold_s is not None else self.HOLD_LAST_FRAME_MAX_S
         if self._pending_reset_deadline < time.time():
@@ -395,23 +410,40 @@ class FrameBuffer:
             self.denoised = True
         return True
 
-    def _accept_pixels(self, data, force=False, seq=None, fresh=True):
-        """Swap newly fetched pixels into the GPU buffer (main thread)."""
+    def _accept_pixels(self, data, force=False, mut_seq=None):
+        """Swap newly fetched pixels into the GPU buffer (main thread).
+
+        ``mut_seq`` is the worker's mutation counter sampled when the
+        read kicked off. session_lock makes reads and edits mutually
+        exclusive, so a read with mut_seq > the value captured at
+        begin_reset() provably ran after the pending edit landed - only
+        those reads can show the post-reset film. Newer-but-pre-reset
+        reads are still accepted: they refresh the held frame with
+        converged content instead of freezing on it during a sustained
+        orbit."""
         now = time.time()
-        if self._pending_reset and not force:
-            # Reject reads that can't contain post-edit pixels: either the
-            # read was kicked off before the reset call itself, or the
-            # worker applied another session mutation after the read
-            # started. Accepting one would clear the pending state and let
-            # the *next* (post-reset, still empty) read flash black.
-            if seq is not None and (
-                seq != self._reset_seq or not fresh
-            ):
-                return False
+        if not force and mut_seq is not None:
+            if mut_seq > self._shown_mut_seq:
+                # First read of a new generation.
+                post_reset = (
+                    self._pending_reset and mut_seq > self._reset_mut_seq
+                )
+                if (
+                    post_reset
+                    and not np.any(data > 0.0)
+                    and now < self._pending_reset_deadline
+                ):
+                    # Post-reset film still empty inside the hold window:
+                    # keep the previous frame instead of flashing black.
+                    return False
+                self._shown_mut_seq = mut_seq
+                if post_reset:
+                    self._pending_reset = False
+        elif self._pending_reset and not force:
+            # No generation info (sync path): legacy gate.
             if np.any(data > 0.0) or now >= self._pending_reset_deadline:
                 self._pending_reset = False
             else:
-                # Film still empty after the reset: keep the previous frame.
                 return False
         if self._interactive_denoise and not force:
             # Denoised frames own the display; raw uploads would alternate
@@ -451,7 +483,9 @@ class FrameBuffer:
         if lock is not None and not lock.acquire(blocking=force):
             return False
         try:
-            data = _fetch_pixels(
+            # The probe runs while we still hold the lock, so mut_seq
+            # labels the fetched pixels with their exact generation.
+            data, mut_seq = _fetch_pixels(
                 self._output_type,
                 self._width,
                 self._height,
@@ -459,11 +493,14 @@ class FrameBuffer:
                 luxcore_session,
                 execute_imagepipeline,
                 None,  # already holding the lock
+                seq_probe=lambda: (
+                    _mutation_seq(engine) if engine is not None else None
+                ),
             )
         finally:
             if lock is not None:
                 lock.release()
-        return self._accept_pixels(data, force)
+        return self._accept_pixels(data, force, mut_seq=mut_seq)
 
     def start_async_update(
         self, luxcore_session, engine=None, execute_imagepipeline=True
@@ -474,16 +511,12 @@ class FrameBuffer:
         touches ``self`` so the FrameBuffer can be torn down mid-read."""
         if self._read_thread is not None and self._read_thread.is_alive():
             return False
-        box = {
-            "done": False,
-            "data": None,
-            "seq": self._reset_seq,
-            "mut_seq": _mutation_seq(engine),
-        }
+        box = {"done": False, "data": None, "mut_seq": None}
         self._read_box = box
         self._read_session = luxcore_session
         self._last_update = time.time()
-        lock = _session_lock(engine) if engine is not None else None
+        worker = getattr(engine, "session_worker", None)
+        lock = getattr(worker, "session_lock", None) if worker else None
         output_type, width, height, transparent = (
             self._output_type,
             self._width,
@@ -493,9 +526,14 @@ class FrameBuffer:
 
         def work():
             try:
-                box["data"] = _fetch_pixels(
+                # The probe samples mutation_seq inside session_lock right
+                # after the fetch, so box.mut_seq is the exact generation
+                # of these pixels (never a pre-edit label on post-edit
+                # pixels from the kickoff→lock window).
+                box["data"], box["mut_seq"] = _fetch_pixels(
                     output_type, width, height, transparent,
                     luxcore_session, execute_imagepipeline, lock,
+                    seq_probe=lambda: getattr(worker, "mutation_seq", 0),
                 )
             except Exception:
                 import traceback
@@ -519,12 +557,7 @@ class FrameBuffer:
         self._read_thread = None
         if self._read_session is not luxcore_session or box["data"] is None:
             return False
-        fresh = (
-            engine is None or box["mut_seq"] >= _mutation_seq(engine)
-        )
-        return self._accept_pixels(
-            box["data"], seq=box["seq"], fresh=fresh
-        )
+        return self._accept_pixels(box["data"], mut_seq=box["mut_seq"])
 
     def update_async(
         self, luxcore_session, engine=None, execute_imagepipeline=True
