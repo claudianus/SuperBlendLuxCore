@@ -83,10 +83,14 @@ def build_multimat_mesh():
 
     obj = bpy.data.objects.new("grid", mesh)
     bpy.context.collection.objects.link(obj)
-    # Give the grid a slight dome so shading is visible
+    # Give the grid a slight dome so shading is visible; smooth shading
+    # exercises the vertex weld (flat shading keeps per-face normals and
+    # legitimately cannot merge loops)
     for v in mesh.vertices:
         x, y = v.co.x, v.co.y
         v.co.z = 0.4 * math.exp(-(x * x + y * y) / 2.0)
+    for poly in mesh.polygons:
+        poly.use_smooth = True
     return obj
 
 

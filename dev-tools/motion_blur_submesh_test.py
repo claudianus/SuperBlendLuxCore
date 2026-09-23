@@ -66,6 +66,9 @@ def build_deforming_multimat():
     mesh.materials.append(mat_diffuse("m_blue", (0.1, 0.25, 0.85)))
     for poly, face in zip(mesh.polygons, faces):
         poly.material_index = 1 if (face[0] % (n + 1)) >= n // 2 else 0
+        # smooth shading -> the weld merges loops, so the vertex-motion
+        # path is exercised through the welded->loop representative map
+        poly.use_smooth = True
 
     obj = bpy.data.objects.new("deform", mesh)
     bpy.context.collection.objects.link(obj)
