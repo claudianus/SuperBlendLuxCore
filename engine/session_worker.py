@@ -176,6 +176,24 @@ class SessionWorker:
                 self._queue.append(["parse", props])
             self._cond.notify()
 
+    def submit_resolution_reduction(self, value):
+        """Runtime RTPATHOCL resolution-reduction override.
+
+        ``value`` 0 restores the configured reduction. Coalesces like a
+        config job: only the newest pending value matters. Applies at
+        the next frame boundary without a film reset, so it is safe to
+        flip per interaction burst (drag = sparse fast passes, settle =
+        full-quality passes).
+        """
+        with self._cond:
+            for job in self._queue:
+                if job[0] == "res_reduction":
+                    job[1] = value
+                    break
+            else:
+                self._queue.append(["res_reduction", value])
+            self._cond.notify()
+
     def submit_stop(self):
         """Stop the live session and drop queued jobs (they were computed
         against a scene the restart is about to discard or the engine is
@@ -263,6 +281,8 @@ class SessionWorker:
             self._do_edit(payload)
         elif kind == "parse":
             self._do_parse(payload)
+        elif kind == "res_reduction":
+            self._do_res_reduction(payload)
         elif kind == "stop":
             self._do_stop()
 
@@ -413,6 +433,20 @@ class SessionWorker:
             except ReferenceError:
                 pass
         self.phase = ""
+
+    def _do_res_reduction(self, value):
+        session = self.session
+        if session is None:
+            return
+        # Atomic store into the engine - no film reset, no mutation_seq
+        # bump (coverage pattern changes, accumulated samples stay valid).
+        # getattr: tolerate a stale pyluxcore lacking the binding.
+        set_reduction = getattr(
+            session, "SetRuntimeResolutionReduction", None
+        )
+        if set_reduction is not None:
+            with self.session_lock:
+                set_reduction(value)
 
     def _do_parse(self, props):
         session = self.session

@@ -37,6 +37,15 @@ def _worker(engine):
 
 _LOCK_BUSY = object()
 
+# Dynamic resolution switching: while the user interacts (scene edits
+# arriving), RTPATHOCL runs sparse coverage passes - every pixel carries
+# weight 1.0 regardless of reduction, so passes stay unbiased but finish
+# in ~1/16 of the time. That shrinks both the frame-boundary wait before
+# an edit applies and the first-post-reset-sample latency. Once edits
+# stop arriving for _DYN_RES_TAIL_S the configured reduction is restored.
+_DYN_RES_VALUE = 16
+_DYN_RES_TAIL_S = 0.4
+
 
 def _set_stats(engine, text, sub):
     """update_stats() with dedup: each call triggers a stats-region
@@ -61,6 +70,12 @@ def _submit_jobs(engine, worker, framebuffer, jobs, has_camera):
     to scene speed. Deferral is bounded by the pending deadline, so a
     starved film (paused session, empty scene) still releases the job.
     """
+    # Sparse fast passes for the whole interaction burst - also while the
+    # edit sits deferred behind a pending reset, so that reset resolves
+    # faster and the deferred edit lands sooner.
+    worker.submit_resolution_reduction(_DYN_RES_VALUE)
+    engine._dyn_res_until = time() + _DYN_RES_TAIL_S
+    engine._dyn_res_active = True
     if (
         framebuffer is not None
         and framebuffer._pending_reset
@@ -418,6 +433,10 @@ def view_draw(engine, context, depsgraph):
                     worker.submit_edit(payload)
                 elif kind == "parse":
                     worker.submit_parse(payload)
+            # Deferred edit finally firing: still interacting.
+            worker.submit_resolution_reduction(_DYN_RES_VALUE)
+            engine._dyn_res_until = time() + _DYN_RES_TAIL_S
+            engine._dyn_res_active = True
             engine.viewport_start_time = time()
             framebuffer.begin_reset(
                 FrameBuffer.HOLD_LAST_FRAME_CAMERA_S
@@ -426,6 +445,14 @@ def view_draw(engine, context, depsgraph):
                 engine=engine,
             )
             framebuffer.reset_denoiser()
+
+    # Interaction settled: restore the configured (dense) reduction so
+    # steady-state passes converge at full quality.
+    if getattr(engine, "_dyn_res_active", False) and (
+        time() > getattr(engine, "_dyn_res_until", 0)
+    ):
+        engine._dyn_res_active = False
+        worker.submit_resolution_reduction(0)
 
     if utils.in_material_shading_mode(context):
         paused = (

@@ -76,6 +76,10 @@ class LuxCoreRenderEngine(bpy.types.RenderEngine):
         # Camera-only edit deferred while a film reset awaited content;
         # flushed by view_draw once the pending frame lands.
         self._deferred_edit_jobs = None
+        # Dynamic resolution override (sparse passes while interacting):
+        # the new session starts at the configured reduction anyway.
+        self._dyn_res_active = False
+        self._dyn_res_until = 0
         # Async session worker (created lazily by the viewport on first
         # use; final/preview renders never start it). A previous worker
         # must not survive a reset: it would keep mutating a stale session.

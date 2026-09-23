@@ -161,6 +161,37 @@ Verified against the Blender 5.2.2 source clone (`blender-5.2`,
   re-paused by the very next `view_draw` (resume->pause loop = black,
   unresponsive viewport).
 
+## Dynamic resolution switching (edit latency floor)
+
+`rtpath.resolutionreduction` only selects which pixels a pass covers -
+every splat still carries weight 1.0, so it can be changed mid-accumulation
+with zero bias. LuxCore exposes this as
+`session.SetRuntimeResolutionReduction(n)`: an atomic store the render
+threads pick up at the next frame boundary and re-upload into their
+per-device `taskConfigBuff` (values below the configured reduction are
+clamped to it: task buffers were sized `pixels / configured^2`, so denser
+sampling at runtime would leave part of the film unsampled).
+
+The viewport drives it automatically: every scene-edit submission raises
+the override to `_DYN_RES_VALUE = 16`, and 0.4 s after edits stop the
+worker restores 0 (= configured value). During a drag each pass covers
+1/256 of the film (~2-5 ms instead of ~40 ms), so both the
+frame-boundary wait before an edit applies and the first-post-reset
+sample latency shrink. Measured on M5 Pro (1920x1080, camera edits):
+submit->first-sample ~55 ms baseline -> ~26 ms with override=16.
+
+Gotcha found by lldb: `EnqueueWriteBuffer` on Metal is a host memcpy;
+the blocking variant drains the queue, and the upload must not race a
+kernel reading `taskConfigBuff` - the apply point sits between the
+frameBarrier and thread-0 edit handling, after `FinishQueue`.
+
+At override 32 an intermittent Metal queue wedge was observed
+(render thread parked on `-[MTLCommandBuffer initWithQueue]` semaphore
+mid-pass; film frozen at 0, engine not done/paused). 16 is both stable
+(60+ edits, zero wedges) and measurably faster than 32 - sparse coverage
+below ~2k live tasks underutilizes the GPU while per-pass fixed cost
+dominates.
+
 ## Status line
 
 `worker.phase` carries "Exporting scene" / "Creating render config" /
@@ -174,3 +205,8 @@ progress instead of a frozen frame.
   python3 (no Blender), fake pyluxcore.
 - `dev-tools/async_session_e2e_test.py` — real Blender -b + real
   pyluxcore: start/edit/config/burst/bad-config/stop.
+- `dev-tools/viewport_latency_bench.py` — edit->first-sample latency;
+  `-- RTPATHOCL dyn` exercises the runtime resolution override.
+- LuxCore `pyunittests/.../testrtpathocldynres.py` — override keeps the
+  film accumulating, clamps below configured, recovers after mid-burst
+  edits.

@@ -104,10 +104,18 @@ def main():
         time.sleep(0.05)
     print("warmup pass:", pass_count(engine.session))
 
+    # "dyn" arg: enable the runtime resolution-reduction override
+    # (viewport interaction path) for the whole edit burst.
+    dyn = "dyn" in sys.argv
+    if dyn:
+        engine.session.SetRuntimeResolutionReduction(16)
+        time.sleep(0.2)
+        print("runtime resolution override: 16")
+
     lat_submit_to_apply = []
     lat_apply_to_pass = []
     lat_total = []
-    N = 15
+    N = 30
     fails = 0
     for i in range(N):
         props = pyluxcore.Properties()
@@ -135,22 +143,41 @@ def main():
         # (possibly between polls) then climbs once the first preview
         # pass splats. That climb is the earliest a readback could show
         # post-edit content.
-        s0 = sample_count(engine.session)
+        prev = sample_count(engine.session)
         seen_reset = False
         t_pass = None
+        trace = []
         while time.monotonic() - t_apply < 15:
             try:
                 p = sample_count(engine.session)
             except Exception:
-                p = s0
-            if not seen_reset:
-                # p < s0 means the film restarted (reset observed); if
-                # samples already landed again this is also t_pass.
-                seen_reset = p < s0
-            if seen_reset and p > 0:
+                p = prev
+            trace.append(p)
+            # A drop between consecutive polls = the film reset
+            # landed; the next positive count is the first post-reset
+            # sample (the earliest a readback could show new content).
+            if p < prev:
+                seen_reset = True
+            elif seen_reset and p > 0:
                 t_pass = time.monotonic()
                 break
-            time.sleep(0.005)
+            prev = p
+            # No sleep: at high reductions a reset+refill can complete
+            # between 1 ms polls, hiding the dip entirely.
+        if t_pass is None:
+            try:
+                st = engine.session.GetStats()
+                print("engine pass:", st.Get("stats.renderengine.pass").GetInt(),
+                      "done:", engine.session.HasDone(),
+                      "paused:", engine.session.IsInPause())
+            except Exception as e:
+                print("stat read failed:", e)
+            print("sample trace:", trace[:40], "... min",
+                  min(trace) if trace else "-")
+            if "hang" in sys.argv:
+                print("WEDGED - sleeping 120s for debugger attach",
+                      flush=True)
+                time.sleep(120)
         if t_pass is None:
             print(f"FAIL no new samples after edit {i}")
             fails += 1
