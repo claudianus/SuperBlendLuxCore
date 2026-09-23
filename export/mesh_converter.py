@@ -1,3 +1,4 @@
+import hashlib
 from contextlib import contextmanager
 from time import time
 import numpy as np
@@ -298,16 +299,25 @@ def convert(
         print("[BLC]")
 
         # Deformation motion blur (E9): the vertex series is sampled in
-        # the loop domain — remember vertex count and loop mapping so
-        # motion_blur.py can validate each shutter step's topology
+        # the loop domain — remember vertex count and a digest of the
+        # loop topology so motion_blur.py can validate each shutter step
         # against the exported mesh. Only kept for meshes that may
-        # actually collect a vertex series. `submesh_maps` maps each
-        # exported vertex back to a representative loop index (through
-        # the weld map when welding merged loops) so per-step positions
-        # can be compacted identically.
+        # actually collect a vertex series. The digest keeps the
+        # signature O(1)-sized — the raw loop index array would be
+        # L*4 bytes retained for the whole session on every
+        # motion-blurred mesh. `submesh_maps` maps each exported vertex
+        # back to a representative loop index (through the weld map when
+        # welding merged loops) so per-step positions can be compacted
+        # identically.
         vert_sig = None
         if want_motion_maps:
-            vert_sig = (len(mesh.vertices), loop_vertices.copy())
+            vert_sig = (
+                len(mesh.vertices),
+                len(loop_vertices),
+                hashlib.blake2b(
+                    loop_vertices.tobytes(), digest_size=16
+                ).digest(),
+            )
         else:
             submesh_maps = None
 

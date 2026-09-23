@@ -1,3 +1,4 @@
+import hashlib
 import math
 from array import array
 import mathutils
@@ -365,9 +366,9 @@ def _sample_loop_points(eval_obj, depsgraph, vert_sig):
     """Re-run the mesh_converter vertex pipeline on the evaluated object
     and return loop-expanded (N,3) float32 positions, or None when the
     topology differs from the export-time signature (vert_count,
-    loop_vertex_indices).
+    loop_count, loop_indices digest).
     """
-    vert_count, loop_vertices_ref = vert_sig
+    vert_count, loop_count, loop_digest = vert_sig
     object_eval = None
     mesh = None
     try:
@@ -377,12 +378,12 @@ def _sample_loop_points(eval_obj, depsgraph, vert_sig):
             return None
         mesh.calc_loop_triangles()
         mesh.split_faces()
-        if len(mesh.vertices) != vert_count or len(mesh.loops) != len(
-            loop_vertices_ref
-        ):
+        if len(mesh.vertices) != vert_count or len(mesh.loops) != loop_count:
             return None
         loop_vertices = get_ndarray(mesh.loops, "vertex_index", 0, np.uint32)
-        if not np.array_equal(loop_vertices, loop_vertices_ref):
+        if hashlib.blake2b(
+            loop_vertices.tobytes(), digest_size=16
+        ).digest() != loop_digest:
             return None
         vertex_points = get_ndarray(mesh.vertices, "co", 3, np.float32)
         return np.ascontiguousarray(vertex_points[loop_vertices])

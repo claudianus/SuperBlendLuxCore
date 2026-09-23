@@ -11,9 +11,10 @@ class ExportedMesh:
     def __init__(self, mesh_definitions, vert_sig=None, submesh_maps=None):
         self.mesh_definitions = mesh_definitions
         # Deformation motion blur (E9): export-time topology signature
-        # (vertex_count, loop_vertex_indices). The per-step sampler in
-        # motion_blur.py re-checks it so a mid-shutter topology change
-        # falls back to static instead of corrupting the vertex series.
+        # (vertex_count, loop_count, loop_indices blake2b digest). The
+        # per-step sampler in motion_blur.py re-checks it so a
+        # mid-shutter topology change falls back to static instead of
+        # corrupting the vertex series.
         self.vert_sig = vert_sig
         # {shape_name: compacted loop index array} — set only when a
         # submesh's triangles don't reference all loops (see the
