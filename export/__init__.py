@@ -353,6 +353,7 @@ class Exporter(object):
                 utils.make_key(o): (
                     o.hide_render,
                     o.luxcore.exclude_from_render,
+                    getattr(o.luxcore, "is_light_portal", False),
                     o.visible_camera,
                     o.visible_diffuse,
                     o.visible_glossy,

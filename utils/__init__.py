@@ -496,6 +496,12 @@ def is_obj_visible(obj):
     if obj.luxcore.exclude_from_render:
         return False
 
+    # Light portals are pure sampling guides: they mark apertures for the
+    # path tracer but must never appear as render geometry (a plane placed
+    # inside an opening would physically block the light it guides).
+    if getattr(obj.luxcore, "is_light_portal", False):
+        return False
+
     if obj.type not in EXPORTABLE_OBJECTS and (
         obj.data == None or obj.data.rna_type.name != "Hair Curves"
     ):
