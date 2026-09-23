@@ -88,6 +88,35 @@ def _submit_jobs(engine, worker, framebuffer, jobs, has_camera):
         framebuffer.reset_denoiser()
 
 
+def _flush_deferred(engine, worker, framebuffer):
+    """Fire the deferred scene edit once the pending reset produced
+    content (or its deadline lapsed). Returns True while still waiting."""
+    deferred = getattr(engine, "_deferred_edit_jobs", None)
+    if deferred is None:
+        return False
+    if (
+        framebuffer._pending_reset
+        and time() < framebuffer._pending_reset_deadline
+    ):
+        return True
+    engine._deferred_edit_jobs = None
+    deferred_jobs, deferred_has_camera = deferred
+    for kind, payload in deferred_jobs:
+        if kind == "edit":
+            worker.submit_edit(payload)
+        elif kind == "parse":
+            worker.submit_parse(payload)
+    engine.viewport_start_time = time()
+    framebuffer.begin_reset(
+        FrameBuffer.HOLD_LAST_FRAME_CAMERA_S
+        if deferred_has_camera
+        else None,
+        engine=engine,
+    )
+    framebuffer.reset_denoiser()
+    return False
+
+
 def _locked_session_call(engine, fn, *args):
     """Call ``fn(*args)`` while holding the worker's session_lock.
 
@@ -395,37 +424,15 @@ def view_draw(engine, context, depsgraph):
     # into None and raise AttributeError mid-draw.
     session = engine.session
 
-    # Flush a camera edit deferred while the film was still empty. The
+    # Flush a scene edit deferred while the film was still empty. The
     # pending reset clears when post-reset content lands (or on the
     # bounded deadline), so this fires as soon as the last edit produced
-    # a frame - the effective camera-edit rate adapts to scene speed.
-    deferred = getattr(engine, "_deferred_edit_jobs", None)
-    if deferred is not None:
-        still_waiting = (
-            framebuffer._pending_reset
-            and time() < framebuffer._pending_reset_deadline
-        )
-        if still_waiting:
-            # Keep draws flowing until the deferred edit can fire: while
-            # paused, nothing tags a redraw and the final camera position
-            # would never be submitted.
-            engine.tag_redraw()
-        else:
-            engine._deferred_edit_jobs = None
-            deferred_jobs, deferred_has_camera = deferred
-            for kind, payload in deferred_jobs:
-                if kind == "edit":
-                    worker.submit_edit(payload)
-                elif kind == "parse":
-                    worker.submit_parse(payload)
-            engine.viewport_start_time = time()
-            framebuffer.begin_reset(
-                FrameBuffer.HOLD_LAST_FRAME_CAMERA_S
-                if deferred_has_camera
-                else None,
-                engine=engine,
-            )
-            framebuffer.reset_denoiser()
+    # a frame - the effective edit rate adapts to scene speed.
+    if _flush_deferred(engine, worker, framebuffer):
+        # Keep draws flowing until the deferred edit can fire: while
+        # paused, nothing tags a redraw and the final position would
+        # never be submitted.
+        engine.tag_redraw()
 
     if utils.in_material_shading_mode(context):
         paused = (
@@ -519,9 +526,25 @@ def view_draw(engine, context, depsgraph):
                     else False
                 )
                 if not handled:
-                    # Async film readback: the device-queue drain runs on a
-                    # worker thread, the finished frame is consumed here.
-                    framebuffer.update_async(session, engine)
+                    # Async film readback: the device-queue drain runs on
+                    # a worker thread, the finished frame is consumed here.
+                    # Pass the view matrix NOW so the fetched pixels get
+                    # labelled with ~the view they were rendered for (the
+                    # reprojection source) rather than the consume-time view.
+                    rv3d = getattr(context, "region_data", None)
+                    framebuffer.update_async(
+                        session,
+                        engine,
+                        view_vp=(
+                            rv3d.perspective_matrix.copy()
+                            if rv3d is not None
+                            else None
+                        ),
+                    )
+                    # The consume may have just satisfied the pending
+                    # reset: fire the deferred edit in this same draw
+                    # instead of waiting for the next one.
+                    _flush_deferred(engine, worker, framebuffer)
         except RuntimeError:
             # Session not started yet / no film available: keep showing the
             # last framebuffer contents instead of flashing black

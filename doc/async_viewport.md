@@ -104,9 +104,29 @@ shadow query) — otherwise it raises AttributeError on the proxy.
   and `resolutionreduction=4` (steady passes cover 1/16 of the film per
   pass). Edits apply only at frame boundaries, so pass duration IS the
   edit latency floor: ~180 ms/reset at reduction 2 → ~56 ms at 4.
-- Readback cadence: 20 Hz for `FAST_READ_WINDOW_S` (1.5s) after each
-  reset/first start so the first recognizable frame lands early, then
-  10 Hz steady state.
+- Readback cadence: back-to-back while a reset is pending (first
+  post-edit frame lands ASAP), then 30 Hz for `FAST_READ_WINDOW_S`
+  (1.5s) after each reset/first start, then 10 Hz steady state.
+- Temporal reprojection (`_warp_texture` in draw/viewport.py): while the
+  held frame's view transform differs from the current
+  `rv3d.perspective_matrix`, the film texture is reprojected offscreen
+  (custom `create_from_info` shader — `gpu.types.GPUShader()` is not
+  constructible in Blender 5.x, `tp_new` is null). Per fragment the film
+  UV is unprojected through `u_vpNewInv` (current `perspective_matrix^-1`
+  with the film rect's NDC affine folded in CPU-side — push constants
+  only guarantee 128 B on Vulkan), intersected with the focus plane
+  through `rv3d.view_location` perpendicular to the view forward, then
+  reprojected through the captured old matrix into the old film UV.
+  Orbit/pan/dolly all track at display rate; sky/parallel rays fall back
+  to directional warp at t=1e6; live frames replace the warp as they
+  land. The warped texture is drawn with the builtin IMAGE shader so
+  `blender_srgb_to_framebuffer_space` color handling is identical to the
+  non-warped path. The capture matrix is sampled at readback KICKOFF
+  (`view_vp` arg through update_async/start_async_update), not at
+  consume time — the fetched film matches ~the kickoff view.
+  Regression: `dev-tools/reprojection_math_test.py` (Blender -b) ports
+  the shader math to numpy and verifies identity round-trip, pivot-locked
+  orbits, focus-plane tracking, sub-rects and ortho.
 - Readback/denoiser workers deliberately never reference the
   FrameBuffer or engine objects (module-level `run_denoiser`/`_fetch_pixels`
   take plain args + a box dict): a thread outliving teardown would
