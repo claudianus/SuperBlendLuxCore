@@ -4,83 +4,9 @@ import bpy
 import gpu
 from gpu_extras.batch import batch_for_shader
 
-# Temporal reprojection warp (fullscreen pass over the film texture,
-# rendered offscreen in NDC). While a film reset waits for the first
-# post-edit pass - or while the view simply outruns the readback rate -
-# the held frame is warped to the CURRENT view transform instead of
-# staying frozen: each fragment is unprojected along its view ray,
-# approximated onto the plane at orbit-pivot depth, and reprojected into
-# the frame's captured view matrix. Rotation/orbit/pan/dolly all keep a
-# geometrically tracked image; only parallax around the pivot plane is
-# approximated, and live frames replace the warp as soon as they land.
-# The warped result is drawn with the builtin IMAGE shader so the
-# colorspace handling stays identical to the non-warped path.
-# Blender 5.x shader DSL for gpu.shader.create_from_info(): attributes,
-# varyings, samplers and push constants are declared via
-# GPUShaderCreateInfo and referenced by name - no in/out/uniform lines.
-_WARP_VERT_SRC = """
-void main() {
-    uv = texCoord;
-    gl_Position = vec4(pos, 0.0, 1.0);
-}
-"""
-
-_WARP_FRAG_SRC = """
-void main() {
-    // u_vpNewInv already maps film-UV -> world (the current film rect's
-    // NDC affine is folded in CPU-side): unproject near/far points for
-    // this fragment's world-space ray (persp and ortho alike: org is the
-    // near-plane point, dir the per-pixel direction).
-    vec4 pn = u_vpNewInv * vec4(uv, -1.0, 1.0);
-    vec4 pf = u_vpNewInv * vec4(uv,  1.0, 1.0);
-    vec3 org = pn.xyz / pn.w;
-    vec3 dir = normalize(pf.xyz / pf.w - org);
-    // Focus plane: through the orbit pivot, perpendicular to the view
-    // forward (derived from the center ray). Content near it tracks
-    // exactly; rays parallel/behind warp directionally at infinity.
-    vec4 oc = u_vpNewInv * vec4(0.5, 0.5, -1.0, 1.0);
-    vec4 fc = u_vpNewInv * vec4(0.5, 0.5,  1.0, 1.0);
-    vec3 fwd = normalize(fc.xyz / fc.w - oc.xyz / oc.w);
-    float denom = dot(dir, fwd);
-    float t = 1e6;
-    if (abs(denom) > 1e-4) {
-        float tp = dot(u_pivot - org, fwd) / denom;
-        if (tp > 1e-3)
-            t = tp;
-    }
-    vec3 pw = org + dir * t;
-    // Reproject into the held frame's view, remap NDC -> film UV
-    vec4 co = u_vpOld * vec4(pw, 1.0);
-    vec2 ndcOld = co.xy / co.w;
-    vec2 tuv = (ndcOld - u_rectOld.xy) / (u_rectOld.zw - u_rectOld.xy);
-    fragColor = texture(image, clamp(tuv, 0.0, 1.0));
-}
-"""
-
-
-def _build_warp_shader():
-    """Create the reprojection shader via GPUShaderCreateInfo (the only
-    custom-shader path in Blender 5.x - GPUShader() has no tp_new)."""
-    info = gpu.types.GPUShaderCreateInfo()
-    info.vertex_in(0, "VEC2", "pos")
-    info.vertex_in(1, "VEC2", "texCoord")
-    iface = gpu.types.GPUStageInterfaceInfo("luxcore_warp_iface")
-    iface.smooth("VEC2", "uv")
-    info.vertex_out(iface)
-    info.fragment_out(0, "VEC4", "fragColor")
-    info.sampler(0, "FLOAT_2D", "image")
-    info.push_constant("MAT4", "u_vpOld")
-    info.push_constant("MAT4", "u_vpNewInv")
-    info.push_constant("VEC4", "u_rectOld")
-    info.push_constant("VEC3", "u_pivot")
-    info.vertex_source(_WARP_VERT_SRC)
-    info.fragment_source(_WARP_FRAG_SRC)
-    return gpu.shader.create_from_info(info)
-
 import threading
 import time
 import os
-import mathutils
 import numpy as np
 import tempfile
 from shutil import which
@@ -219,16 +145,6 @@ class FrameBuffer:
         self._pending_reset = True
         self._pending_reset_deadline = 0.0
         self._pending_burst_deadline = 0.0
-        # View transform the currently displayed frame was rendered with;
-        # used to reproject it when the camera moves before new samples
-        # land (temporal reprojection instead of stale/black frame).
-        # ``_vp_for_next_upload`` pins the matrix sampled at readback
-        # kickoff - much closer to the film's true view than the consume
-        # time matrix (30-80 ms of orbit error removed).
-        self._captured_vp = None
-        self._captured_rect = None
-        self._vp_for_next_upload = None
-        self._rect_for_next_upload = None
         # Worker mutation counter value at the moment begin_reset() ran:
         # a readback with box.mut_seq > this provably ran AFTER the edit
         # landed (session_lock makes reads/edits mutually exclusive), so
@@ -312,22 +228,6 @@ class FrameBuffer:
                 "texCoord": [(0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 1)],
             },
         )
-        if getattr(self, "_warp_shader", None) is None:
-            try:
-                self._warp_shader = _build_warp_shader()
-                # Fullscreen NDC quad sampled over the film UV range
-                self._warp_batch = batch_for_shader(
-                    self._warp_shader,
-                    "TRIS",
-                    {
-                        "pos": [(-1, -1), (1, -1), (1, 1),
-                                (-1, -1), (1, 1), (-1, 1)],
-                        "texCoord": [(0, 0), (1, 0), (1, 1),
-                                     (0, 0), (1, 1), (0, 1)],
-                    },
-                )
-            except Exception:
-                self._warp_shader = None
 
     def __del__(self):
         # GL objects must be freed on the main thread. Guarded: addon
@@ -336,16 +236,9 @@ class FrameBuffer:
         if threading.current_thread() is threading.main_thread():
             try:
                 del self.buffer
+                self._texture = None
             except Exception:
                 pass
-            for attr in ("_texture", "_warp_tex", "_warp_fb"):
-                obj = getattr(self, attr, None)
-                if obj is not None:
-                    try:
-                        del obj
-                    except Exception:
-                        pass
-                    setattr(self, attr, None)
 
     def needs_replacement(self, context, scene):
         if (self._width, self._height) != utils.calc_filmsize(scene, context):
@@ -616,28 +509,15 @@ class FrameBuffer:
         return self._accept_pixels(data, force, mut_seq=mut_seq)
 
     def start_async_update(
-        self,
-        luxcore_session,
-        engine=None,
-        execute_imagepipeline=True,
-        view_vp=None,
+        self, luxcore_session, engine=None, execute_imagepipeline=True
     ):
         """Kick off a background film readback; the result lands in a box
         dict consumed by consume_async_update() on the main thread. No-op
         while a read is already in flight. The thread deliberately never
-        touches ``self`` so the FrameBuffer can be torn down mid-read.
-        ``view_vp`` is the (view projection, film rect) pair at kickoff:
-        the fetched film was rendered for ~this view, so it becomes the
-        reprojection source state when the result lands."""
+        touches ``self`` so the FrameBuffer can be torn down mid-read."""
         if self._read_thread is not None and self._read_thread.is_alive():
             return False
-        box = {
-            "done": False,
-            "data": None,
-            "mut_seq": None,
-            "vp": view_vp,
-            "rect": self._view_rect,
-        }
+        box = {"done": False, "data": None, "mut_seq": None}
         self._read_box = box
         self._read_session = luxcore_session
         self._last_update = time.time()
@@ -683,38 +563,26 @@ class FrameBuffer:
         self._read_thread = None
         if self._read_session is not luxcore_session or box["data"] is None:
             return False
-        self._vp_for_next_upload = box.get("vp")
-        self._rect_for_next_upload = box.get("rect")
         return self._accept_pixels(box["data"], mut_seq=box["mut_seq"])
 
     def update_async(
-        self,
-        luxcore_session,
-        engine=None,
-        execute_imagepipeline=True,
-        view_vp=None,
+        self, luxcore_session, engine=None, execute_imagepipeline=True
     ):
         """Non-blocking readback driver for view_draw: consumes a finished
-        read, otherwise starts a new one. While a reset is pending, reads
-        run back-to-back so the first post-edit frame lands ASAP; then
-        30 Hz for a short window, then 10 Hz steady."""
+        read, otherwise starts a new one. Reads run at 20 Hz for a short
+        window after each edit (fast first frame), then at 10 Hz."""
         if self.consume_async_update(luxcore_session, engine):
             return True
         now = time.time()
         interval = (
-            0.0
-            if self._pending_reset
-            else self.FAST_READ_INTERVAL_S
+            self.FAST_READ_INTERVAL_S
             if now < self._fast_read_until
             else 0.1
         )
         if now - self._last_update < interval:
             return False
         return self.start_async_update(
-            luxcore_session,
-            engine,
-            execute_imagepipeline,
-            view_vp=view_vp,
+            luxcore_session, engine, execute_imagepipeline
         )
 
     def interactive_denoise_tick(self, engine, min_samples):
@@ -775,89 +643,6 @@ class FrameBuffer:
         # Keep the current frame up until the first denoised result lands.
         return self._interactive_denoise
 
-    def _warp_texture(self, context):
-        """Reproject the film texture into the current view transform.
-
-        Returns a texture to display (the offscreen warp result when the
-        view moved since the held frame was rendered, else the film
-        texture itself). The warp makes the held frame track the camera
-        at full display rate while live frames catch up.
-        """
-        if (
-            getattr(self, "_warp_shader", None) is None
-            or getattr(context, "region_data", None) is None
-            or self._captured_vp is None
-            or self._captured_rect is None
-        ):
-            return self._texture
-        rv3d = context.region_data
-        vp_new = rv3d.perspective_matrix
-        # Elementwise delta: skip the warp when the view didn't move
-        # (avoids needless resampling blur on every frame).
-        delta = max(
-            abs(a - b)
-            for ra, rb in zip(self._captured_vp, vp_new)
-            for a, b in zip(ra, rb)
-        )
-        if delta < 1e-6:
-            return self._texture
-        rw, rh = context.region.width, context.region.height
-        format = "RGBA16F" if self._transparent else "RGB16F"
-        # Re-create the offscreen target on first use or film resize.
-        if getattr(self, "_warp_size", None) != (self._width, self._height, format):
-            for attr in ("_warp_fb", "_warp_tex"):
-                old = getattr(self, attr, None)
-                if old is not None:
-                    del old
-            self._warp_size = (self._width, self._height, format)
-            self._warp_tex = gpu.types.GPUTexture(
-                (self._width, self._height), format=format
-            )
-            self._warp_fb = gpu.types.GPUFrameBuffer(
-                color_slots=(self._warp_tex,)
-            )
-
-        def rect_ndc(rect):
-            x, y, w, h = rect
-            return (
-                x / rw * 2.0 - 1.0,
-                y / rh * 2.0 - 1.0,
-                (x + w) / rw * 2.0 - 1.0,
-                (y + h) / rh * 2.0 - 1.0,
-            )
-
-        try:
-            vp_new_inv = vp_new.inverted()
-        except ValueError:
-            return self._texture
-        # Fold the film rect's current region-NDC affine into the inverse
-        # projection so the shader maps film-UV -> world in one multiply:
-        # uv -> (rect.xy + uv*size, z, 1) -> world. Saves a push constant
-        # (Vulkan guarantees only 128 B of them).
-        nx0, ny0, nx1, ny1 = rect_ndc(self._view_rect)
-        sx, sy = nx1 - nx0, ny1 - ny0
-        if abs(sx) < 1e-9 or abs(sy) < 1e-9:
-            return self._texture
-        uv_to_ndc = mathutils.Matrix(
-            (
-                (sx, 0.0, 0.0, nx0),
-                (0.0, sy, 0.0, ny0),
-                (0.0, 0.0, 1.0, 0.0),
-                (0.0, 0.0, 0.0, 1.0),
-            )
-        )
-        shader = self._warp_shader
-        shader.uniform_sampler("image", self._texture)
-        shader.uniform_float("u_vpOld", self._captured_vp)
-        shader.uniform_float("u_vpNewInv", vp_new_inv @ uv_to_ndc)
-        shader.uniform_float("u_rectOld", rect_ndc(self._captured_rect))
-        shader.uniform_float("u_pivot", tuple(rv3d.view_location))
-        with self._warp_fb.bind():
-            gpu.state.viewport_set(0, 0, self._width, self._height)
-            gpu.state.blend_set("NONE")
-            self._warp_batch.draw(shader)
-        return self._warp_tex
-
     def draw(self, context=None, scene=None):
         if context is not None and scene is not None:
             self.sync_view_transform(context, scene)
@@ -874,28 +659,5 @@ class FrameBuffer:
                 data=self.buffer,
             )
             self._pixels_dirty = False
-            # The texture now holds the film's newest frame: pin the view
-            # transform it was rendered with for reprojection - the
-            # kickoff-time matrix if one was recorded, else the current.
-            self._captured_vp = (
-                self._vp_for_next_upload
-                if self._vp_for_next_upload is not None
-                else (
-                    context.region_3d.perspective_matrix.copy()
-                    if context is not None
-                    and getattr(context, "region_data", None)
-                    else None
-                )
-            )
-            self._captured_rect = (
-                self._rect_for_next_upload
-                if self._rect_for_next_upload is not None
-                else self._view_rect
-            )
-            self._vp_for_next_upload = None
-            self._rect_for_next_upload = None
-        texture = self._texture
-        if context is not None:
-            texture = self._warp_texture(context)
-        self.shader.uniform_sampler("image", texture)
+        self.shader.uniform_sampler("image", self._texture)
         self.batch.draw(self.shader)
