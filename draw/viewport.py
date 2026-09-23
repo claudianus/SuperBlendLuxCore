@@ -23,6 +23,15 @@ if _needs_reload:
     importlib.reload(utils)
 
 
+def _session_lock(engine):
+    """The lock the session worker holds while mutating the live session
+    (scene edits, Parse, Stop). Film reads take it so a film reset in
+    EndSceneEdit can never tear a GetOutputFloat in half. None without a
+    worker (final render / preview paths need no guard)."""
+    worker = getattr(engine, "session_worker", None)
+    return getattr(worker, "session_lock", None) if worker else None
+
+
 def run_denoiser(framebuffer, engine):
     """Denoiser worker (background thread).
 
@@ -33,9 +42,14 @@ def run_denoiser(framebuffer, engine):
     full OIDN run on every pause.)
     """
     try:
-        session = engine.session
+        session = framebuffer._denoise_session
         film = session.GetFilm()
-        film.ApplyOIDN(0)  # Apply on first stage in pipeline
+        lock = _session_lock(engine)
+        if lock is None:
+            film.ApplyOIDN(0)  # Apply on first stage in pipeline
+        else:
+            with lock:
+                film.ApplyOIDN(0)
     except Exception:
         import traceback
 
@@ -242,9 +256,14 @@ class FrameBuffer:
             0.5 - 2 * zoom * view_camera_offset
         ) * region_size + half_size * (2 * border_min - 1)
 
-    def start_denoiser(self, engine):
+    def start_denoiser(self, engine, session=None):
+        """Kick off a background OIDN run.
+
+        ``session`` pins the denoiser to the session the caller just
+        paused - engine.session may be swapped to a new session (or None)
+        by the worker while the denoiser runs."""
         self._denoise_done = False
-        self._denoise_session = engine.session
+        self._denoise_session = session if session is not None else engine.session
         self._denoiser_thread = threading.Thread(
             target=run_denoiser,
             args=(self, engine),
@@ -307,30 +326,45 @@ class FrameBuffer:
         # The worker finished (result available): drop the thread reference
         # so interactive_denoise_tick() can tell "finished" from "died".
         self._denoiser_thread = None
-        if getattr(self, "_denoise_session", None) is not engine.session:
+        denoise_session = getattr(self, "_denoise_session", None)
+        if denoise_session is None or denoise_session is not engine.session:
             return False
         try:
-            engine.session.UpdateStats()
+            denoise_session.UpdateStats()
         except RuntimeError:
             return False
-        self.update(engine.session, execute_imagepipeline=False, force=True)
+        self.update(
+            denoise_session, engine, execute_imagepipeline=False, force=True
+        )
         if final:
             self.denoised = True
         return True
 
-    def _fetch_pixels(self, luxcore_session, execute_imagepipeline):
+    def _fetch_pixels(
+        self, luxcore_session, execute_imagepipeline, lock=None
+    ):
         """Blocking film readback + imagepipeline. Runs the device-queue
         drain; with the GIL released by pyluxcore this is safe to call on a
-        worker thread."""
+        worker thread. ``lock`` (the session worker's session_lock) keeps
+        the read from racing a scene edit / session stop on the worker."""
         bufferdepth = 4 if self._transparent else 3
         size = self._width * self._height * bufferdepth
         data = np.empty(size, dtype=np.float32)
-        luxcore_session.GetFilm().GetOutputFloat(
-            self._output_type,
-            data,
-            0,  # index
-            execute_imagepipeline
-        )
+        if lock is None:
+            luxcore_session.GetFilm().GetOutputFloat(
+                self._output_type,
+                data,
+                0,  # index
+                execute_imagepipeline
+            )
+        else:
+            with lock:
+                luxcore_session.GetFilm().GetOutputFloat(
+                    self._output_type,
+                    data,
+                    0,  # index
+                    execute_imagepipeline
+                )
         # The gpu buffer uses 16-bit float. Values >= 65520 get cast to
         # infinity, leading to a black viewport.
         data[data > 65519] = 65519
@@ -359,7 +393,13 @@ class FrameBuffer:
         self._pixels_dirty = True
         return True
 
-    def update(self, luxcore_session, execute_imagepipeline=True, force=False):
+    def update(
+        self,
+        luxcore_session,
+        engine=None,
+        execute_imagepipeline=True,
+        force=False,
+    ):
         # Throttle film readback: GetOutputFloat() stalls the device
         # pipeline (a full-film download + imagepipeline run per draw) and
         # view_draw() runs at display rate. 10 Hz is plenty for a progressive
@@ -369,10 +409,16 @@ class FrameBuffer:
         if not force and now - self._last_update < 0.1:
             return False
         self._last_update = now
-        data = self._fetch_pixels(luxcore_session, execute_imagepipeline)
+        data = self._fetch_pixels(
+            luxcore_session,
+            execute_imagepipeline,
+            _session_lock(engine) if engine is not None else None,
+        )
         return self._accept_pixels(data, force)
 
-    def start_async_update(self, luxcore_session, execute_imagepipeline=True):
+    def start_async_update(
+        self, luxcore_session, engine=None, execute_imagepipeline=True
+    ):
         """Kick off a background film readback; the result lands in
         _read_data and is consumed by consume_async_update() on the main
         thread. No-op while a read is already in flight."""
@@ -381,11 +427,12 @@ class FrameBuffer:
         self._read_session = luxcore_session
         self._read_done = False
         self._last_update = time.time()
+        lock = _session_lock(engine) if engine is not None else None
 
         def work():
             try:
                 self._read_data = self._fetch_pixels(
-                    luxcore_session, execute_imagepipeline
+                    luxcore_session, execute_imagepipeline, lock
                 )
             except Exception:
                 self._read_data = None
@@ -412,7 +459,9 @@ class FrameBuffer:
             return False
         return self._accept_pixels(data)
 
-    def update_async(self, luxcore_session, execute_imagepipeline=True):
+    def update_async(
+        self, luxcore_session, engine=None, execute_imagepipeline=True
+    ):
         """Non-blocking readback driver for view_draw: consumes a finished
         read, otherwise starts a new one at the 10 Hz cadence."""
         if self.consume_async_update(luxcore_session):
@@ -420,7 +469,9 @@ class FrameBuffer:
         now = time.time()
         if now - self._last_update < 0.1:
             return False
-        return self.start_async_update(luxcore_session, execute_imagepipeline)
+        return self.start_async_update(
+            luxcore_session, engine, execute_imagepipeline
+        )
 
     def interactive_denoise_tick(self, engine, min_samples):
         """Periodic OIDN while the render is still running (interactive
@@ -447,8 +498,11 @@ class FrameBuffer:
             self._interactive_denoise = False
         if not self._interactive_denoise:
             # Not engaged yet: start once the film has some samples.
+            session = engine.session
+            if session is None:
+                return False
             try:
-                stats = engine.session.GetStats()
+                stats = session.GetStats()
                 pass_count = stats.Get("stats.renderengine.pass").GetInt()
             except RuntimeError:
                 return False
