@@ -144,6 +144,7 @@ class FrameBuffer:
         # _pending_reset is set, updates only swap in once real samples exist.
         self._pending_reset = True
         self._pending_reset_deadline = 0.0
+        self._pending_burst_deadline = 0.0
         # Worker mutation counter value at the moment begin_reset() ran:
         # a readback with box.mut_seq > this provably ran AFTER the edit
         # landed (session_lock makes reads/edits mutually exclusive), so
@@ -336,35 +337,40 @@ class FrameBuffer:
     HOLD_LAST_FRAME_MAX_S = 0.5
     # Same for camera moves: the old viewpoint is *wrong*, so bound the
     # stale display tighter (ghosting) - new samples normally land faster.
-    HOLD_LAST_FRAME_CAMERA_S = 0.15
+    HOLD_LAST_FRAME_CAMERA_S = 0.3
+    # Absolute bound on stale-frame holding across a burst of resets.
+    # Past it, whatever the film has (even nothing) is displayed - a
+    # sustained orbit on a scene too heavy for the preview pass must
+    # not freeze the view forever.
+    PENDING_BURST_MAX_S = 1.0
     # Min interval between interactive OIDN runs during rendering.
     INTERACTIVE_DENOISE_INTERVAL = 1.0
     # Fast film readback cadence right after an edit/first start, so the
     # first recognizable frame lands early (the normal 10 Hz would add up
     # to 100 ms of dead time on top of sampling).
     FAST_READ_WINDOW_S = 1.5
-    FAST_READ_INTERVAL_S = 0.05
+    FAST_READ_INTERVAL_S = 0.033
 
     def begin_reset(self, hold_s=None, engine=None):
         """Mark that the film was just cleared by a scene/camera edit.
 
         While set, update() keeps displaying the previous frame until the
-        new render has produced visible samples (bounded by the deadline
-        so genuinely black scenes still display). ``hold_s`` bounds the
-        stale-frame hold - pass a short value when the previous frame is
-        known to be wrong (camera moves) to avoid visible ghosting.
+        new render has produced visible samples. The hold slides with
+        every reset (each edit gets its own empty-film window covered)
+        but is bounded by a per-burst deadline so a film that never
+        produces content can't pin the stale frame forever.
         """
+        now = time.time()
+        if not self._pending_reset:
+            self._pending_burst_deadline = now + self.PENDING_BURST_MAX_S
         self._pending_reset = True
         if engine is not None:
             self._reset_mut_seq = _mutation_seq(engine)
-        self._fast_read_until = time.time() + self.FAST_READ_WINDOW_S
+        self._fast_read_until = now + self.FAST_READ_WINDOW_S
         hold = hold_s if hold_s is not None else self.HOLD_LAST_FRAME_MAX_S
-        if self._pending_reset_deadline < time.time():
-            # Deadline anchored at the FIRST reset of a burst: during a
-            # sustained orbit (resets every draw) a sliding deadline would
-            # pin a stale view forever if the film stays empty - after the
-            # window, live (low-sample) frames take over instead.
-            self._pending_reset_deadline = time.time() + hold
+        self._pending_reset_deadline = min(
+            now + hold, self._pending_burst_deadline
+        )
         # The denoised frames are stale now; raw updates resume until the
         # interactive denoiser re-engages.
         self._interactive_denoise = False

@@ -87,8 +87,23 @@ shadow query) — otherwise it raises AttributeError on the proxy.
   would reject every in-flight read (the viewport froze on the stale
   frame: the "sluggish orbit" bug).
 - Measured on M5 Pro (default cube, RTPATHOCL): camera edit submit→apply
-  ~1ms, apply→first post-reset pass ~82ms — so ~100-150ms end-to-end
+  ~1ms, apply→first post-reset sample ~56ms — so ~100-150ms end-to-end
   tracking during orbit once the stale-read bug is gone.
+- Edit pacing (`_submit_jobs` in `engine/viewport.py`): every applied
+  scene edit resets the film at the next render-thread frame boundary,
+  and the film is empty until the first preview pass splats. Orbit
+  fires one edit per draw (~16 ms) which would leave the film empty
+  for the whole drag. While `_pending_reset` is still waiting for
+  content, edits are deferred on `engine._deferred_edit_jobs` (newest
+  wins) and flushed when the pending frame lands - the effective edit
+  rate adapts to scene speed. The flush is bounded by the pending
+  deadline and keeps `tag_redraw` alive so a paused session can't
+  starve the deferred final position.
+- RTPATHOCL tuning (export/config.py): `resolutionreduction.preview=8`
+  (1/64-res first pass after each reset, splats blocks at weight 0.001)
+  and `resolutionreduction=4` (steady passes cover 1/16 of the film per
+  pass). Edits apply only at frame boundaries, so pass duration IS the
+  edit latency floor: ~180 ms/reset at reduction 2 → ~56 ms at 4.
 - Readback cadence: 20 Hz for `FAST_READ_WINDOW_S` (1.5s) after each
   reset/first start so the first recognizable frame lands early, then
   10 Hz steady state.

@@ -42,6 +42,16 @@ def pass_count(session):
     return session.GetStats().Get("stats.renderengine.pass").GetInt()
 
 
+def sample_count(session):
+    """Film's total accumulated sample count - the metric that matters for
+    'first visible frame': stats.renderengine.pass counts full-resolution
+    EQUIVALENT samples, so a 1/64-res preview pass doesn't move it. The
+    raw count ticks the moment the first post-reset pass splats."""
+    return session.GetFilm().GetStats().Get(
+        "stats.film.total.samplecount"
+    ).GetInt()
+
+
 def main():
     scene = bpy.context.scene
     depsgraph = bpy.context.evaluated_depsgraph_get()
@@ -58,6 +68,15 @@ def main():
     config_props.Set(pyluxcore.Property("renderengine.type", [engine_type]))
     if engine_type == "RTPATHOCL":
         config_props.Set(pyluxcore.Property("sampler.type", ["TILEPATHSAMPLER"]))
+        # Match the viewport path (export/config.py): coarse preview so
+        # the first pass after a reset lands fast.
+        config_props.Set(pyluxcore.Property(
+            "rtpath.resolutionreduction.preview", [8]))
+        config_props.Set(pyluxcore.Property(
+            "rtpath.resolutionreduction.preview.step", [2]))
+        config_props.Set(pyluxcore.Property(
+            "rtpath.resolutionreduction",
+            [int(__import__("sys").argv[-1]) if __import__("sys").argv[-1].isdigit() else 4]))
     print("bench engine:", engine_type)
 
     engine = FakeEngine()
@@ -98,10 +117,6 @@ def main():
         ))
 
         mut_before = worker.mutation_seq
-        try:
-            p0 = pass_count(engine.session)
-        except Exception:
-            p0 = -1
         t0 = time.monotonic()
         worker.submit_edit([("Parse", (props,), {})])
 
@@ -115,20 +130,29 @@ def main():
             break
         t_apply = time.monotonic()
 
-        # Wait for a new pass after the reset (pass counter drops to ~0
-        # on film reset, then climbs again).
+        # Wait for the first post-reset sample: the film resets at the
+        # next frame boundary after the edit lands, so samplecount drops
+        # (possibly between polls) then climbs once the first preview
+        # pass splats. That climb is the earliest a readback could show
+        # post-edit content.
+        s0 = sample_count(engine.session)
+        seen_reset = False
         t_pass = None
         while time.monotonic() - t_apply < 15:
             try:
-                p = pass_count(engine.session)
+                p = sample_count(engine.session)
             except Exception:
-                p = -1
-            if 0 < p != p0 or (p0 <= 0 and p > 0):
+                p = s0
+            if not seen_reset:
+                # p < s0 means the film restarted (reset observed); if
+                # samples already landed again this is also t_pass.
+                seen_reset = p < s0
+            if seen_reset and p > 0:
                 t_pass = time.monotonic()
                 break
             time.sleep(0.005)
         if t_pass is None:
-            print(f"FAIL no new pass after edit {i}")
+            print(f"FAIL no new samples after edit {i}")
             fails += 1
             break
 

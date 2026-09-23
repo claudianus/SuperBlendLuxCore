@@ -48,6 +48,46 @@ def _set_stats(engine, text, sub):
         engine.update_stats(text, sub)
 
 
+def _submit_jobs(engine, worker, framebuffer, jobs, has_camera):
+    """Forward exporter jobs to the session worker, pacing scene edits.
+
+    Every applied edit resets the film at the next frame boundary, and
+    the film stays empty until the first preview pass lands (~20-80 ms).
+    Submitting edits faster than that (a camera orbit or object drag
+    fires one per draw, ~16 ms) leaves the film perpetually empty - the
+    viewport renders black for the entire drag. While a reset is still
+    waiting for content, edits are deferred (newest wins) and flushed
+    once the film has a frame again, so the effective edit rate adapts
+    to scene speed. Deferral is bounded by the pending deadline, so a
+    starved film (paused session, empty scene) still releases the job.
+    """
+    if (
+        framebuffer is not None
+        and framebuffer._pending_reset
+        and time() < framebuffer._pending_reset_deadline
+    ):
+        engine._deferred_edit_jobs = (jobs, has_camera)
+        return
+    for kind, payload in jobs:
+        if kind == "edit":
+            worker.submit_edit(payload)
+        elif kind == "parse":
+            worker.submit_parse(payload)
+    # The edit resumes a paused session on the worker: re-anchor the
+    # halt timer so the resumed render isn't instantly re-paused when
+    # halt_time already elapsed (paused-lockup / black viewport).
+    engine.viewport_start_time = time()
+    if framebuffer is not None:
+        # Film was reset by the edit: hold the last frame until the new
+        # render has produced visible samples (no black flash on orbit).
+        # Camera moves get a shorter hold: the old viewpoint is wrong.
+        framebuffer.begin_reset(
+            FrameBuffer.HOLD_LAST_FRAME_CAMERA_S if has_camera else None,
+            engine=engine,
+        )
+        framebuffer.reset_denoiser()
+
+
 def _locked_session_call(engine, fn, *args):
     """Call ``fn(*args)`` while holding the worker's session_lock.
 
@@ -216,19 +256,10 @@ def view_update(engine, context, depsgraph, changes=None):
             traceback.print_exc()
             force_session_restart(engine)
             return
-        for kind, payload in jobs:
-            if kind == "edit":
-                worker.submit_edit(payload)
-            elif kind == "parse":
-                worker.submit_parse(payload)
-        # The edit resumes a paused session on the worker: re-anchor the
-        # halt timer at submit time so view_draw doesn't immediately
-        # re-pause when halt_time already elapsed (paused-lockup).
-        engine.viewport_start_time = time()
-
-        if engine.framebuffer:
-            engine.framebuffer.begin_reset(engine=engine)
-            engine.framebuffer.reset_denoiser()
+        _submit_jobs(
+            engine, worker, engine.framebuffer, jobs,
+            has_camera=bool(changes & export.Change.CAMERA),
+        )
 
 
 def view_draw(engine, context, depsgraph):
@@ -350,26 +381,10 @@ def view_draw(engine, context, depsgraph):
             force_session_restart(engine)
             engine.tag_redraw()
             return
-        for kind, payload in jobs:
-            if kind == "edit":
-                worker.submit_edit(payload)
-            elif kind == "parse":
-                worker.submit_parse(payload)
-        # The edit resumes a paused session on the worker: re-anchor the
-        # halt timer so the resumed render isn't instantly re-paused when
-        # halt_time already elapsed (paused-lockup / black viewport).
-        engine.viewport_start_time = time()
-        # Film was reset by the edit: hold the last frame until the new
-        # render has produced visible samples (no black flash on orbit).
-        # Camera moves get a shorter hold: the old viewpoint is wrong, so
-        # live frames should take over quickly to limit ghosting.
-        framebuffer.begin_reset(
-            FrameBuffer.HOLD_LAST_FRAME_CAMERA_S
-            if changes & export.Change.CAMERA
-            else None,
-            engine=engine,
+        _submit_jobs(
+            engine, worker, framebuffer, jobs,
+            has_camera=bool(changes & export.Change.CAMERA),
         )
-        framebuffer.reset_denoiser()
     elif changes:
         # Non-camera changes noticed in draw: let view_update handle them.
         engine.tag_update()
@@ -379,6 +394,38 @@ def view_draw(engine, context, depsgraph):
     # gracefully to RuntimeError while engine.session itself may turn
     # into None and raise AttributeError mid-draw.
     session = engine.session
+
+    # Flush a camera edit deferred while the film was still empty. The
+    # pending reset clears when post-reset content lands (or on the
+    # bounded deadline), so this fires as soon as the last edit produced
+    # a frame - the effective camera-edit rate adapts to scene speed.
+    deferred = getattr(engine, "_deferred_edit_jobs", None)
+    if deferred is not None:
+        still_waiting = (
+            framebuffer._pending_reset
+            and time() < framebuffer._pending_reset_deadline
+        )
+        if still_waiting:
+            # Keep draws flowing until the deferred edit can fire: while
+            # paused, nothing tags a redraw and the final camera position
+            # would never be submitted.
+            engine.tag_redraw()
+        else:
+            engine._deferred_edit_jobs = None
+            deferred_jobs, deferred_has_camera = deferred
+            for kind, payload in deferred_jobs:
+                if kind == "edit":
+                    worker.submit_edit(payload)
+                elif kind == "parse":
+                    worker.submit_parse(payload)
+            engine.viewport_start_time = time()
+            framebuffer.begin_reset(
+                FrameBuffer.HOLD_LAST_FRAME_CAMERA_S
+                if deferred_has_camera
+                else None,
+                engine=engine,
+            )
+            framebuffer.reset_denoiser()
 
     if utils.in_material_shading_mode(context):
         paused = (
