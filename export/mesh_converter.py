@@ -163,26 +163,61 @@ def convert(
         print(f"[BLC] - {fmt_layer(alphas, 'alpha')}")
 
         mesh_definitions = []
+        submesh_maps = {}
+
+        # Each submesh only gets the loops its triangles actually use:
+        # previously every material slot carried a full copy of all
+        # loop-expanded arrays, so LuxCore-side geometry memory scaled
+        # with the material count. The mask+remap scheme is O(L) per
+        # submesh instead of np.unique's O(L log L) sort.
+        loop_count = len(loop_points)
+        used_mask = np.zeros(loop_count, dtype=bool)
+        remap = np.empty(loop_count, dtype=np.uint32)
         for mat in unique_mats:
             mat_tri_ids = np.flatnonzero(loop_triangle_materials == mat)
             mat_triangles = triangle_loops[mat_tri_ids]
             name = f"{str(mesh_key)}{mat:03d}"
 
+            used_mask.fill(False)
+            used_mask[mat_triangles.ravel()] = True
+            uniq = np.flatnonzero(used_mask)
+            # uniq is sorted; it is the identity iff it covers all loops
+            is_identity = len(uniq) == loop_count
+            if is_identity:
+                sub_points = loop_points
+                sub_normals = loop_normals
+                sub_uvs = uvs
+                sub_rgb = rgb
+                sub_alphas = alphas
+                sub_tris = mat_triangles
+            else:
+                remap[uniq] = np.arange(len(uniq), dtype=np.uint32)
+                sub_points = loop_points[uniq]
+                sub_normals = loop_normals[uniq]
+                sub_uvs = [uv[uniq] for uv in uvs]
+                sub_rgb = [c[uniq] for c in rgb]
+                sub_alphas = [a[uniq] for a in alphas]
+                sub_tris = remap[mat_triangles]
+                submesh_maps[name] = uniq
 
-            print(f"[BLC] - Submesh #{mat:03d}: {len(mat_triangles)} triangles")
+            print(
+                f"[BLC] - Submesh #{mat:03d}: {len(mat_triangles)} triangles, "
+                f"{len(sub_points)} points"
+            )
 
             luxcore_scene.DefineMeshExt(
                 name=name,
-                points=loop_points,
-                triangles=mat_triangles,
-                normals=loop_normals,
-                uvs=uvs,
-                colors=rgb,
-                alphas=alphas,
+                points=sub_points,
+                triangles=sub_tris,
+                normals=sub_normals,
+                uvs=sub_uvs,
+                colors=sub_rgb,
+                alphas=sub_alphas,
                 transformation=mesh_transform,
             )
             for aov_index, aov in enumerate(vert_aovs):
-                luxcore_scene.SetMeshVertexAOV(name, aov_index, aov.tolist())
+                sub_aov = aov if is_identity else aov[uniq]
+                luxcore_scene.SetMeshVertexAOV(name, aov_index, sub_aov.tolist())
             for aov_index, attr in enumerate(face_attrs):
                 face_vals = named_attributes.face_values(attr)
                 luxcore_scene.SetMeshTriangleAOV(
@@ -203,6 +238,8 @@ def convert(
         # count and loop mapping so motion_blur.py can validate each
         # shutter step's topology against the exported mesh. Only kept
         # for meshes that may actually collect a vertex series.
+        # `submesh_maps` maps each compacted submesh back to its loop
+        # indices so per-step positions can be compacted identically.
         vert_sig = None
         if (
             exporter is not None
@@ -210,8 +247,10 @@ def convert(
             and getattr(obj.luxcore, "enable_motion_blur", False)
         ):
             vert_sig = (len(mesh.vertices), loop_vertices.copy())
+        else:
+            submesh_maps = None
 
-        return caches.exported_data.ExportedMesh(mesh_definitions, vert_sig)
+        return caches.exported_data.ExportedMesh(mesh_definitions, vert_sig, submesh_maps)
 
 
 @contextmanager

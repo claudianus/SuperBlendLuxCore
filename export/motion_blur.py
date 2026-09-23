@@ -410,7 +410,15 @@ def _build_vertex_motion(vert_steps, frame_offsets, luxcore_scene):
             # Mesh does not deform — no vertex series needed
             continue
         for shape_name, _mat in rec["mesh"].mesh_definitions:
-            luxcore_scene.SetMeshVertexMotion(shape_name, times, steps_data)
+            # Submeshes are exported with locally compacted vertices —
+            # apply the same loop remap to every step so the series
+            # matches the shape's vertex count.
+            uniq = rec["mesh"].submesh_maps.get(shape_name)
+            if uniq is None:
+                luxcore_scene.SetMeshVertexMotion(shape_name, times, steps_data)
+            else:
+                sub_steps = [d[uniq] for d in steps_data]
+                luxcore_scene.SetMeshVertexMotion(shape_name, times, sub_steps)
 
 
 def _collect_strand_step(strand_steps, exported_thing, eval_obj, depsgraph, step):
