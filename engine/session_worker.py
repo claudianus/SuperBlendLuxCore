@@ -111,6 +111,10 @@ class SessionWorker:
         # Generation counter for start jobs: a superseded start (a newer
         # export landed while it was queued) skips its build.
         self._start_seq = 0
+        # Incremented after every applied mutation (edit/config/parse/
+        # start): film reads record it at kickoff so the framebuffer can
+        # tell post-edit pixels from pre-edit ones (hold-last-frame).
+        self.mutation_seq = 0
 
         self._thread = threading.Thread(
             target=self._run, daemon=True, name="LuxCoreSessionWorker"
@@ -305,6 +309,7 @@ class SessionWorker:
             session = pyluxcore.RenderSession(renderconfig)
             session.Start()
             self.phase = ""
+            self.mutation_seq += 1
             self._publish(session)
         finally:
             self._lifecycle_busy = False
@@ -358,6 +363,7 @@ class SessionWorker:
             session = pyluxcore.RenderSession(renderconfig)
             session.Start()
             self.phase = ""
+            self.mutation_seq += 1
             self._publish(session)
         finally:
             self._lifecycle_busy = False
@@ -393,6 +399,17 @@ class SessionWorker:
             session.EndSceneEdit()
             if session.IsInPause():
                 session.Resume()
+        self.mutation_seq += 1
+        # The edit restarted rendering: re-anchor the viewport halt timer
+        # at the actual resume point. Without this a queued edit that runs
+        # after halt_time elapsed gets re-paused instantly by view_draw
+        # (resume -> pause loop = black/frozen viewport).
+        engine = self._get_engine()
+        if engine is not None:
+            try:
+                engine.viewport_start_time = time.time()
+            except ReferenceError:
+                pass
         self.phase = ""
 
     def _do_parse(self, props):
@@ -401,6 +418,7 @@ class SessionWorker:
             return
         with self.session_lock:
             session.Parse(props)
+        self.mutation_seq += 1
 
 
 def _replay_ops(scene, ops):

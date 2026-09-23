@@ -69,15 +69,73 @@ shadow query) — otherwise it raises AttributeError on the proxy.
 - Film readback (`GetOutputFloat` = device drain + imagepipeline) runs
   on a readback thread (`update_async`); results are consumed on the
   main thread and stale results (session swapped meanwhile) are dropped.
-- `begin_reset()` holds the last visible frame while the new render has
-  no samples yet (bounded by `HOLD_LAST_FRAME_MAX_S`) — no black flash
-  on camera orbit, resize, or session restart.
+- `begin_reset(hold_s)` holds the last visible frame while the new
+  render has no samples yet — no black flash on camera orbit, resize,
+  or session restart. `HOLD_LAST_FRAME_MAX_S` (0.5s) bounds generic
+  edits; camera moves pass `HOLD_LAST_FRAME_CAMERA_S` (0.15s) because
+  the old viewpoint is wrong — the deadline is anchored at the FIRST
+  reset of a burst so a sustained orbit can't pin a stale view forever.
+- Stale-read rejection is two-layered: `_reset_seq` (bumped by every
+  `begin_reset`) rejects reads kicked off before the reset call, and
+  `worker.mutation_seq` (bumped after every applied edit/config/parse/
+  start) rejects reads whose pixels predate the latest mutation — the
+  frame that would flash black or ghost is dropped before upload.
+- Readback cadence: 20 Hz for `FAST_READ_WINDOW_S` (1.5s) after each
+  reset/first start so the first recognizable frame lands early, then
+  10 Hz steady state.
+- Readback/denoiser workers deliberately never reference the
+  FrameBuffer or engine objects (module-level `run_denoiser`/`_fetch_pixels`
+  take plain args + a box dict): a thread outliving teardown would
+  otherwise free GL objects off the main thread = crash.
+- All main-thread session calls go through `_locked_session_call`
+  (non-blocking `session_lock`): a worker mid-`Stop`/`BeginSceneEdit`
+  makes view_draw skip the call that frame instead of racing a torn
+  session (the Solid<->Rendered switch crash) or freezing behind it.
 - OIDN denoise runs off-thread (`run_denoiser`); GL upload stays on the
   main thread (`consume_denoise_result`). Results pinned to the paused
   session are ignored if the session was replaced.
 - `view_draw` snapshots `engine.session` once per draw: the worker may
   publish None mid-draw, and a stale-but-alive session degrades to a
   caught RuntimeError instead of AttributeError.
+
+## Camera view math (utils, export/camera.py)
+
+Verified against the Blender 5.2.2 source clone (`blender-5.2`,
+`source/blender/blenkernel/intern/camera.cc`, `view3d_draw.cc`):
+
+- `zoom` = `CAMERA_PARAM_ZOOM_INIT_CAMOB / BKE_screen_view3d_zoom_to_fac(camzoom)`
+  = `4 / (sqrt(2) + camzoom/50)^2`; `shiftx *= zoomfac`,
+  `offset = 2*camd*zoomfac` before `compute_viewplane`.
+- `BKE_camera_sensor_size` uses the RAW fit: AUTO always reads
+  `sensor_width` (only explicit VERTICAL reads `sensor_height`) — while
+  `BKE_camera_sensor_fit` resolves the fit AXIS on the frame/region
+  aspect. `_fieldofview_deg` therefore always uses sensor_width for AUTO
+  even on portrait frames.
+- `calc_screenwindow`: no-border camera view normalizes by the region
+  dims along the resolved fit (unit pixel aspect, matching
+  `compute_viewplane(winx, winy, 1, 1)`); border view uses the camera's
+  own viewplane (render dims + pixel aspect) lerped by the border —
+  camzoom/view_camera_offset do NOT enter it (they only move the drawn
+  quad), so zooming the camera view no longer restarts the render.
+- `calc_filmsize` for camera+border anchors on the fitted frame size —
+  zoom-independent, so no session restart on camzoom.
+- `calc_camera_frame_rect` replicates `view3d_camera_border()`: maps the
+  camera viewplane into the viewport viewplane; the draw quad tracks
+  camzoom/pan instantly via `FrameBuffer.sync_view_transform` (6-vertex
+  batch rebuild only).
+- Regression: `dev-tools/camera_viewplane_test.py` (Blender -b) compares
+  all of the above against an independent faithful port over ~6.5k
+  cases: sensor fits, persp+ortho, pixel aspects, shifts, pans, zooms.
+
+## Halt timer / pause lockup
+
+`viewport_start_time` must be re-anchored whenever rendering resumes:
+
+- at submit time in `view_update`/`view_draw` (covers the common case),
+- and inside `SessionWorker._do_edit` at the actual resume point —
+  a queued edit that lands after `halt_time` elapsed would otherwise be
+  re-paused by the very next `view_draw` (resume->pause loop = black,
+  unresponsive viewport).
 
 ## Status line
 

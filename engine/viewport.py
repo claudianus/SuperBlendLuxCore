@@ -35,6 +35,31 @@ def _worker(engine):
     return worker
 
 
+_LOCK_BUSY = object()
+
+
+def _locked_session_call(engine, fn, *args):
+    """Call ``fn(*args)`` while holding the worker's session_lock.
+
+    Non-blocking: returns _LOCK_BUSY when the worker is mid-mutation
+    (scene edit / Stop / Parse), so view_draw skips the call this frame
+    instead of freezing the UI behind a full tile pass. Serializing every
+    session call matters for correctness too: an unsynchronized read
+    while the worker stops the session can crash Blender (the Solid ->
+    Rendered teardown race).
+    """
+    worker = getattr(engine, "session_worker", None)
+    lock = getattr(worker, "session_lock", None) if worker else None
+    if lock is None:
+        return fn(*args)
+    if not lock.acquire(blocking=False):
+        return _LOCK_BUSY
+    try:
+        return fn(*args)
+    finally:
+        lock.release()
+
+
 def _drain_worker_error(engine):
     """Surface async worker failures to the user (error log + stats).
 
@@ -186,6 +211,10 @@ def view_update(engine, context, depsgraph, changes=None):
                 worker.submit_edit(payload)
             elif kind == "parse":
                 worker.submit_parse(payload)
+        # The edit resumes a paused session on the worker: re-anchor the
+        # halt timer at submit time so view_draw doesn't immediately
+        # re-pause when halt_time already elapsed (paused-lockup).
+        engine.viewport_start_time = time()
 
         if engine.framebuffer:
             engine.framebuffer.begin_reset()
@@ -203,7 +232,7 @@ def view_draw(engine, context, depsgraph):
         phase = worker.phase or getattr(engine, "viewport_phase", "")
         engine.update_stats("Starting viewport render", phase)
         if engine.framebuffer:
-            engine.framebuffer.draw()
+            engine.framebuffer.draw(context, scene)
         engine.tag_redraw()
         return
 
@@ -263,7 +292,7 @@ def view_draw(engine, context, depsgraph):
         # Keep showing the previous session's last frame while the new
         # session exports/starts instead of flashing black.
         if engine.framebuffer:
-            engine.framebuffer.draw()
+            engine.framebuffer.draw(context, scene)
         engine.tag_update()
         engine.tag_redraw()
         return
@@ -288,11 +317,12 @@ def view_draw(engine, context, depsgraph):
         # user sees the resized old frame instead of a black flash.
         worker.submit_config(engine.exporter.config_cache.props)
         changes &= ~export.Change.CONFIG
+        engine.viewport_start_time = time()
         framebuffer.begin_reset()
         framebuffer.reset_denoiser()
         if not changes:
             engine.tag_redraw()
-            framebuffer.draw()
+            framebuffer.draw(context, scene)
             return
 
     if changes & (export.Change.CAMERA | export.Change.MATERIAL):
@@ -314,9 +344,19 @@ def view_draw(engine, context, depsgraph):
                 worker.submit_edit(payload)
             elif kind == "parse":
                 worker.submit_parse(payload)
+        # The edit resumes a paused session on the worker: re-anchor the
+        # halt timer so the resumed render isn't instantly re-paused when
+        # halt_time already elapsed (paused-lockup / black viewport).
+        engine.viewport_start_time = time()
         # Film was reset by the edit: hold the last frame until the new
         # render has produced visible samples (no black flash on orbit).
-        framebuffer.begin_reset()
+        # Camera moves get a shorter hold: the old viewpoint is wrong, so
+        # live frames should take over quickly to limit ghosting.
+        framebuffer.begin_reset(
+            FrameBuffer.HOLD_LAST_FRAME_CAMERA_S
+            if changes & export.Change.CAMERA
+            else None
+        )
         framebuffer.reset_denoiser()
     elif changes:
         # Non-camera changes noticed in draw: let view_update handle them.
@@ -329,36 +369,34 @@ def view_draw(engine, context, depsgraph):
     session = engine.session
 
     if utils.in_material_shading_mode(context):
-        paused = False
-        try:
-            paused = session.IsInPause()
-        except Exception:
-            pass
+        paused = (
+            session is not None
+            and _locked_session_call(engine, session.IsInPause) is True
+        )
         if not paused:
             # Non-blocking: draw whatever the film holds instead of waiting
             # for a full frame (avoids UI freezes on session restarts)
             try:
                 if session is not None:
-                    session.UpdateStats()
+                    _locked_session_call(engine, session.UpdateStats)
                     framebuffer.update(session, engine)
             except Exception:
                 pass
             engine.update_stats("", "")
 
-            try:
-                stats = session.GetStats()
-                samples = stats.Get("stats.renderengine.pass").GetInt()
-            except Exception:
-                samples = 0
-
-            if samples >= 5:
+            samples = 0
+            if session is not None:
                 try:
-                    session.Pause()
+                    stats = _locked_session_call(engine, session.GetStats)
+                    samples = stats.Get("stats.renderengine.pass").GetInt()
                 except Exception:
                     pass
+
+            if samples >= 5:
+                _locked_session_call(engine, session.Pause)
             else:
                 engine.tag_redraw()
-        framebuffer.draw()
+        framebuffer.draw(context, scene)
         return
 
     # Check if we need to pause the viewport render
@@ -368,18 +406,15 @@ def view_draw(engine, context, depsgraph):
     status_message = worker.phase if worker is not None else ""
 
     if rendered_time > halt_time:
-        # Put in pause...
-        paused = False
-        try:
-            paused = session.IsInPause()
-        except Exception:
-            pass
+        # Put in pause... (non-blocking: if the worker is mid-edit the
+        # pause is simply retried on the next draw instead of freezing)
+        paused = (
+            session is not None
+            and _locked_session_call(engine, session.IsInPause) is True
+        )
         if not paused and session is not None:
             print("[Engine/Viewport] Pausing session")
-            try:
-                session.Pause()
-            except Exception:
-                pass
+            _locked_session_call(engine, session.Pause)
         status_message = status_message or "(Paused)"
 
         # ...and denoise
@@ -410,7 +445,7 @@ def view_draw(engine, context, depsgraph):
         # because of tag_redraw() below).
         try:
             if session is not None:
-                session.UpdateStats()
+                _locked_session_call(engine, session.UpdateStats)
                 vp = scene.luxcore.viewport
                 interactive = (
                     vp.denoise_interactive
@@ -434,12 +469,16 @@ def view_draw(engine, context, depsgraph):
             pass
         engine.tag_redraw()
 
-    framebuffer.draw()
+    framebuffer.draw(context, scene)
 
     # Show formatted statistics in Blender UI
     try:
-        config = session.GetRenderConfig()
-        stats = session.GetStats()
+        if session is None:
+            raise RuntimeError("no session")
+        config = _locked_session_call(engine, session.GetRenderConfig)
+        stats = _locked_session_call(engine, session.GetStats)
+        if config is _LOCK_BUSY or stats is _LOCK_BUSY:
+            raise RuntimeError("session busy")
         pretty_stats = utils_render.get_pretty_stats(
             config, stats, scene, context
         )
