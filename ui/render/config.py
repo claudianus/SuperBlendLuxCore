@@ -110,6 +110,35 @@ class SUPERLUXCORE_RENDER_PT_lightpaths_bounces(RenderButtonsPanel, Panel):
             col.prop(config, "bidir_light_maxdepth")
 
 
+class SUPERLUXCORE_RENDER_PT_bidir_focus(RenderButtonsPanel, Panel):
+    COMPAT_ENGINES = {"SUPERLUXCORE"}
+    bl_parent_id = "SUPERLUXCORE_RENDER_PT_lightpaths"
+    bl_label = "Caustic Focus"
+
+    @classmethod
+    def poll(cls, context):
+        config = context.scene.superluxcore.config
+        return (
+            config.engine == "BIDIR"
+            and context.scene.render.engine == "SUPERLUXCORE"
+        )
+
+    def draw_header(self, context):
+        layout = self.layout
+        config = context.scene.superluxcore.config
+        layout.prop(config.path, "lighttracing_focus", text="")
+
+    def draw(self, context):
+        layout = self.layout
+        config = context.scene.superluxcore.config
+        layout.use_property_split = True
+        layout.use_property_decorate = False
+        col = layout.column(align=True)
+        col.enabled = config.path.lighttracing_focus
+        col.prop(config.path, "lighttracing_focus_ratio")
+        col.prop(config.path, "lighttracing_focus_radius")
+
+
 class SUPERLUXCORE_RENDER_PT_add_light_tracing(RenderButtonsPanel, Panel):
     COMPAT_ENGINES = {"SUPERLUXCORE"}
     bl_label = "Light Tracing"
