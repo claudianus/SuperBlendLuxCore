@@ -108,6 +108,14 @@ DLSC_DESC = (
     "Only used during final render"
 )
 
+LIGHT_BVH_DESC = (
+    "Hierarchical light sampling (Estevez & Kulla 2018, the technique behind "
+    "Cycles' light tree): a BVH over the lights bounds each cluster's "
+    "contribution by distance, emission cone and surface orientation, so "
+    "bright/relevant lights are picked with O(log N) cost. Recommended for "
+    "scenes with many lights or high-poly mesh emitters"
+)
+
 LARGE_STEP_RATE_DESC = (
     "Probability of generating a large sample mutation. "
     "Low values cause the sampler to focus more on "
@@ -1036,6 +1044,7 @@ class SuperLuxCoreConfig(PropertyGroup):
         ("POWER", "Power", POWER_DESC, 2),
         ("UNIFORM", "Uniform", UNIFORM_DESC, 3),
         ("RESTIR_DI", "ReSTIR DI (reservoir)", RESTIR_DI_DESC, 4),
+        ("LIGHT_BVH", "Light BVH", LIGHT_BVH_DESC, 5),
     ]
     light_strategy: EnumProperty(name="Light Strategy", items=light_strategy_items, default="AUTO",
                                   description="Decides how the lights in the scene are sampled")
