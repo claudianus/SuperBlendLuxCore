@@ -21,6 +21,10 @@ class ExportedMesh:
         # per-material compaction in mesh_converter.convert). Missing
         # entries mean the submesh covers the full loop domain.
         self.submesh_maps = submesh_maps or {}
+        # .lxm proxy meshes carry no Blender-side buffers: the absolute
+        # .lxm path, or None for converted meshes. ExportedObject reads
+        # this to emit "scene.objects.X.ply" instead of ".shape".
+        self.proxy_path = None
 
 
 class ExportedData:
@@ -53,6 +57,9 @@ class ExportedObject(ExportedData):
         self.exported_mesh = None
         self.vert_mesh_key = None
         self.has_shape_wrapper = False
+        # Absolute .lxm proxy path: when set, parts are emitted as
+        # "scene.objects.X.ply" file references instead of ".shape".
+        self.proxy_path = None
         # Strand deformation motion blur (E9): records of strand meshes
         # (hair curves or particle hair) exported by this object. Each
         # entry is a dict {"mesh", "kind", "sig", "space_matrix",
@@ -69,7 +76,10 @@ class ExportedObject(ExportedData):
         definitions = {}
 
         for part in self.parts:
-            definitions[part.lux_obj + ".shape"] = part.lux_shape
+            if self.proxy_path:
+                definitions[part.lux_obj + ".ply"] = self.proxy_path
+            else:
+                definitions[part.lux_obj + ".shape"] = part.lux_shape
             definitions[part.lux_obj + ".material"] = part.lux_mat
             definitions[part.lux_obj + ".camerainvisible"] = not self.visible_to_camera
             if self.obj_id != -1:

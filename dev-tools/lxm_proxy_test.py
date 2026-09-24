@@ -142,4 +142,91 @@ for bad in ("/tmp/lxm_bad_magic.lxm", "/tmp/lxm_truncated.lxm"):
     except RuntimeError as e:
         print(f"[LxmTest] {bad} correctly rejected: {e}")
 
+# 6) layer coverage: normals + uv + color + alpha + triAOV round-trip.
+#    (vertAOV is parsed by the PLY loader but never attached — an
+#    existing upstream TODO — so it is not exercised here.)
+
+NV, NT = 64, 124
+LAYERED_PLY = "/tmp/lxm_layered.ply"
+LAYERED_LXM = "/tmp/lxm_layered.lxm"
+
+verts = [(float(i), float(i * 2), float(i % 7)) for i in range(NV)]
+norms = [(0.0, 0.0, 1.0)] * NV
+uvs = [(i / NV, 1.0 - i / NV) for i in range(NV)]
+cols = [(i * 3 % 256, i * 5 % 256, i * 7 % 256) for i in range(NV)]
+alphas = [i * 2 % 256 for i in range(NV)]
+tris = [(i, i + 1, i + 2) for i in range(NT)]
+tri_aov = [float(i) * 0.5 for i in range(NT)]
+
+with open(LAYERED_PLY, "wb") as f:
+    f.write(b"ply\nformat binary_little_endian 1.0\n")
+    f.write(f"element vertex {NV}\n".encode())
+    for p in ("x", "y", "z", "nx", "ny", "nz", "s", "t"):
+        f.write(f"property float {p}\n".encode())
+    for p in ("red", "green", "blue", "alpha"):
+        f.write(f"property uchar {p}\n".encode())
+    f.write(f"element face {NT}\n".encode())
+    f.write(b"property list uchar int vertex_indices\n")
+    f.write(f"element faceaov {NT}\n".encode())
+    f.write(b"property float triaov\nend_header\n")
+    for i in range(NV):
+        f.write(struct.pack("<8f4B", *verts[i], *norms[i],
+                            *uvs[i], *cols[i], alphas[i]))
+    for t in tris:
+        f.write(struct.pack("<B3i", 3, *t))
+    for v in tri_aov:
+        f.write(struct.pack("<f", v))
+
+scn3 = pyluxcore.Scene()
+p3 = pyluxcore.Properties()
+p3.SetFromString(
+    SCN_TMPL.format(mesh=LAYERED_PLY).replace(
+        "scene.objects.floor", "scene.objects.layfloor")
+)
+scn3.Parse(p3)
+scn3.SaveMesh(LAYERED_PLY, LAYERED_LXM)
+
+lxm2 = open(LAYERED_LXM, "rb").read()
+flags = struct.unpack("<I", lxm2[8:12])[0]
+masks = struct.unpack("<5I", lxm2[32:52])
+uvm, colm, alm, vam, tam = masks
+print(f"[LxmTest] layered: flags={flags} masks uv={uvm} col={colm} "
+      f"alpha={alm} vertaov={vam} triaov={tam}")
+
+pos2 = 128
+ok = True
+# verts
+exp = b"".join(struct.pack("<3f", *v) for v in verts)
+ok &= lxm2[pos2:pos2 + NV * 12] == exp; pos2 += NV * 12
+pos2 = (pos2 + 63) & ~63
+# tris
+exp = b"".join(struct.pack("<3i", *t) for t in tris)
+ok &= lxm2[pos2:pos2 + NT * 12] == exp; pos2 += NT * 12
+pos2 = (pos2 + 63) & ~63
+# normals
+exp = b"".join(struct.pack("<3f", *n) for n in norms)
+ok &= lxm2[pos2:pos2 + NV * 12] == exp; pos2 += NV * 12
+pos2 = (pos2 + 63) & ~63
+# uv layer 0
+exp = b"".join(struct.pack("<2f", *uv) for uv in uvs)
+ok &= lxm2[pos2:pos2 + NV * 8] == exp; pos2 += NV * 8
+pos2 = (pos2 + 63) & ~63
+# color layer 0: uchar -> float/255
+exp = b"".join(struct.pack("<3f", *(c / 255.0 for c in col)) for col in cols)
+ok &= lxm2[pos2:pos2 + NV * 12] == exp; pos2 += NV * 12
+pos2 = (pos2 + 63) & ~63
+# alpha layer 0
+exp = b"".join(struct.pack("<f", a / 255.0) for a in alphas)
+ok &= lxm2[pos2:pos2 + NV * 4] == exp; pos2 += NV * 4
+pos2 = (pos2 + 63) & ~63
+# triAOV layer 0 — last section, no trailing pad in the file
+exp = b"".join(struct.pack("<f", v) for v in tri_aov)
+ok &= lxm2[pos2:pos2 + NT * 4] == exp; pos2 += NT * 4
+ok &= pos2 == len(lxm2)
+expected_masks = (flags == 1 and uvm == 1 and colm == 1 and
+                  alm == 1 and vam == 0 and tam == 1)
+print(f"[LxmTest] layer sections byte-exact: {ok}, "
+      f"masks expected: {expected_masks} "
+      f"({'PASS' if ok and expected_masks else 'FAIL'})")
+
 print("[LxmTest] DONE")

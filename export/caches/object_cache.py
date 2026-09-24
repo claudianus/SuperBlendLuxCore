@@ -1,4 +1,6 @@
 import bpy
+import hashlib
+import os
 from array import array
 from contextlib import contextmanager
 from functools import lru_cache
@@ -16,7 +18,7 @@ from ..hair import (
     get_hair_material_index,
     convert_hair_curves,
 )
-from .exported_data import ExportedObject, ExportedPart
+from .exported_data import ExportedMesh, ExportedObject, ExportedPart
 from .. import light, material, pointcloud, volume, cycles_node_reader
 from ...utils.errorlog import LuxCoreErrorLog
 from ...utils import node as utils_node
@@ -1082,24 +1084,47 @@ class ObjectCache2:
             or uses_displacement(obj)
         )
 
-        mesh_key = self._get_mesh_key(obj, use_instancing, is_viewport_render)
-
-        if use_instancing and mesh_key in self.exported_meshes:
-            exported_mesh = self.exported_meshes[mesh_key]
-            loaded_from_cache = True
-        else:
-            exported_mesh = mesh_converter.convert(
-                obj,
-                mesh_key,
-                depsgraph,
-                luxcore_scene,
-                is_viewport_render,
-                use_instancing,
-                transform,
-                exporter,
+        # .lxm mesh proxy: the geometry lives in a file that LuxCore
+        # maps copy-on-write at render time — the Blender mesh is never
+        # read at all. The file identity (path + mtime + size) is part
+        # of the mesh key so a re-baked proxy re-exports automatically.
+        proxy_path = ""
+        if obj.type == "MESH":
+            proxy_path = bpy.path.abspath(
+                getattr(obj.luxcore, "proxy_filepath", "") or ""
             )
+        if proxy_path and os.path.isfile(proxy_path):
+            st = os.stat(proxy_path)
+            mesh_key = "lxmproxy_" + hashlib.blake2b(
+                f"{proxy_path}:{st.st_mtime_ns}:{st.st_size}".encode(),
+                digest_size=8,
+            ).hexdigest()
+            exported_mesh = ExportedMesh([(mesh_key, 0)])
+            exported_mesh.proxy_path = proxy_path
             self.exported_meshes[mesh_key] = exported_mesh
-            loaded_from_cache = False
+            loaded_from_cache = True  # shape wrappers cannot wrap a file
+        else:
+            if proxy_path:
+                print(f"[BLC] Proxy file missing, converting mesh: {proxy_path}")
+            proxy_path = ""
+            mesh_key = self._get_mesh_key(obj, use_instancing, is_viewport_render)
+
+            if use_instancing and mesh_key in self.exported_meshes:
+                exported_mesh = self.exported_meshes[mesh_key]
+                loaded_from_cache = True
+            else:
+                exported_mesh = mesh_converter.convert(
+                    obj,
+                    mesh_key,
+                    depsgraph,
+                    luxcore_scene,
+                    is_viewport_render,
+                    use_instancing,
+                    transform,
+                    exporter,
+                )
+                self.exported_meshes[mesh_key] = exported_mesh
+                loaded_from_cache = False
 
         if exported_mesh:
             mat_names = []
@@ -1137,7 +1162,11 @@ class ObjectCache2:
 
                 mesh_definitions[idx] = [shape, mat_index]
 
-            obj_transform = transform.copy() if use_instancing else None
+            # Proxies always carry the transform on the object — a file
+            # reference cannot bake it into vertices.
+            obj_transform = (
+                transform.copy() if (use_instancing or proxy_path) else None
+            )
             obj_id = utils.make_object_id(dg_obj_instance)
 
             # mesh_definitions here is the local working copy (the mesh
@@ -1168,7 +1197,12 @@ class ObjectCache2:
             # mesh is a new mesh that would drop the base series anyway.
             exported_obj.exported_mesh = exported_mesh
             exported_obj.vert_mesh_key = mesh_key
-            exported_obj.has_shape_wrapper = any(
+            exported_obj.proxy_path = proxy_path or None
+            # .lxm proxies are file-backed, not DefineMesh-able: mark
+            # them as wrapper-shaped so the persistent-scene delta
+            # re-exports (re-parses the .ply ref) instead of trying an
+            # in-place mesh replacement.
+            exported_obj.has_shape_wrapper = bool(proxy_path) or any(
                 part.lux_shape not in base_names
                 for part in exported_obj.parts
             )
@@ -1271,6 +1305,15 @@ class ObjectCache2:
                                     or k.startswith(obj_key + "_")
                                 ]:
                                     del self.exported_objects[key]
+                        elif getattr(
+                            obj.luxcore, "proxy_filepath", ""
+                        ) and os.path.isfile(
+                            bpy.path.abspath(obj.luxcore.proxy_filepath)
+                        ):
+                            # .lxm proxy objects never read their mesh
+                            # datablock — a mesh-edit flag changes
+                            # nothing (the proxy file is the source).
+                            mesh_key = None
                         else:
                             mesh_key = self._get_mesh_key(obj, use_instancing)
 
