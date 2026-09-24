@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 # E34: "distribution" enum export test for glossy2 / metal2 / roughglass /
-# glossycoating / glossytranslucent.
+# glossycoating / glossytranslucent / carpaint.
 #
 #   Blender -b --python dev-tools/e34_distribution_export_test.py
 #
@@ -110,10 +110,28 @@ if not (get_str(props, pre + "type") == "glossytranslucent"
         and get_str(props, pre + "distribution") == "ggx"):
     fails.append("glossytranslucent distribution export failed")
 
+# --- carpaint (manual + preset paths) --------------------------------------
+n, name, props = export_node("LuxCoreNodeMatCarpaint",
+                             lambda n: setattr(n, "distribution", "ggx"))
+pre = f"scene.materials.{name}."
+if not (get_str(props, pre + "type") == "carpaint"
+        and get_str(props, pre + "distribution") == "ggx"):
+    fails.append("carpaint distribution export failed")
+
+def cfg_carpaint_preset(n):
+    n.preset = "polaris_silber"
+    n.distribution = "ggx"
+
+n, name, props = export_node("LuxCoreNodeMatCarpaint", cfg_carpaint_preset)
+pre = f"scene.materials.{name}."
+if not (get_str(props, pre + "preset") == "polaris silber"
+        and get_str(props, pre + "distribution") == "ggx"):
+    fails.append("carpaint preset distribution export failed")
+
 if fails:
     for f in fails:
         print("FAIL:", f)
     raise SystemExit(1)
 
 print("PASS: distribution enum exports correctly "
-      "(glossy2/metal2/roughglass/glossycoating/glossytranslucent)")
+      "(glossy2/metal2/roughglass/glossycoating/glossytranslucent/carpaint)")
