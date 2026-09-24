@@ -308,6 +308,10 @@ def convert(exporter, scene, context=None, engine=None):
             "PATHCPU", "PATHOCL", "TILEPATHCPU", "TILEPATHOCL",
         ):
             definitions["path.guiding.enable"] = True
+            if config.guiding_tablefile:
+                definitions["path.guiding.tablefile"] = (
+                    bpy.path.abspath(config.guiding_tablefile)
+                )
 
         # Light portals (M5): quad faces of objects flagged
         # "Light Portal" become aperture rects for the portal bounce
