@@ -73,3 +73,29 @@ vols = [k for k in props.GetAllNames() if k.startswith("scene.volumes.")]
 print("== volumes:", vols)
 
 print("PASS: OpenPBR node exports correctly")
+
+
+# --- Principled BSDF -> openpbr mapping ----------------------------------
+mat2 = bpy.data.materials.new("PrincipledTest")
+pbsd = mat2.node_tree.nodes.get("Principled BSDF")
+pbsd.inputs["Metallic"].default_value = 0.8
+pbsd.inputs["Roughness"].default_value = 0.35
+pbsd.inputs["Coat Weight"].default_value = 0.5
+pbsd.inputs["Sheen Weight"].default_value = 0.2
+pbsd.inputs["Thin Film Thickness"].default_value = 500.0
+pbsd.inputs["Subsurface Weight"].default_value = 0.3
+
+name2, props2 = export_material.convert(exporter, depsgraph, mat2, False)
+pre2 = f"scene.materials.{name2}."
+assert get_str(props2, pre2 + "type") == "openpbr"
+assert abs(float(get_str(props2, pre2 + "filmthickness")) - 0.5) < 1e-6
+assert get_str(props2, pre2 + "coatweight") == "0.5"
+assert get_str(props2, pre2 + "fuzzweight") == "0.2"
+assert get_str(props2, pre2 + "subsurfaceweight") == "0.3"
+
+# disney fallback still works
+mat2.luxcore.principled_target = "disney"
+name3, props3 = export_material.convert(exporter, depsgraph, mat2, False)
+assert get_str(props3, f"scene.materials.{name3}.type") == "disney"
+
+print("PASS: Principled BSDF -> openpbr mapping (+ disney fallback)")
