@@ -166,6 +166,10 @@ class SUPERLUXCORE_RENDER_PT_add_light_tracing(RenderButtonsPanel, Panel):
                 col = layout.column(align=True)
                 col.prop(config.path, "vertex_connection_connects")
                 col.prop(config.path, "vertex_connection_pool")
+                sub = col.column(align=True)
+                sub.enabled = config.path.vertex_connection_connects > 0
+                sub.prop(config.path, "vertex_connection_adaptive")
+                col.prop(config.path, "vertex_connection_merge_radius")
             col = layout.column(align=True)
             col.prop(config.path, "lighttracing_focus")
             if config.path.lighttracing_focus:

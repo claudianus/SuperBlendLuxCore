@@ -246,6 +246,23 @@ VERTEX_CONNECTION_POOL_DESC = (
     "1 = the paired light task only"
 )
 
+VERTEX_CONNECTION_ADAPTIVE_DESC = (
+    "Scale the per-vertex connect budget by the measured efficiency of "
+    "the sample's screen-space tile (landed luminance per spent "
+    "connect ray). Tiles where connects keep landing receive a larger "
+    "share of the budget; the inclusion reweighting keeps every "
+    "allocation unbiased. Only applies when Connect Budget is above 0"
+)
+
+VERTEX_CONNECTION_MERGE_RADIUS_DESC = (
+    "Vertex merging radius as a fraction of the scene bounding sphere "
+    "(Georgiev et al. 2012 VCM). 0 disables merging. When above 0, "
+    "light vertices inside the radius of an eye vertex contribute a "
+    "density estimate weighted by the VM MIS terms - fills in "
+    "specular-diffuse-specular caustics pure connects cannot reach. "
+    "Larger radii blur caustics but converge faster"
+)
+
 ENVLIGHT_CACHE_DESC = (
     "Enable in scenes where the world environment is only visible through small openings (e.g. a room with small windows). "
     "Do not use in open scenes, as it can be detrimental to performance in this case. "
@@ -510,6 +527,11 @@ class SuperLuxCoreConfigPath(PropertyGroup):
     vertex_connection_pool: IntProperty(name="Connect Pool", default=1,
                                     min=1, max=64,
                                     description=VERTEX_CONNECTION_POOL_DESC)
+    vertex_connection_adaptive: BoolProperty(name="Adaptive Budget", default=True,
+                                    description=VERTEX_CONNECTION_ADAPTIVE_DESC)
+    vertex_connection_merge_radius: FloatProperty(name="Merge Radius", default=0.0,
+                                    min=0.0, max=1.0, precision=5,
+                                    description=VERTEX_CONNECTION_MERGE_RADIUS_DESC)
 
     use_clamping: BoolProperty(name="Clamp Output", default=False, description=CLAMPING_DESC)
     auto_clamping: BoolProperty(

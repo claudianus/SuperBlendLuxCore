@@ -758,6 +758,14 @@ def _convert_path(
             definitions["path.vertexconnection.pool"] = (
                 path.vertex_connection_pool
             )
+            # M7b: tile-efficiency-scaled connect budget; M7c: VCM
+            # vertex merging radius (scene-radius fraction, 0 = off)
+            definitions["path.vertexconnection.adaptive"] = (
+                path.vertex_connection_adaptive
+            )
+            definitions["path.vertexconnection.mergeradius"] = (
+                path.vertex_connection_merge_radius
+            )
         else:
             partition_raw = path.hybridbackforward_lightpartition
         # Note that our partition property is inverted compared to SuperLuxCore's (it is the probability to
