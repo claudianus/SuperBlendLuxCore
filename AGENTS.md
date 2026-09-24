@@ -75,3 +75,19 @@
   CompileGeometry rebuilds the SpillableArrays (mutating ops pull them
   back to heap), the upload then re-spills — verified by a second
   "Host staging spilled" log line after EndSceneEdit.
+
+## .lxm mesh proxy
+
+- `scene.objects.X.ply = file.lxm` loads a raw-section mesh proxy:
+  `ExtTriangleMesh::LoadProxy` mmaps the file MAP_PRIVATE and adopts
+  each 64-byte-aligned section in place — no PLY parse, no heap copy,
+  pages evictable (out-of-core by construction). Convert with
+  `scene.SaveMesh(meshName, "x.lxm")`.
+- Format: 128-byte header (magic "LXM1", version, counts, layer
+  masks) + aligned raw sections: verts, tris, normals?, uv/col/alpha/
+  vertAOV/triAOV layers. Same-build portability only (raw POD dump);
+  load-time validation covers truncation, bad magic, and crafted
+  element counts. Windows MapFileCopyOnWrite not implemented yet
+  (fails gracefully).
+- Regression: `dev-tools/lxm_proxy_test.py` (byte-exact round-trip +
+  720p render compare + error paths).
