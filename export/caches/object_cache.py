@@ -1368,14 +1368,16 @@ class ObjectCache2:
             )
             # File signature of referenced .lxm proxies
             # ((path, mtime_ns, size), ...) — the persistent-scene
-            # delta stats these to catch external file changes the
-            # depsgraph cannot see. Empty for converted meshes.
+            # delta and the viewport update path stat these to catch
+            # external file changes the depsgraph cannot see. Empty
+            # for converted meshes.
             proxy_file_sig = tuple(
                 sorted(
                     (p, os.stat(p).st_mtime_ns, os.stat(p).st_size)
                     for p in (exported_mesh.proxy_paths or {}).values()
                 )
             )
+            exported_obj.proxy_sig = proxy_file_sig
             self.obj_geo_meta[obj_key] = (
                 obj.original.data.as_pointer() if obj.original.data else 0,
                 mesh_key,
@@ -1485,7 +1487,33 @@ class ObjectCache2:
                             # .lxm proxy objects never read their mesh
                             # datablock — a mesh-edit flag changes
                             # nothing (the proxy file is the source).
-                            mesh_key = None
+                            # But an externally re-baked file must
+                            # force a full re-export so the new data
+                            # reaches the .ply reference.
+                            obj_key = utils.make_key(obj)
+                            exported = self.exported_objects.get(obj_key)
+                            try:
+                                st = os.stat(
+                                    bpy.path.abspath(
+                                        obj.luxcore.proxy_filepath
+                                    )
+                                )
+                                cur_sig = (
+                                    (
+                                        bpy.path.abspath(
+                                            obj.luxcore.proxy_filepath
+                                        ),
+                                        st.st_mtime_ns,
+                                        st.st_size,
+                                    ),
+                                )
+                            except OSError:
+                                cur_sig = ()
+                            if exported and exported.proxy_sig != cur_sig:
+                                exported.delete(luxcore_scene)
+                                del self.exported_objects[obj_key]
+                            else:
+                                mesh_key = None
                         else:
                             mesh_key = self._get_mesh_key(obj, use_instancing)
 
