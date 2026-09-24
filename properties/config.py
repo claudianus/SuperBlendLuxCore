@@ -736,6 +736,7 @@ class LuxCoreConfig(PropertyGroup):
                 "OPENCL": "OPENCL_GPU",
                 "CUDA": "CUDA_GPU",
                 "METAL": "METAL_GPU",
+                "VULKAN": "VULKAN_GPU",
             }.get(backend)
             if wanted is None:
                 return []
@@ -912,6 +913,14 @@ class LuxCoreConfig(PropertyGroup):
         default=250000, min=1000, soft_max=10000000,
         description="Meshes with at least this many triangles on the evaluated "
                     "mesh (after modifiers) are auto-proxied",
+    )
+    proxy_cluster_stride: IntProperty(
+        name="Proxy Cluster Stride",
+        default=16, min=1, soft_max=256,
+        description="Triangles per .lxm cluster — the ray-driven residency "
+                    "unit. Smaller = faster intersection and finer-grained "
+                    "paging, but more BVH leaves. 16 measured ~2.3x faster "
+                    "than 64 on a 717k-tri terrain",
     )
 
     def using_out_of_core(self):

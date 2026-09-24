@@ -39,6 +39,11 @@ def luxcore_render_draw(panel, context):
                     text="No Metal support in this BlendLuxCore version",
                     icon=icons.ERROR,
                 )
+            if gpu_backend == "VULKAN" and not utils.luxutils.is_vulkan_build():
+                col_device.label(
+                    text="No Vulkan support in this BlendLuxCore version",
+                    icon=icons.ERROR,
+                )
     else:
         col_device.enabled = False
         col_device.prop(config, "bidir_device", text="Device")
