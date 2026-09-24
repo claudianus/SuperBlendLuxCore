@@ -39,5 +39,32 @@ names, so that is not the mechanism; interpose sections are absent.
   engine in shell mode (they would need the native module in-process).
 - AOVs other than Combined are not forwarded yet (empty passes).
 
-Repro pipeline: `/tmp/transform_upstream.py` (tokenizer-based rename) +
-`/tmp/post_patch.sh`; package staging: `/tmp/blc_up_pkg/blendluxcore_up_new`.
+Repro pipeline: `tools/upstream_coexistence/build.sh` (clone pinned upstream
+-> `transform_upstream.py` tokenizer-based rename -> `post_patch.sh` ->
+wheel bundling -> zip). See `tools/upstream_coexistence/README.md`.
+
+## Installed extension is a generated artifact — do not overwrite
+
+`~/Library/Application Support/Blender/5.2/extensions/user_default/blendluxcore_up`
+contains *transformed* upstream sources, not this repo's sources. Syncing
+this repo's add-on sources into it (e.g. `EXT_ID=blendluxcore_up
+dev-tools/sync_dev_install.sh`, or any manual rsync/cp) destroys the
+coexistence setup: both extensions then try to register engine id
+`LUXCORE`, node categories `LUXCORE_*`, and the same `pyluxcore` module —
+registration fails with `KeyError: Node categories list
+'LUXCORE_MATERIAL_TREE' already registered` and the engine list shows
+`LUXCORE` twice. This happened once (another agent deployed repo sources
+over `blendluxcore_up`); fix was restoring from the build staging.
+
+Prevention:
+
+- `dev-tools/sync_dev_install.sh` aborts when the target extension's
+  `blender_manifest.toml` `id` differs from this repo's `id`
+  (`blendluxcore`) — do not bypass that check.
+- The installed `blendluxcore_up/` contains `GENERATED_DO_NOT_OVERWRITE.txt`
+  (emitted by `post_patch.sh` step 9). If that file is missing, the
+  directory has been overwritten — rebuild via `build.sh --install`.
+- To update the upstream extension, always rebuild with
+  `tools/upstream_coexistence/build.sh --install`; never edit the
+  installed files directly (edit `post_patch.sh`/`transform_upstream.py`
+  instead so the change survives rebuilds).

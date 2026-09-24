@@ -469,4 +469,22 @@ paths_exclude_pattern = [
 ]
 TOMLEOF
 
+# 9) Overwrite-protection marker. This directory is a generated artifact;
+#    other tooling/agents must never sync repo sources into it.
+cat > "$PKG/GENERATED_DO_NOT_OVERWRITE.txt" <<'EOF'
+THIS EXTENSION DIRECTORY IS A GENERATED BUILD ARTIFACT.
+
+Do NOT copy, rsync, or deploy BlendLuxCore repository sources into it —
+it must contain the transformed upstream package only. Overwriting it
+with untransformed sources breaks both engines (duplicate LUXCORE
+engine id, node-category clashes, pyluxcore module collision).
+
+To update this extension, rebuild it:
+    tools/upstream_coexistence/build.sh [--install]
+See tools/upstream_coexistence/README.md and UPSTREAM_COEXISTENCE.md.
+
+dev-tools/sync_dev_install.sh refuses to target this directory
+(manifest id mismatch guard) — do not bypass that check.
+EOF
+
 echo "post-patch OK: $PKG"

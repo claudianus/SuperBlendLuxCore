@@ -48,3 +48,12 @@ the render engine menu then shows `SuperLuxCore` and `LuxCoreRender Upstream`.
 - Only the `Combined` pass is forwarded to the Render Result.
 - A scene must exist as a .blend-copy during render (handled
   automatically; adds ~1 s overhead plus worker startup).
+
+## Do not overwrite the installed extension
+
+The installed `blendluxcore_up/` directory is a generated artifact —
+never rsync/cp BlendLuxCore repo sources into it (breaks both engines:
+duplicate `LUXCORE` engine id + node-category clashes). Rebuild instead.
+`dev-tools/sync_dev_install.sh` guards this via manifest-id check;
+each built package also carries `GENERATED_DO_NOT_OVERWRITE.txt`.
+See `UPSTREAM_COEXISTENCE.md` → "Installed extension is a generated artifact".
