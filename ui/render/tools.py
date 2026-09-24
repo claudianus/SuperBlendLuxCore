@@ -93,3 +93,29 @@ class LUXCORE_RENDER_PT_external(RenderButtonsPanel, Panel):
                 icon=icons.ERROR,
             )
             layout.label(text="process is killed manually.")
+
+
+class LUXCORE_RENDER_PT_geospill(RenderButtonsPanel, Panel):
+    COMPAT_ENGINES = {"LUXCORE"}
+    bl_label = "Out-of-Core Geometry"
+    bl_options = {"DEFAULT_CLOSED"}
+    bl_parent_id = "LUXCORE_RENDER_PT_tools"
+
+    def draw_header(self, context):
+        layout = self.layout
+        config = context.scene.luxcore.config
+        layout.prop(config, "spill_geometry", text="")
+
+    def draw(self, context):
+        layout = self.layout
+        config = context.scene.luxcore.config
+
+        layout.use_property_split = True
+        layout.use_property_decorate = False
+        layout.enabled = config.spill_geometry
+
+        layout.label(
+            text="Mesh buffers are file-backed; the OS evicts cold", icon=icons.INFO
+        )
+        layout.label(text="pages under memory pressure.")
+        layout.prop(config, "spill_geometry_minmb")

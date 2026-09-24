@@ -874,6 +874,20 @@ class LuxCoreConfig(PropertyGroup):
                     "cancelled from Blender — kill the external process to abort. "
                     "Requires a halt condition to be set",
     )
+    spill_geometry: BoolProperty(
+        name="Spill Geometry",
+        default=False,
+        description="Out-of-core geometry: mesh buffers larger than the threshold "
+                    "are written to disk and accessed through file mappings, so the "
+                    "OS can evict cold pages under memory pressure instead of "
+                    "swapping. Untouched attributes (extra UV/color/AOV layers, "
+                    "motion steps) never occupy RAM at all",
+    )
+    spill_geometry_minmb: IntProperty(
+        name="Spill Threshold (MB)",
+        default=4, min=1, soft_max=256,
+        description="Only buffers at least this large are spilled to disk",
+    )
 
     def using_out_of_core(self):
         if self.effective_device() != "OCL":

@@ -35,6 +35,7 @@ classes = (
     tools.LUXCORE_RENDER_PT_tools,
     tools.LUXCORE_RENDER_PT_filesaver,
     tools.LUXCORE_RENDER_PT_external,
+    tools.LUXCORE_RENDER_PT_geospill,
     viewport.LUXCORE_RENDER_PT_viewport_settings,
     viewport.LUXCORE_RENDER_PT_viewport_settings_denoiser,
     viewport.LUXCORE_RENDER_PT_viewport_settings_advanced,
