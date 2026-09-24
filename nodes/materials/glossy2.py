@@ -1,19 +1,10 @@
 import bpy
 from bpy.props import BoolProperty, EnumProperty
 from ..base import LuxCoreNodeMaterial
-from .glossytranslucent import IOR_DESCRIPTION, MULTIBOUNCE_DESCRIPTION
+from .glossytranslucent import (IOR_DESCRIPTION, MULTIBOUNCE_DESCRIPTION,
+                              DISTRIBUTION_ITEMS, DISTRIBUTION_DESCRIPTION)
 from ...utils import node as utils_node
 from ...utils.node import Roughness
-
-DISTRIBUTION_ITEMS = [
-    ("schlick", "Schlick", "Legacy Schlick microfacet distribution (compatible)", 0),
-    ("ggx", "GGX", "Modern GGX distribution with VNDF sampling (opt-in)", 1),
-]
-DISTRIBUTION_DESCRIPTION = (
-    "Microfacet distribution used for the glossy coating. "
-    "Schlick is the legacy default; GGX uses VNDF sampling and matches "
-    "modern PBR shading models"
-)
 
 
 class LuxCoreNodeMatGlossy2(LuxCoreNodeMaterial, bpy.types.Node):

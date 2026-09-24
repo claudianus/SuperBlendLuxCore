@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 #
-# E34: "distribution" enum export test for glossy2 / metal2 / roughglass.
+# E34: "distribution" enum export test for glossy2 / metal2 / roughglass /
+# glossycoating / glossytranslucent.
 #
 #   Blender -b --python dev-tools/e34_distribution_export_test.py
 #
@@ -76,9 +77,43 @@ pre = f"scene.materials.{name}."
 if any(k == pre + "distribution" for k in props.GetAllNames()):
     fails.append("smooth glass emitted distribution property")
 
+# --- glossycoating (needs a linked base material) ---------------------------
+def export_glossycoating(distribution):
+    mat = bpy.data.materials.new("Mat_GC")
+    nt = bpy.data.node_groups.new("Tree_GC", "luxcore_material_nodes")
+    nt.use_fake_user = True
+    mat.luxcore.node_tree = nt
+    out = nt.nodes.new("LuxCoreNodeMatOutput")
+    base = nt.nodes.new("LuxCoreNodeMatMatte")
+    n = nt.nodes.new("LuxCoreNodeMatGlossyCoating")
+    n.distribution = distribution
+    nt.links.new(base.outputs[0], n.inputs["Base Material"])
+    nt.links.new(n.outputs[0], out.inputs[0])
+    name, props = export_material.convert(exporter, depsgraph, mat, False, "Obj")
+    return name, props
+
+name, props = export_glossycoating("ggx")
+pre = f"scene.materials.{name}."
+if not (get_str(props, pre + "type") == "glossycoating"
+        and get_str(props, pre + "distribution") == "ggx"):
+    fails.append("glossycoating distribution export failed")
+
+name, props = export_glossycoating("schlick")
+if get_str(props, f"scene.materials.{name}.distribution") != "schlick":
+    fails.append("glossycoating default distribution broken")
+
+# --- glossytranslucent ------------------------------------------------------
+n, name, props = export_node("LuxCoreNodeMatGlossyTranslucent",
+                             lambda n: setattr(n, "distribution", "ggx"))
+pre = f"scene.materials.{name}."
+if not (get_str(props, pre + "type") == "glossytranslucent"
+        and get_str(props, pre + "distribution") == "ggx"):
+    fails.append("glossytranslucent distribution export failed")
+
 if fails:
     for f in fails:
         print("FAIL:", f)
     raise SystemExit(1)
 
-print("PASS: distribution enum exports correctly (glossy2/metal2/roughglass)")
+print("PASS: distribution enum exports correctly "
+      "(glossy2/metal2/roughglass/glossycoating/glossytranslucent)")
