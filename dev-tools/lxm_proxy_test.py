@@ -142,9 +142,8 @@ for bad in ("/tmp/lxm_bad_magic.lxm", "/tmp/lxm_truncated.lxm"):
     except RuntimeError as e:
         print(f"[LxmTest] {bad} correctly rejected: {e}")
 
-# 6) layer coverage: normals + uv + color + alpha + triAOV round-trip.
-#    (vertAOV is parsed by the PLY loader but never attached — an
-#    existing upstream TODO — so it is not exercised here.)
+# 6) layer coverage: normals + uv + color + alpha + vertAOV + triAOV
+#    round-trip.
 
 NV, NT = 64, 124
 LAYERED_PLY = "/tmp/lxm_layered.ply"
@@ -156,12 +155,13 @@ uvs = [(i / NV, 1.0 - i / NV) for i in range(NV)]
 cols = [(i * 3 % 256, i * 5 % 256, i * 7 % 256) for i in range(NV)]
 alphas = [i * 2 % 256 for i in range(NV)]
 tris = [(i, i + 1, i + 2) for i in range(NT)]
+vert_aov = [float(i) * 0.25 for i in range(NV)]
 tri_aov = [float(i) * 0.5 for i in range(NT)]
 
 with open(LAYERED_PLY, "wb") as f:
     f.write(b"ply\nformat binary_little_endian 1.0\n")
     f.write(f"element vertex {NV}\n".encode())
-    for p in ("x", "y", "z", "nx", "ny", "nz", "s", "t"):
+    for p in ("x", "y", "z", "nx", "ny", "nz", "s", "t", "vertaov"):
         f.write(f"property float {p}\n".encode())
     for p in ("red", "green", "blue", "alpha"):
         f.write(f"property uchar {p}\n".encode())
@@ -170,8 +170,8 @@ with open(LAYERED_PLY, "wb") as f:
     f.write(f"element faceaov {NT}\n".encode())
     f.write(b"property float triaov\nend_header\n")
     for i in range(NV):
-        f.write(struct.pack("<8f4B", *verts[i], *norms[i],
-                            *uvs[i], *cols[i], alphas[i]))
+        f.write(struct.pack("<9f4B", *verts[i], *norms[i],
+                            *uvs[i], vert_aov[i], *cols[i], alphas[i]))
     for t in tris:
         f.write(struct.pack("<B3i", 3, *t))
     for v in tri_aov:
@@ -219,12 +219,16 @@ pos2 = (pos2 + 63) & ~63
 exp = b"".join(struct.pack("<f", a / 255.0) for a in alphas)
 ok &= lxm2[pos2:pos2 + NV * 4] == exp; pos2 += NV * 4
 pos2 = (pos2 + 63) & ~63
+# vertAOV layer 0
+exp = b"".join(struct.pack("<f", v) for v in vert_aov)
+ok &= lxm2[pos2:pos2 + NV * 4] == exp; pos2 += NV * 4
+pos2 = (pos2 + 63) & ~63
 # triAOV layer 0 — last section, no trailing pad in the file
 exp = b"".join(struct.pack("<f", v) for v in tri_aov)
 ok &= lxm2[pos2:pos2 + NT * 4] == exp; pos2 += NT * 4
 ok &= pos2 == len(lxm2)
 expected_masks = (flags == 1 and uvm == 1 and colm == 1 and
-                  alm == 1 and vam == 0 and tam == 1)
+                  alm == 1 and vam == 1 and tam == 1)
 print(f"[LxmTest] layer sections byte-exact: {ok}, "
       f"masks expected: {expected_masks} "
       f"({'PASS' if ok and expected_masks else 'FAIL'})")
