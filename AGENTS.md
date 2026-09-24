@@ -91,3 +91,31 @@
   (fails gracefully).
 - Regression: `dev-tools/lxm_proxy_test.py` (byte-exact round-trip +
   720p render compare + error paths).
+
+## Image map decode peak (resize policies)
+
+- `scene.images.resizepolicy` FIXED/MINMEM now probe size via
+  `ImageMap::GetSize()` (header only) and construct the ImageMap
+  directly at the target resolution. `ImageMap::Init()` then either
+  picks the smallest covering mip level (.tx) or, for non-mipped
+  files, streams decode+downscale through a lazy tile-cached
+  `ImageBuf` + `ImageBufAlgo::resize` — the full-resolution pixels
+  never materialize in heap. Measured: 8192x8192 PNG → persistent
+  MALLOC_LARGE 195MB -> 3MB.
+- `ImageMap::Resize()` (post-hoc path) still holds source+dest
+  buffers; only used for upscale (FIXED scale>1) now.
+- Instrumentation (MINMEM) may still decide UINT_MAX = "keep
+  original" and reload at full res — that reload is the classic
+  full-decode path by design.
+- macOS note: `ps rss`/`ru_maxrss` lag/miss allocator-cached regions;
+  use `vmmap -summary` MALLOC_LARGE for real heap attribution.
+- Windows: `MapFileCopyOnWrite` now implemented
+  (CreateFileMapping/PAGE_WRITECOPY + FILE_MAP_COPY); read-only files
+  fall back to FILE_MAP_READ. `SpillToFile` uses
+  FILE_FLAG_DELETE_ON_CLOSE as the unlink-after-mmap equivalent.
+
+## Test
+
+- `dev-tools/imagemap_stream_test.py` — standalone pyluxcore test:
+  8192x8192 non-mipped PNG, NONE vs FIXED-256 vs MINMEM; checks the
+  "streaming resize" path fires and renders correctly at 1280x720.
