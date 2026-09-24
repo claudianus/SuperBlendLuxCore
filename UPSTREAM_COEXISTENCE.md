@@ -35,8 +35,27 @@ names, so that is not the mechanism; interpose sections are absent.
   with `LUXCORE_UP_WORKER=1`. The worker enables only `blendluxcore_up`,
   renders, writes EXR; the main process fills the `Combined` pass of the
   RenderResult (`pass.rect.foreach_set`). Esc kills the worker.
-- Viewport render and material previews are disabled for the upstream
-  engine in shell mode (they would need the native module in-process).
+- Viewport render (`remote_viewport.py` + `viewport_worker.py`): a
+  persistent `--factory-startup` Blender worker holds an upstream
+  RenderSession. The main process snapshots view params
+  (matrix/lens/size), saves a `.blend` copy (trailing-edge debounce
+  ~0.45 s, via a `bpy.app.timers` callback so `save_as_mainfile` runs on
+  the main thread) and writes `cmd.json`; the worker re-opens the blend,
+  rebuilds the session through the addon's own viewport export path with
+  a duck-typed context, and streams `RGB(A)_IMAGEPIPELINE` film output to
+  `frame.bin` via atomic `os.replace`. The main process draws it with the
+  same `gpu` IMAGE-shader path as the in-process framebuffer
+  (`RemoteFrameBuffer`). Every scene/view change is a full session
+  restart in the worker — kernel caches stay warm, but edits land with
+  ~(export + session start) latency, so this is for performance/quality
+  comparison, not interactive lookdev. Worker exits on `stop` cmd or
+  parent death (`LUXCORE_UP_PARENT_PID` watchdog).
+  Caveat: the worker's duck-typed `space_data` is not a real
+  `SpaceView3D`, so every `Object.visible_in_viewport_get(...)` call site
+  must route through `utils.vp_visible()` (TypeError fallback = visible);
+  `post_patch.sh` step 11 patches the known sites.
+- Material previews are disabled for the upstream engine in shell mode
+  (they would need the native module in-process).
 - AOVs other than Combined are not forwarded yet (empty passes).
 
 Repro pipeline: `tools/upstream_coexistence/build.sh` (clone pinned upstream

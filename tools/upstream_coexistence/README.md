@@ -43,8 +43,11 @@ the render engine menu then shows `SuperLuxCore` and `LuxCoreRender Upstream`.
 
 ## Limitations (by design)
 
-- Upstream engine renders via an isolated `--factory-startup` Blender
-  worker (F12 only): no viewport render / material preview for upstream.
+- Upstream renders run in isolated `--factory-startup` Blender workers:
+  final render = one worker per F12; viewport render = one persistent
+  worker streaming frames to the viewport (restart-per-change latency —
+  good for performance/quality comparison, not interactive lookdev).
+- Material preview renders are skipped for the upstream engine.
 - Only the `Combined` pass is forwarded to the Render Result.
 - A scene must exist as a .blend-copy during render (handled
   automatically; adds ~1 s overhead plus worker startup).

@@ -205,8 +205,22 @@ from pathlib import Path
 import bpy
 import pyluxcore_upstream
 from . import final, preview, viewport
-from .. import icons, luxloader, utils, properties"""
+from .. import icons, luxloader, remote_viewport, utils, properties"""
 assert old in t, "imports block not found"
+t = t.replace(old, new, 1)
+
+# 3b2) __del__: also stop the viewport worker when the engine dies
+old = """    def __del__(self):
+        # Note: this method is also called when unregister() is called (for some reason I don't understand)
+        try:
+            if getattr(self, "session", None):"""
+new = """    def __del__(self):
+        # Note: this method is also called when unregister() is called (for some reason I don't understand)
+        try:
+            if not luxloader.in_worker_process():
+                remote_viewport.shutdown()
+            if getattr(self, "session", None):"""
+assert old in t, "__del__ block not found"
 t = t.replace(old, new, 1)
 
 # 3c) render_final dispatch
@@ -328,15 +342,15 @@ new = '''    def render_preview(self, depsgraph):
 
     def view_update(self, context, depsgraph):
         if not luxloader.in_worker_process():
-            self.update_stats(
-                "", "LuxCore Upstream: viewport render not supported "
-                "(isolated mode, use F12 for final render)"
-            )
+            # Native module absent in this process: the viewport render runs
+            # in the isolated worker and streams frames back.
+            remote_viewport.view_update(self, context, depsgraph)
             return
         viewport.view_update(self, context, depsgraph)
 
     def view_draw(self, context, depsgraph):
         if not luxloader.in_worker_process():
+            remote_viewport.view_draw(self, context, depsgraph)
             return
         try:'''
 assert old in t, "preview/viewport block not found"
@@ -486,5 +500,45 @@ See tools/upstream_coexistence/README.md and UPSTREAM_COEXISTENCE.md.
 dev-tools/sync_dev_install.sh refuses to target this directory
 (manifest id mismatch guard) — do not bypass that check.
 EOF
+
+# 10) Remote viewport: worker + main-process bridge (new modules)
+cp "$(dirname "$0")/remote_viewport.py" "$PKG/remote_viewport.py"
+cp "$(dirname "$0")/viewport_worker.py" "$PKG/viewport_worker.py"
+
+# 11) Fake-context safety: the worker passes a duck-typed context whose
+#     space_data is no real SpaceView3D, so visible_in_viewport_get() would
+#     TypeError. Fall back to "visible" in that case.
+python3 - "$PKG" <<'PYEOF'
+import pathlib, sys
+pkg = pathlib.Path(sys.argv[1])
+
+helper = '''
+
+def vp_visible(obj, context):
+    try:
+        return obj.visible_in_viewport_get(context.space_data)
+    except Exception:
+        return True
+'''
+utils = pkg / "utils/__init__.py"
+t = utils.read_text()
+assert "def vp_visible" not in t
+utils.write_text(t + helper)
+
+old = "not obj.visible_in_viewport_get(context.space_data)"
+new = "not utils.vp_visible(obj, context)"
+for rel in ("export/caches/__init__.py", "export/caches/object_cache.py"):
+    p = pkg / rel
+    t = p.read_text()
+    assert old in t, f"visibility call not found in {rel}"
+    p.write_text(t.replace(old, new))
+
+# same fallback inside utils itself (is_instance_visible)
+t = utils.read_text()
+old = "if not viewport_vis_obj.visible_in_viewport_get(context.space_data):"
+new = "if not vp_visible(viewport_vis_obj, context):"
+assert old in t, "is_instance_visible call not found"
+utils.write_text(t.replace(old, new))
+PYEOF
 
 echo "post-patch OK: $PKG"
