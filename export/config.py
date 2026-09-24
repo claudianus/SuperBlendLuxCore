@@ -766,6 +766,10 @@ def _convert_path(
             definitions["path.vertexconnection.mergeradius"] = (
                 path.vertex_connection_merge_radius
             )
+            # M7d: temporal vertex replay reservoir (per eye task)
+            definitions["path.vertexconnection.reuse"] = (
+                path.vertex_connection_reuse
+            )
         else:
             partition_raw = path.hybridbackforward_lightpartition
         # Note that our partition property is inverted compared to SuperLuxCore's (it is the probability to

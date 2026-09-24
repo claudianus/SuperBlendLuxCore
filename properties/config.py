@@ -263,6 +263,15 @@ VERTEX_CONNECTION_MERGE_RADIUS_DESC = (
     "Larger radii blur caustics but converge faster"
 )
 
+VERTEX_CONNECTION_REUSE_DESC = (
+    "Temporal connect reuse (ReSTIR-style vertex replay): each eye task "
+    "keeps a copy of the highest-scoring light vertex it has connected "
+    "and replays it as one extra deterministic candidate on later "
+    "samples. The replay uses the same MIS weighting as fresh connects, "
+    "so it stays unbiased - it re-tests productive caustic vertices "
+    "instead of rediscovering them every sample"
+)
+
 ENVLIGHT_CACHE_DESC = (
     "Enable in scenes where the world environment is only visible through small openings (e.g. a room with small windows). "
     "Do not use in open scenes, as it can be detrimental to performance in this case. "
@@ -532,6 +541,8 @@ class SuperLuxCoreConfigPath(PropertyGroup):
     vertex_connection_merge_radius: FloatProperty(name="Merge Radius", default=0.0,
                                     min=0.0, max=1.0, precision=5,
                                     description=VERTEX_CONNECTION_MERGE_RADIUS_DESC)
+    vertex_connection_reuse: BoolProperty(name="Temporal Reuse", default=True,
+                                    description=VERTEX_CONNECTION_REUSE_DESC)
 
     use_clamping: BoolProperty(name="Clamp Output", default=False, description=CLAMPING_DESC)
     auto_clamping: BoolProperty(
