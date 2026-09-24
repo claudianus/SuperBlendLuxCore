@@ -214,6 +214,14 @@ LIGHTTRACING_FOCUS_RADIUS_DESC = (
     "diffuse surfaces seen through glass already get a broad floor, so "
     "raise this only if a scene's productive surfaces stay under-covered"
 )
+VERTEX_CONNECTION_DESC = (
+    "Bidirectional connects: light-path vertices are cached on the GPU "
+    "and connected to eye-path vertices with the same MIS weighting as "
+    "the BIDIRCPU engine. Adds caustic and specular-indirect transport "
+    "that neither eye paths nor light splats alone can reach "
+    "(L S+ D E paths). GPU light tracing only; requires OpenCL task "
+    "count above 8192"
+)
 
 ENVLIGHT_CACHE_DESC = (
     "Enable in scenes where the world environment is only visible through small openings (e.g. a room with small windows). "
@@ -469,6 +477,10 @@ class LuxCoreConfigPath(PropertyGroup):
                                             description=LIGHTTRACING_FOCUS_RATIO_DESC)
     lighttracing_focus_radius: FloatProperty(name="Focus Radius", default=0.01, min=0.0001, max=1.0,
                                              description=LIGHTTRACING_FOCUS_RADIUS_DESC)
+    # path.vertexconnection.enable - GPU BDPT connects: cached light
+    # vertices are connected to eye vertices with BIDIRCPU-style MIS
+    vertex_connection: BoolProperty(name="Vertex Connection", default=False,
+                                    description=VERTEX_CONNECTION_DESC)
 
     use_clamping: BoolProperty(name="Clamp Output", default=False, description=CLAMPING_DESC)
     auto_clamping: BoolProperty(

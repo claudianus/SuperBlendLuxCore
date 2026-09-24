@@ -161,6 +161,7 @@ class LUXCORE_RENDER_PT_add_light_tracing(RenderButtonsPanel, Panel):
                 # light-only mode needs the full-film tile engine
                 # (RTPATHOCL); TILEPATHOCL runs the split population
                 layout.prop(config.path, "lighttracing_only")
+            layout.prop(config.path, "vertex_connection")
             col = layout.column(align=True)
             col.prop(config.path, "lighttracing_focus")
             if config.path.lighttracing_focus:

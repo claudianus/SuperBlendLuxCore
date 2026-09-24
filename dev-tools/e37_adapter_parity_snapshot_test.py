@@ -63,6 +63,9 @@ ALLOWED_PREFIXES = (
     # The artist "Light Rays" toggle exports as hybridbackforward on
     # CPU (native light threads) and as the light-task fraction on GPU
     "path.lighttracing.",
+    # Vertex connection is exported on GPU only (the CPU side has no
+    # counterpart flag - BIDIRCPU is a separate engine there)
+    "path.vertexconnection.",
 )
 
 ALLOWED_EXACT = {
@@ -111,6 +114,11 @@ PROFILES = [
     ("denoiser", lambda c, s: setattr(
         s.luxcore.denoiser, "enabled", True)),
     ("light_portal", lambda c, s: add_light_portal(s)),
+    # M6: vertex connection rides on the GPU light-task population; the
+    # mutator mimics the UI flow (Light Tracing panel + VC toggle)
+    ("vertex_connection", lambda c, s: (
+        setattr(c.path, "hybridbackforward_enable", True),
+        setattr(c.path, "vertex_connection", True))),
 ]
 
 

@@ -742,6 +742,13 @@ def _convert_path(
                 path.lighttracing_focus_ratio / 100, 0.9
             )
             definitions["path.lighttracing.focus.radius"] = path.lighttracing_focus_radius
+            # GPU vertex connection (BDPT connects): the engine
+            # auto-promotes the GPU light-task population when this is
+            # on, so it can be exported independently of the hybrid
+            # toggle; it only has an effect when light tasks exist
+            definitions["path.vertexconnection.enable"] = (
+                path.vertex_connection
+            )
         else:
             partition_raw = path.hybridbackforward_lightpartition
         # Note that our partition property is inverted compared to LuxCore's (it is the probability to
