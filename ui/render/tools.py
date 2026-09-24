@@ -97,7 +97,7 @@ class LUXCORE_RENDER_PT_external(RenderButtonsPanel, Panel):
 
 class LUXCORE_RENDER_PT_geospill(RenderButtonsPanel, Panel):
     COMPAT_ENGINES = {"LUXCORE"}
-    bl_label = "Out-of-Core Geometry"
+    bl_label = "Out-of-Core Spilling"
     bl_options = {"DEFAULT_CLOSED"}
     bl_parent_id = "LUXCORE_RENDER_PT_tools"
 
@@ -119,3 +119,4 @@ class LUXCORE_RENDER_PT_geospill(RenderButtonsPanel, Panel):
         )
         layout.label(text="pages under memory pressure.")
         layout.prop(config, "spill_geometry_minmb")
+        layout.prop(config, "spill_images")

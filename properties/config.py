@@ -888,6 +888,12 @@ class LuxCoreConfig(PropertyGroup):
         default=4, min=1, soft_max=256,
         description="Only buffers at least this large are spilled to disk",
     )
+    spill_images: BoolProperty(
+        name="Spill Image Maps",
+        default=True,
+        description="Also file-back large texture/image-map pixel storage "
+                    "(applies after resizing and color conversion)",
+    )
 
     def using_out_of_core(self):
         if self.effective_device() != "OCL":

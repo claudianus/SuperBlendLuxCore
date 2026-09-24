@@ -646,6 +646,9 @@ class Exporter(object):
                 "scene.spill.minbytes",
                 scene.luxcore.config.spill_geometry_minmb * 1024 * 1024,
             ))
+            scene_props.Set(pyluxcore.Property(
+                "scene.spill.images", scene.luxcore.config.spill_images
+            ))
 
         if (
             scene.luxcore.debug.enabled
