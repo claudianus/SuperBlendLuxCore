@@ -67,6 +67,8 @@ class SUPERLUXCORE_RENDERLAYER_PT_aovs_material_object(ViewLayerButtonsPanel, Pa
 
         col = flow.column()
         col.prop(aovs, "object_id")
+        col.prop(aovs, "cryptomatte_object")
+        col.prop(aovs, "cryptomatte_material")
 
 
 class SUPERLUXCORE_RENDERLAYER_PT_aovs_light(ViewLayerButtonsPanel, Panel):
