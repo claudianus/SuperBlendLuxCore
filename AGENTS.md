@@ -39,3 +39,21 @@
   runs during `UpdateFilm` — a bare `WaitForDone()` never returns.
 - `opencl.devices.select` is stripped before serializing: the child
   enumerates devices itself and a mismatched-length selection aborts.
+
+## Out-of-core spilling (scene.spill.*)
+
+- `config.spill_geometry` + `spill_geometry_minmb` + `spill_images`
+  map to `scene.spill.enable/.minbytes/.images` scene properties.
+- Geometry buffers spill BEFORE the DataSet/BVH build (Embree binds
+  the mapped addresses); image maps spill AFTER
+  `imgMapCache.Preprocess` (resize policies + color conversion done).
+- Spill files are unlinked right after mmap: the mapping stays valid,
+  files self-clean on exit, empty `luxcore-geospill/<ts>-<ptr>/` dirs
+  in TMPDIR are normal.
+- File-backed pages are demand-paged and reclaimable — this is real
+  out-of-core capacity, not free RAM: hot pages still occupy memory.
+- `ImageMapStorageImpl::pixels` is a `shared_ptr<ImageMapPixel[]>`,
+  not a vector — indexed access works, but no `begin()/emplace_back()`.
+  Serialization uses `make_array` (raw elements) so mapped storage
+  round-trips through .bcf.
+
