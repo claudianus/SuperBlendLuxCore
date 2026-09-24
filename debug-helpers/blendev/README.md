@@ -15,8 +15,8 @@ As a supplementary measure, if you want to hide your name in paths, you can use
 `~` shortcut instead of `/home/your_name`.
 
 After making those changes, simply call the main program `blendev` from the command line.
-You can create a symbolic link, for example via `ln -s /PATH/TO/BlendLuxCore/debug-helpers/blendev/blendev ~/.local/bin/blendev`,
-or directly add `/path/to/BlendLuxCore/debug-helpers/blendev/blendev` to your PATH environment variable so that the command is always available.
+You can create a symbolic link, for example via `ln -s /PATH/TO/SuperBlendLuxCore/debug-helpers/blendev/blendev ~/.local/bin/blendev`,
+or directly add `/path/to/SuperBlendLuxCore/debug-helpers/blendev/blendev` to your PATH environment variable so that the command is always available.
 
 Forther information about the usage are available via the option `blendev -h` or equivalently `blendev --help`.
 

@@ -2,7 +2,7 @@
 
     Blender -b --python dev-tools/rebrand_smoke_test.py
 
-Verifies the SuperLuxCore/BlendLuxCore fork is fully independent from
+Verifies the SuperLuxCore/SuperBlendLuxCore fork is fully independent from
 upstream identifiers — no LUXCORE engine id, no luxcore.* RNA
 namespace, no pyluxcore module — so it can coexist with upstream.
 
