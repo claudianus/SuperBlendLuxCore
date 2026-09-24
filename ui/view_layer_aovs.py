@@ -4,7 +4,7 @@ from .. import icons
 from ..icons import icon_manager
 
 class SUPERLUXCORE_RENDERLAYER_PT_aovs(ViewLayerButtonsPanel, Panel):
-    bl_label = "SuperLuxCore AOVs"
+    bl_label = "Passes (AOVs)"
     COMPAT_ENGINES = {"SUPERLUXCORE"}
     bl_order = 2
 
