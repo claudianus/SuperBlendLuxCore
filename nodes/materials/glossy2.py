@@ -1,9 +1,19 @@
 import bpy
-from bpy.props import BoolProperty
+from bpy.props import BoolProperty, EnumProperty
 from ..base import LuxCoreNodeMaterial
 from .glossytranslucent import IOR_DESCRIPTION, MULTIBOUNCE_DESCRIPTION
 from ...utils import node as utils_node
 from ...utils.node import Roughness
+
+DISTRIBUTION_ITEMS = [
+    ("schlick", "Schlick", "Legacy Schlick microfacet distribution (compatible)", 0),
+    ("ggx", "GGX", "Modern GGX distribution with VNDF sampling (opt-in)", 1),
+]
+DISTRIBUTION_DESCRIPTION = (
+    "Microfacet distribution used for the glossy coating. "
+    "Schlick is the legacy default; GGX uses VNDF sampling and matches "
+    "modern PBR shading models"
+)
 
 
 class LuxCoreNodeMatGlossy2(LuxCoreNodeMaterial, bpy.types.Node):
@@ -29,6 +39,11 @@ class LuxCoreNodeMatGlossy2(LuxCoreNodeMaterial, bpy.types.Node):
                                   default=False,
                                   description=Roughness.aniso_desc,
                                   update=Roughness.update_anisotropy)
+    distribution: EnumProperty(name="Distribution",
+                               items=DISTRIBUTION_ITEMS,
+                               default="schlick",
+                               description=DISTRIBUTION_DESCRIPTION,
+                               update=utils_node.force_viewport_update)
 
     def init(self, context):
         self.add_input("LuxCoreSocketColor", "Diffuse Color", [0.7] * 3)
@@ -43,6 +58,7 @@ class LuxCoreNodeMatGlossy2(LuxCoreNodeMaterial, bpy.types.Node):
         self.outputs.new("LuxCoreSocketMaterial", "Material")
 
     def draw_buttons(self, context, layout):
+        layout.prop(self, "distribution")
         layout.prop(self, "multibounce")
         layout.prop(self, "use_ior")
         Roughness.draw(self, context, layout)
@@ -54,6 +70,7 @@ class LuxCoreNodeMatGlossy2(LuxCoreNodeMaterial, bpy.types.Node):
             "ka": self.inputs["Absorption Color"].export(exporter, depsgraph, props),
             "d": self.inputs["Absorption Depth (nm)"].export(exporter, depsgraph, props),
             "multibounce": self.multibounce,
+            "distribution": self.distribution,
         }
 
         if self.use_ior:

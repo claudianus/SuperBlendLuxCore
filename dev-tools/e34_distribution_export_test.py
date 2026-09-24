@@ -1,0 +1,84 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# E34: "distribution" enum export test for glossy2 / metal2 / roughglass.
+#
+#   Blender -b --python dev-tools/e34_distribution_export_test.py
+#
+# The legacy Schlick->GGX opt-in is exposed as a `distribution` enum
+# (default "schlick" for compatibility, "ggx" opt-in). This verifies the
+# nodes emit the engine-side property correctly.
+
+import bpy
+
+from bl_ext.user_default.blendluxcore.export import material as export_material
+
+
+def get_str(props, key):
+    p = props.Get(key)
+    assert p, f"missing property: {key}"
+    return " ".join(p.GetString(i) for i in range(p.GetSize()))
+
+
+depsgraph = bpy.context.evaluated_depsgraph_get()
+exporter = type("DummyExporter", (),
+                {"lightgroup_cache": set(), "node_cache": {}})()
+
+
+def export_node(node_cls, configure=None):
+    mat = bpy.data.materials.new("Mat_" + node_cls)
+    nt = bpy.data.node_groups.new("Tree_" + node_cls, "luxcore_material_nodes")
+    nt.use_fake_user = True
+    mat.luxcore.node_tree = nt
+    out = nt.nodes.new("LuxCoreNodeMatOutput")
+    n = nt.nodes.new(node_cls)
+    nt.links.new(n.outputs[0], out.inputs[0])
+    if configure:
+        configure(n)
+    name, props = export_material.convert(exporter, depsgraph, mat, False, "Obj")
+    return n, name, props
+
+
+fails = []
+
+# --- glossy2 -------------------------------------------------------------
+n, name, props = export_node("LuxCoreNodeMatGlossy2")
+pre = f"scene.materials.{name}."
+assert get_str(props, pre + "type") == "glossy2"
+assert get_str(props, pre + "distribution") == "schlick", "default must be schlick"
+
+n, name, props = export_node("LuxCoreNodeMatGlossy2",
+                             lambda n: setattr(n, "distribution", "ggx"))
+assert get_str(props, f"scene.materials.{name}.distribution") == "ggx", \
+    "glossy2 ggx export failed"
+
+# --- metal2 ---------------------------------------------------------------
+n, name, props = export_node("LuxCoreNodeMatMetal",
+                             lambda n: setattr(n, "distribution", "ggx"))
+pre = f"scene.materials.{name}."
+if not (get_str(props, pre + "type") == "metal2"
+        and get_str(props, pre + "distribution") == "ggx"):
+    fails.append("metal2 distribution export failed")
+
+# --- roughglass (glass node, rough mode) -----------------------------------
+def cfg_glass(n):
+    n.rough = True
+    n.distribution = "ggx"
+
+n, name, props = export_node("LuxCoreNodeMatGlass", cfg_glass)
+pre = f"scene.materials.{name}."
+if not (get_str(props, pre + "type") == "roughglass"
+        and get_str(props, pre + "distribution") == "ggx"):
+    fails.append(f"roughglass distribution export failed: type={get_str(props, pre + 'type')}")
+
+# smooth glass must not emit a distribution key
+n, name, props = export_node("LuxCoreNodeMatGlass")
+pre = f"scene.materials.{name}."
+if any(k == pre + "distribution" for k in props.GetAllNames()):
+    fails.append("smooth glass emitted distribution property")
+
+if fails:
+    for f in fails:
+        print("FAIL:", f)
+    raise SystemExit(1)
+
+print("PASS: distribution enum exports correctly (glossy2/metal2/roughglass)")
