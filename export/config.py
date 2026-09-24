@@ -280,6 +280,13 @@ def convert(exporter, scene, context=None, engine=None):
         # (PATHOCL/TILEPATHOCL); RTPATHOCL and BIDIR* do not implement
         # the reservoir machinery, so exporting there would be a
         # silent no-op.
+        if config.restir_gi_enable and luxcore_engine not in (
+            "PATHCPU", "PATHOCL", "TILEPATHOCL"
+        ):
+            LuxCoreErrorLog.add_warning(
+                f"ReSTIR GI is not supported by {luxcore_engine}, "
+                "the setting is ignored"
+            )
         if config.restir_gi_enable and luxcore_engine in (
             "PATHCPU", "PATHOCL", "TILEPATHOCL"
         ):
