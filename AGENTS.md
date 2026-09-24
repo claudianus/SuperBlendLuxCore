@@ -124,3 +124,21 @@
 - `dev-tools/imagemap_stream_test.py` — standalone pyluxcore test:
   8192x8192 non-mipped PNG, NONE vs FIXED-256 vs MINMEM; checks the
   "streaming resize" path fires and renders correctly at 1280x720.
+
+## Mesh proxies (.lxm)
+
+- `obj.luxcore.proxy_filepath` (Object Properties > Mesh Proxy) emits
+  `scene.objects.X.ply` instead of converting the mesh — LuxCore mmaps
+  the .lxm copy-on-write. `luxcore.bake_lxm_proxy` bakes evaluated
+  geometry. File key = path+mtime+size, so re-bakes re-export.
+- `config.proxy_auto` + `proxy_auto_mintris` (Render Properties >
+  LuxCore Tools > Automatic Mesh Proxy): heavy static meshes are baked
+  per material slot to `tempfile.mkdtemp(luxcore_autoproxy_*)` at
+  export. Dedup/staleness signature = data name + vert/poly/tris +
+  modifier names + 64 sampled vertex coords (count-preserving edits
+  detected). Displacement and deform-motion-blur objects are excluded.
+- Persistent-scene delta: proxied objects are `has_shape_wrapper=True`
+  (re-export, never in-place DefineMesh) and `_mesh_inplace_safe`
+  vetoes proxy-eligible objects so the .ply ref stays authoritative.
+- proxy_paths is a {slot: path} dict — multi-material objects emit
+  one .lxm per material slot.
