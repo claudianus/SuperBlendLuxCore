@@ -1,8 +1,8 @@
 # Blendev Helper
 
 The `blendev` script is a development utility to quickly launch different versions of Blender,
-together with different version of the BlendLuxCore source code,
-as well as locally compiled versions of LuxCore.
+together with different version of the SuperLuxCore source code,
+as well as locally compiled versions of SuperLuxCore.
 
 In order to use this script, a few file paths need to be specified in a config file so that the script can locate the correct files on your machine.
 - A template for this file is provided as `blendev-config.default`
