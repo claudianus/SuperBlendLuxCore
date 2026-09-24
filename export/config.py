@@ -325,8 +325,12 @@ def convert(exporter, scene, context=None, engine=None):
         # Light portals (M5): quad faces of objects flagged
         # "Light Portal" become aperture rects for the portal bounce
         # proposal. The objects themselves are excluded from render
-        # geometry (utils.is_obj_visible). CPU path engines only.
-        if luxcore_engine in ("PATHCPU", "TILEPATHCPU", "RTPATHCPU"):
+        # geometry (utils.is_obj_visible). All path engines support it -
+        # the GPU port runs in the shared pathoclbase kernels.
+        if luxcore_engine in (
+            "PATHCPU", "TILEPATHCPU", "RTPATHCPU",
+            "PATHOCL", "TILEPATHOCL", "RTPATHOCL",
+        ):
             portal_rects = _collect_light_portals(scene)
             if portal_rects:
                 definitions["path.portal.count"] = len(portal_rects)
