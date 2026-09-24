@@ -102,7 +102,9 @@ del scene
 scene2 = build_scene(LXM)
 rb = render(scene2, OUT_LXM)
 
-# 4a) byte-level round-trip: PLY vertex/face payload vs .lxm sections
+# 4a) geometry round-trip: .lxm stores triangles Morton-sorted and
+#     vertices first-use-renumbered (spatial page locality), so compare
+#     as multisets of positions, not raw order.
 import struct
 ply = open(PLY, "rb").read()
 lxm = open(LXM, "rb").read()
@@ -110,13 +112,29 @@ hdr_end = ply.index(b"end_header\n") + len(b"end_header\n")
 nv = struct.unpack("<Q", lxm[16:24])[0]
 nt = struct.unpack("<Q", lxm[24:32])[0]
 vsize = nv * 12
-verts_ok = ply[hdr_end:hdr_end + vsize] == lxm[128:128 + vsize]
+# vertex multiset must match exactly (bytes of 3-float records)
+ply_verts = {ply[hdr_end + i * 12:hdr_end + i * 12 + 12]
+             for i in range(nv)}
+lxm_verts = [lxm[128 + i * 12:128 + i * 12 + 12] for i in range(nv)]
+verts_ok = sorted(lxm_verts) == sorted(ply_verts)
 pos = (128 + vsize + 63) & ~63
-tri_ok = all(
-    ply[hdr_end + vsize + i * 13] == 3 and
-    ply[hdr_end + vsize + i * 13 + 1:hdr_end + vsize + i * 13 + 13] ==
-    lxm[pos + i * 12:pos + i * 12 + 12]
-    for i in range(nt))
+# triangle multiset by vertex POSITIONS (permutation-transparent):
+# map each index through its own vertex array, then sort positions
+def vert_bytes(buf, base, idx):
+    return buf[base + idx * 12:base + idx * 12 + 12]
+ply_vert_at = lambda i: vert_bytes(ply, hdr_end, i)
+lxm_vert_at = lambda i: vert_bytes(lxm, 128, i)
+ply_tris = set()
+for i in range(nt):
+    fb = hdr_end + vsize + i * 13
+    assert ply[fb] == 3
+    idx = struct.unpack("<3i", ply[fb + 1:fb + 13])
+    ply_tris.add(tuple(sorted(ply_vert_at(j) for j in idx)))
+lxm_tris = set()
+for i in range(nt):
+    idx = struct.unpack("<3I", lxm[pos + i * 12:pos + i * 12 + 12])
+    lxm_tris.add(tuple(sorted(lxm_vert_at(j) for j in idx)))
+tri_ok = lxm_tris == ply_tris
 print(f"[LxmTest] data round-trip: verts={verts_ok} tris={tri_ok} "
       f"({'PASS' if verts_ok and tri_ok else 'FAIL'})")
 
@@ -154,7 +172,22 @@ norms = [(0.0, 0.0, 1.0)] * NV
 uvs = [(i / NV, 1.0 - i / NV) for i in range(NV)]
 cols = [(i * 3 % 256, i * 5 % 256, i * 7 % 256) for i in range(NV)]
 alphas = [i * 2 % 256 for i in range(NV)]
-tris = [(i, i + 1, i + 2) for i in range(NT)]
+# unique triples, all indices < NV (invalid indices would read OOB)
+tris = []
+_seen = set()
+for a in range(NV):
+    for b in range(a + 1, NV):
+        for c in range(b + 1, NV):
+            t = (a, b, c)
+            if (a * 31 + b * 17 + c * 7) % 5 == 0:
+                _seen.add(frozenset(t))
+                tris.append(t)
+            if len(tris) >= NT:
+                break
+        if len(tris) >= NT:
+            break
+    if len(tris) >= NT:
+        break
 vert_aov = [float(i) * 0.25 for i in range(NV)]
 tri_aov = [float(i) * 0.5 for i in range(NT)]
 
@@ -193,43 +226,67 @@ uvm, colm, alm, vam, tam = masks
 print(f"[LxmTest] layered: flags={flags} masks uv={uvm} col={colm} "
       f"alpha={alm} vertaov={vam} triaov={tam}")
 
+# Sections are Morton-sorted / first-use-renumbered: verify layer data
+# permutes consistently with the implied vertex/triangle mappings.
+nv2 = struct.unpack("<Q", lxm2[16:24])[0]
 pos2 = 128
 ok = True
-# verts
-exp = b"".join(struct.pack("<3f", *v) for v in verts)
-ok &= lxm2[pos2:pos2 + NV * 12] == exp; pos2 += NV * 12
+# verts -> implied vertex map file_idx -> src_idx (positions unique)
+fverts = [struct.unpack("<3f", lxm2[pos2 + i * 12:pos2 + i * 12 + 12])
+          for i in range(nv2)]
+src_of = {v: i for i, v in enumerate(verts)}
+vm = [src_of[v] for v in fverts]
+pos2 += nv2 * 12
 pos2 = (pos2 + 63) & ~63
-# tris
-exp = b"".join(struct.pack("<3i", *t) for t in tris)
-ok &= lxm2[pos2:pos2 + NT * 12] == exp; pos2 += NT * 12
+# tris -> implied tri map file_idx -> src_idx via vertex source sets
+src_tris = {frozenset(t): i for i, t in enumerate(tris)}
+tm = []
+for i in range(NT):
+    idx = struct.unpack("<3I", lxm2[pos2 + i * 12:pos2 + i * 12 + 12])
+    tm.append(src_tris[frozenset(vm[j] for j in idx)])
+pos2 += NT * 12
 pos2 = (pos2 + 63) & ~63
-# normals
-exp = b"".join(struct.pack("<3f", *n) for n in norms)
-ok &= lxm2[pos2:pos2 + NV * 12] == exp; pos2 += NV * 12
+# float32 round-trip compare helper (file stores float32)
+f32 = lambda x: struct.unpack("<f", struct.pack("<f", x))[0]
+# normals (per vertex)
+for i in range(nv2):
+    got = struct.unpack("<3f", lxm2[pos2 + i * 12:pos2 + i * 12 + 12])
+    ok &= got == norms[vm[i]]
+pos2 += nv2 * 12
 pos2 = (pos2 + 63) & ~63
 # uv layer 0
-exp = b"".join(struct.pack("<2f", *uv) for uv in uvs)
-ok &= lxm2[pos2:pos2 + NV * 8] == exp; pos2 += NV * 8
+for i in range(nv2):
+    got = struct.unpack("<2f", lxm2[pos2 + i * 8:pos2 + i * 8 + 8])
+    ok &= got == uvs[vm[i]]
+pos2 += nv2 * 8
 pos2 = (pos2 + 63) & ~63
 # color layer 0: uchar -> float/255
-exp = b"".join(struct.pack("<3f", *(c / 255.0 for c in col)) for col in cols)
-ok &= lxm2[pos2:pos2 + NV * 12] == exp; pos2 += NV * 12
+for i in range(nv2):
+    got = struct.unpack("<3f", lxm2[pos2 + i * 12:pos2 + i * 12 + 12])
+    ok &= got == tuple(f32(c / 255.0) for c in cols[vm[i]])
+pos2 += nv2 * 12
 pos2 = (pos2 + 63) & ~63
 # alpha layer 0
-exp = b"".join(struct.pack("<f", a / 255.0) for a in alphas)
-ok &= lxm2[pos2:pos2 + NV * 4] == exp; pos2 += NV * 4
+for i in range(nv2):
+    got = struct.unpack("<f", lxm2[pos2 + i * 4:pos2 + i * 4 + 4])[0]
+    ok &= got == f32(alphas[vm[i]] / 255.0)
+pos2 += nv2 * 4
 pos2 = (pos2 + 63) & ~63
 # vertAOV layer 0
-exp = b"".join(struct.pack("<f", v) for v in vert_aov)
-ok &= lxm2[pos2:pos2 + NV * 4] == exp; pos2 += NV * 4
+for i in range(nv2):
+    got = struct.unpack("<f", lxm2[pos2 + i * 4:pos2 + i * 4 + 4])[0]
+    ok &= got == f32(vert_aov[vm[i]])
+pos2 += nv2 * 4
 pos2 = (pos2 + 63) & ~63
 # triAOV layer 0 — last section, no trailing pad in the file
-exp = b"".join(struct.pack("<f", v) for v in tri_aov)
-ok &= lxm2[pos2:pos2 + NT * 4] == exp; pos2 += NT * 4
+for i in range(NT):
+    got = struct.unpack("<f", lxm2[pos2 + i * 4:pos2 + i * 4 + 4])[0]
+    ok &= got == f32(tri_aov[tm[i]])
+pos2 += NT * 4
 ok &= pos2 == len(lxm2)
-expected_masks = (flags == 1 and uvm == 1 and colm == 1 and
+expected_masks = (flags == 3 and uvm == 1 and colm == 1 and
                   alm == 1 and vam == 1 and tam == 1)
-print(f"[LxmTest] layer sections byte-exact: {ok}, "
+print(f"[LxmTest] layer sections permutation-consistent: {ok}, "
       f"masks expected: {expected_masks} "
       f"({'PASS' if ok and expected_masks else 'FAIL'})")
 

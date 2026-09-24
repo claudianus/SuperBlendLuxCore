@@ -116,6 +116,11 @@
 
 ## Test
 
+- `.lxm` sections are stored spatially ordered (header flag bit1):
+  triangles Morton-sorted by centroid, vertices first-use-renumbered,
+  unreferenced vertices dropped — page-local reads under memory
+  pressure. The loader is order-agnostic; tests verify geometry as
+  multisets / via implied permutations, not raw byte order.
 - `dev-tools/imagemap_stream_test.py` — standalone pyluxcore test:
   8192x8192 non-mipped PNG, NONE vs FIXED-256 vs MINMEM; checks the
   "streaming resize" path fires and renders correctly at 1280x720.
