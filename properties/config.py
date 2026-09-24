@@ -863,6 +863,17 @@ class LuxCoreConfig(PropertyGroup):
                     "unmodified FILE/SEQUENCE images are freed — painted or dirty "
                     "buffers are never touched",
     )
+    external_process: BoolProperty(
+        name="External Process",
+        default=False,
+        description="Render in a detached process: the exported LuxCore scene is "
+                    "serialized to disk and rendered outside Blender, so Blender's "
+                    "scene memory (dependency graph, evaluated meshes, images) is "
+                    "released while the render runs. The result is written to the "
+                    "render output path when finished. The render cannot be "
+                    "cancelled from Blender — kill the external process to abort. "
+                    "Requires a halt condition to be set",
+    )
 
     def using_out_of_core(self):
         if self.effective_device() != "OCL":
@@ -999,6 +1010,14 @@ class LuxCoreConfig(PropertyGroup):
                                  description="Learn where the light comes from while rendering and steer "
                                              "glossy bounces toward it (one-sample MIS vs BSDF, unbiased). "
                                              "Helps indirect and glossy transport; needs some passes to warm up")
+    # Optional warm-start table (path.guiding.tablefile): on CPU it seeds the
+    # SD-tree/vMF field, on GPU it seeds the coarse guiding grid that is then
+    # refined by the GPU->CPU record drain loop. Empty = train inline.
+    guiding_tablefile: StringProperty(name="Guiding Table", default="",
+                                      subtype="FILE_PATH",
+                                      description="Optional path guiding table file to warm-start the "
+                                                  "learned field (empty = train from scratch). Written by "
+                                                  "previous runs or external tools")
 
     # Light portals (M5): caps the one-sample MIS share of the aperture
     # proposal. Only used when at least one mesh object is flagged as a
