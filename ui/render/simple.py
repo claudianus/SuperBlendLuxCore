@@ -40,11 +40,11 @@ class SUPERLUXCORE_RENDER_PT_simple(RenderButtonsPanel, Panel):
 
         if not simple.enabled:
             layout.label(
-                text="New here? Enable Quick Setup — one quality",
+                text="Full settings panels are shown below.",
                 icon=icons.INFO,
             )
             layout.label(
-                text="slider instead of the full settings panels.",
+                text="Re-enable for the one-slider workflow.",
                 icon=icons.NONE,
             )
             return

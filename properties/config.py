@@ -304,7 +304,7 @@ class SuperLuxCoreConfigSimple(PropertyGroup):
     """
     enabled: BoolProperty(
         name="Quick Setup",
-        default=False,
+        default=True,
         description="Show a simplified interface with a single quality slider. "
                     "Hide the advanced render settings panels",
     )
@@ -372,6 +372,7 @@ class SuperLuxCoreConfigSimple(PropertyGroup):
             (config.path, "use_clamping"), (config.path, "clamping"),
             (config, "sobol_adaptive_strength"), (config, "guiding_enable"),
             (halt, "enable"), (halt, "samples"),
+            (scene.superluxcore.denoiser, "enabled"),
             (config.photongi, "enabled"), (config.photongi, "caustic_enabled"),
             (config.photongi, "caustic_periodic_update"),
             (config.photongi, "caustic_updatespp"),
@@ -473,9 +474,11 @@ class SuperLuxCoreConfigSimple(PropertyGroup):
                 config.path.hybridbackforward_lightpartition = 20
 
     def apply_halt(self, scene):
-        """Map quality onto halt conditions (samples per pixel)."""
+        """Map quality onto halt conditions (samples per pixel) and the
+        Denoise checkbox onto the final denoiser."""
         scene.superluxcore.halt.enable = True
         scene.superluxcore.halt.samples = self.quality_map()["halt_samples"]
+        scene.superluxcore.denoiser.enabled = self.denoise
 
 
 class SuperLuxCoreConfigPath(PropertyGroup):
@@ -730,13 +733,13 @@ class SuperLuxCoreConfigNoiseEstimation(PropertyGroup):
 
 
 class SuperLuxCoreConfigImageResizePolicy(PropertyGroup):
-    enabled: BoolProperty(name="Use Image Resizing", default=False, description="")
+    enabled: BoolProperty(name="Use Image Resizing", default=True, description="")
     types = [
         ("MIPMAPMEM", "Auto-Scale to MipMaps", MIPMAPMEM_DESC, 0),
         ("MINMEM", "Auto-Scale to Lowest Size", MINMEM_DESC, 1),
         ("FIXED", "Uniform Scale", FIXED_DESC, 2),
     ]
-    type: EnumProperty(name="Type", items=types, default="MIPMAPMEM", description="How to resize images")
+    type: EnumProperty(name="Type", items=types, default="MINMEM", description="How to resize images")
     scale: FloatProperty(name="Scale", default=100, min=0, soft_max=100, precision=1, subtype="PERCENTAGE",
                          description="Scale factor. For example, with scale = 50%, a 3000x2000 pixel image is scaled to 1500x1000. "
                                      "When using auto-scaling, this value acts as a multiplier for the automatic scale")
@@ -953,7 +956,7 @@ class SuperLuxCoreConfig(PropertyGroup):
     )
     spill_geometry: BoolProperty(
         name="Spill Geometry",
-        default=False,
+        default=True,
         description="Out-of-core geometry: mesh buffers larger than the threshold "
                     "are written to disk and accessed through file mappings, so the "
                     "OS can evict cold pages under memory pressure instead of "
@@ -1054,7 +1057,7 @@ class SuperLuxCoreConfig(PropertyGroup):
     bidir_path_maxdepth: IntProperty(name="Eye Depth", default=10, min=1, soft_max=16)
 
     # Pixel filter
-    filter_enabled: BoolProperty(name="Enable Pixel Filtering", default=False, description=FILTER_DESC)
+    filter_enabled: BoolProperty(name="Enable Pixel Filtering", default=True, description=FILTER_DESC)
     filters = [
         ("BLACKMANHARRIS", "Blackman-Harris", "Default, usually the best option", 0),
         ("MITCHELL_SS", "Mitchell", "Sharp, but can produce black ringing artifacts around bright pixels", 1),
@@ -1130,7 +1133,7 @@ class SuperLuxCoreConfig(PropertyGroup):
                                               "result and only adds recovered caustic energy")
 
     # Path guiding (P1-3): learned incident-radiance field steers glossy bounces
-    guiding_enable: BoolProperty(name="Path Guiding", default=False,
+    guiding_enable: BoolProperty(name="Path Guiding", default=True,
                                  description="Learn where the light comes from while rendering and steer "
                                              "glossy bounces toward it (one-sample MIS vs BSDF, unbiased). "
                                              "Helps indirect and glossy transport; needs some passes to warm up")
@@ -1187,12 +1190,12 @@ class SuperLuxCoreConfig(PropertyGroup):
         ("TXT", "Text", "Save as .scn and .cfg text files", 0),
         ("BIN", "Binary", "Save as .bcf binary file", 1),
     ]
-    filesaver_format: EnumProperty(name="", items=filesaver_format_items, default="TXT")
+    filesaver_format: EnumProperty(name="", items=filesaver_format_items, default="BIN")
     filesaver_path: StringProperty(name="", subtype="DIR_PATH", description="Output path where the scene is saved")
 
     # Seed
     seed: IntProperty(name="Seed", default=1, min=1, description=SEED_DESC)
-    use_animated_seed: BoolProperty(name="Animated Seed", default=False, description=ANIM_SEED_DESC)
+    use_animated_seed: BoolProperty(name="Animated Seed", default=True, description=ANIM_SEED_DESC)
 
     # Min. epsilon settings (drawn in ui/units.py)
     show_min_epsilon: BoolProperty(name="Advanced SuperLuxCore Settings", default=False,

@@ -39,12 +39,12 @@ class SuperLuxCoreViewportSettings(bpy.types.PropertyGroup):
                                        description="Size of the startup blocks in pixels. A size of 4 means that "
                                                    "one sample is spread over 4x4 pixels on startup")
 
-    use_bidir: BoolProperty(name="Use Bidir", default=True,
+    use_bidir: BoolProperty(name="Use Bidir", default=False,
                              description="Enable if your scene requires Bidir for complex light paths and "
                                          "you need to preview them in the viewport render. If disabled, "
                                          "the RT Path engine is used in the viewport, which is optimized "
                                          "for quick feedback but can't handle complex light paths")
-    add_light_tracing: BoolProperty(name="Light Tracing", default=True,
+    add_light_tracing: BoolProperty(name="Light Tracing", default=False,
                                     description="Trace light paths in the viewport too (caustics). If disabled, "
                                          "the RT Path engine is used in the viewport, which is optimized "
                                          "for quick feedback but can't handle complex light paths")
