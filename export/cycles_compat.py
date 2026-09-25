@@ -278,6 +278,15 @@ def _link_member_sets(coll):
     return inc, exc
 
 
+def invalidate_link_plan():
+    """Drop the cached plan; called once per export_scene() so collection
+    membership edits between renders are always picked up (the depsgraph
+    pointer is not a reliable invalidation token for those)."""
+    global _link_plan, _link_plan_key
+    _link_plan = None
+    _link_plan_key = None
+
+
 def light_link_plan(scene, dg, warned):
     """(obj_groups, emitter_groups) for a (scene, depsgraph) evaluation.
 
