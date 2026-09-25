@@ -1,5 +1,41 @@
 # Agent notes
 
+## Legacy upstream file compatibility (verified 2026-09)
+
+- Upstream BlendLuxCore files store every prop group under the
+  `"luxcore"` ID key (`world["luxcore"]["gain"]`, `mat["luxcore"]
+  ["node_tree"]`, `scene["luxcore"]["config"]`) and node types under
+  `LuxCore*`/`luxcore_*` names. Registered PointerProperty group
+  members NEVER surface in `id["<prop>"]` — RNA groups live in their
+  own storage; `id["..."]` only contains unregistered/ID-property data.
+  An RNA `luxcore` alias prop therefore reads defaults, NOT the file's
+  stored dict — `properties/legacy.py` reads the raw
+  `IDPropertyGroup` instead (enums come back as ints, converted via
+  `prop.enum_items` value matching; resolved pointers like
+  `["node_tree"]` arrive as real datablocks, dangling ones as empty
+  groups → None).
+- `LuxCoreLegacyBridge.__getattribute__` on each root group resolves
+  prop reads: authored `superluxcore` value (is_property_set, pointers
+  need non-empty group via _group_has_authored_leaf) > stored
+  `luxcore` value > RNA default. Reads never write.
+- `utils.misc.use_cycles_compat` / `material_use_cycles_nodes` decide
+  light/world/material interpretation purely from stored data: legacy
+  `luxcore` or authored `superluxcore` -> native path; nothing stored
+  -> Cycles translation fallback. A `use_cycles_settings` member stored
+  by old files is still honored (it persists as an unregistered ID-prop
+  member).
+- Load handlers must not write to datablocks: `compatibility.run()`
+  (node/socket rewriting) no longer runs on load — it stays available
+  through `SUPERLUXCORE_OT_convert_to_v23`. Cache paths
+  (photongi/envlight/dlsc) and `filesaver_path` resolve lazily at
+  export; LOL UI resets go through `_setif_changed`.
+- Node aliases: `nodes/__init__.py` registers one subclass per
+  SuperLuxCore node/socket/tree class under the upstream bl_idname;
+  `utils.node` maps both name families (`legacy_idname`,
+  `canonical_idname`, TREE_TYPES includes both).
+- Regression: `dev-tools/e46_legacy_bridge_test.py` (HALL_BENCH),
+  `dev-tools/e45_cycles_light_defaults_test.py` (Cycles fallback).
+
 ## Installed Blender extensions
 
 - `extensions/user_default/superluxcore` — this repo's add-on, synced via

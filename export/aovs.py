@@ -84,7 +84,7 @@ def convert(exporter, scene, context=None, engine=None):
         # from camera rays -> same result as transparent film.
         world_cam_invisible = (
             scene.world is not None
-            and utils.misc.resolve_use_cycles_settings(scene.world.superluxcore)
+            and utils.misc.use_cycles_compat(scene.world.superluxcore)
             and cycles_compat.world_camera_invisible(scene.world)
         )
         use_transparent_film = (

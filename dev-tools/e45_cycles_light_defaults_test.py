@@ -1,12 +1,13 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 # E45: regression test — Cycles-authored lights/worlds must export through
-# the Cycles conversion path without a manual "Use Cycles Settings" toggle.
+# the Cycles conversion path as an automatic fallback.
 #
 # "Cycles 100% compatibility" is the project goal: a .blend written for
-# Cycles carries no SuperLuxCore property values, so the flag stays unset.
-# An unset flag resolves to the Cycles path unless native-only settings
-# were authored on the datablock (utils.misc.resolve_use_cycles_settings).
+# Cycles carries no LuxCore property values. The resolver
+# (utils.misc.use_cycles_compat) exports such datablocks through the
+# Cycles translation layer; authored LuxCore settings (in 'superluxcore'
+# or legacy upstream 'luxcore' storage) always win.
 #
 # This used to break on the ASiO Cycles scene: the Sun (energy=1000) was
 # exported through the native path where light.energy is ignored and the
@@ -110,7 +111,7 @@ def main():
     sun.energy = 1000.0
     sun.angle = 0.00918
     check("sun_flag_unset_resolves_cycles",
-          misc.resolve_use_cycles_settings(sun.superluxcore) is True)
+          misc.use_cycles_compat(sun.superluxcore) is True)
     props = convert(sun_obj)
     ltype = get(props, "scene.lights.sun_cycles.type")
     gain = get(props, "scene.lights.sun_cycles.gain")
@@ -120,11 +121,11 @@ def main():
           and abs(gain - expect) / expect < 0.01,
           f"gain={gain} expect={expect:.0f}")
 
-    # --- 2) Explicitly native sun -> sun type with sun_sky_gain ---
+    # --- 2) Stored legacy flag (older files) -> honored, native path ---
     obj2, sun2 = new_light("sun_native", "SUN")
-    sun2.superluxcore.use_cycles_settings = False
+    sun2["superluxcore"] = {"use_cycles_settings": 0}
     check("explicit_false_resolves_native",
-          misc.resolve_use_cycles_settings(sun2.superluxcore) is False)
+          misc.use_cycles_compat(sun2.superluxcore) is False)
     props = convert(obj2)
     ltype = get(props, "scene.lights.sun_native.type")
     gain = get(props, "scene.lights.sun_native.gain")
@@ -136,7 +137,7 @@ def main():
     obj3, sun3 = new_light("sun_authored", "SUN")
     sun3.superluxcore.turbidity = 7.0
     check("authored_native_resolves_native",
-          misc.resolve_use_cycles_settings(sun3.superluxcore) is False)
+          misc.use_cycles_compat(sun3.superluxcore) is False)
     props = convert(obj3)
     ltype = get(props, "scene.lights.sun_authored.type")
     turb = get(props, "scene.lights.sun_authored.turbidity")
@@ -148,7 +149,7 @@ def main():
     pt.energy = 42.0
     pt.superluxcore.importance = 2.0
     check("importance_keeps_cycles",
-          misc.resolve_use_cycles_settings(pt.superluxcore) is True)
+          misc.use_cycles_compat(pt.superluxcore) is True)
     props = convert(obj4)
     ltype = get(props, "scene.lights.pt_imp.type")
     gain = get(props, "scene.lights.pt_imp.gain")
@@ -179,9 +180,9 @@ def main():
           f"type={ltype}")
     check("world_cycles_gain", gain == 2.0, f"gain={gain}")
 
-    # --- 7) Explicitly native world -> sky2 ---
+    # --- 7) Stored legacy flag on a world -> native sky2 ---
     world7 = new_world("w_native")
-    world7.superluxcore.use_cycles_settings = False
+    world7["superluxcore"] = {"use_cycles_settings": 0}
     props = convert(world7, is_world=True)
     ltype = get(props, "scene.lights.__WORLD_BACKGROUND_LIGHT__.type")
     check("world_native_sky2", ltype == "sky2", f"type={ltype}")
