@@ -15,9 +15,7 @@ class SUPERLUXCORE_RENDER_PT_viewport_settings(RenderButtonsPanel, Panel):
     def poll(cls, context):
         if context.scene.render.engine != "SUPERLUXCORE":
             return False
-        # Quick Setup: hide advanced panels unless explicitly shown
-        simple = context.scene.superluxcore.config.simple
-        return (not simple.enabled) or simple.show_advanced
+        return True
 
     def draw(self, context):
         layout = self.layout
@@ -69,9 +67,7 @@ class SUPERLUXCORE_RENDER_PT_viewport_settings_denoiser(RenderButtonsPanel, Pane
     def poll(cls, context):
         if context.scene.render.engine != "SUPERLUXCORE":
             return False
-        # Quick Setup: hide advanced panels unless explicitly shown
-        simple = context.scene.superluxcore.config.simple
-        return (not simple.enabled) or simple.show_advanced
+        return True
 
     def draw_header(self, context):
         layout = self.layout
@@ -112,9 +108,7 @@ class SUPERLUXCORE_RENDER_PT_viewport_settings_advanced(RenderButtonsPanel, Pane
     def poll(cls, context):
         if context.scene.render.engine != "SUPERLUXCORE":
             return False
-        # Quick Setup: hide advanced panels unless explicitly shown
-        simple = context.scene.superluxcore.config.simple
-        return (not simple.enabled) or simple.show_advanced
+        return True
 
     def draw(self, context):
         layout = self.layout

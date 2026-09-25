@@ -1,8 +1,7 @@
 from ... import utils
-from . import caches, config, debug, denoiser, devices, errorlog, halt, image_resize_policy, sampling, simple, tools, viewport
+from . import caches, config, debug, denoiser, devices, errorlog, halt, image_resize_policy, sampling, tools, viewport
 
 classes = (
-    simple.SUPERLUXCORE_RENDER_PT_simple,
     caches.SUPERLUXCORE_RENDER_PT_caches,
     caches.SUPERLUXCORE_RENDER_PT_caches_photongi,
     caches.SUPERLUXCORE_RENDER_PT_caches_photongi_indirect,

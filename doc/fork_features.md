@@ -203,27 +203,23 @@ gradients on CPU and Metal/OpenCL.
   deltas at ~30% of full-export time (measured on export-stage
   timings, not render wall time).
 
-## UX — Quick Setup + viewport stability
+## UX — viewport stability
 
-- Corona-style **Quick Setup**: a quality slider + denoise toggle; caustics
-  auto-enabled when the scene has glass; progressive caustics refinement.
-- **Automatic light strategy** (`light_strategy = "AUTO"`, the default):
+- **Automatic light strategy** (`light_strategy = "AUTO"`, opt-in):
   counts scene emitters — light objects, the world background, and
   emissive meshes weighted by polygon count — and picks ReSTIR DI above
   `AUTO_LIGHT_STRATEGY_EMITTER_THRESHOLD` (16) on engines that support it,
   log-power sampling otherwise. Explicit strategy choices always win.
-- **Auto clamp**: once an unclamped render has produced a suggested clamp
-  value, subsequent renders apply it automatically. Manual "Clamp Output"
-  takes precedence.
-- **Auto device selection** (`config.device = "AUTO"`, the default): uses
+- **Auto clamp** (`auto_clamping`, opt-in): once an unclamped render has
+  produced a suggested clamp value, subsequent renders apply it
+  automatically. Manual "Clamp Output" takes precedence.
+- **Auto device selection** (`config.device = "AUTO"`, opt-in): uses
   the GPU(s) when an enabled device of the backend selected in the addon
   preferences exists, falls back to CPU otherwise. Enabled GPUs below
   4 GiB automatically run out-of-core so large scenes still fit, and get
   a capped wavefront task count (`opencl.task.count = 131072` vs the
   512K default) so the per-task buffers fit and leave headroom for the
   driver/compositor.
-- **Quality presets**: Draft / Standard / Final buttons on top of the
-  Quick Setup quality slider.
 - **ReSTIR DI visibility weighting** (`restir_visibility_enable`): exposes
   SuperLuxCore's `lightstrategy.restir.visibility.enable` — candidates' shadow
   rays steer the reservoir target. Opt-in; honest description in the

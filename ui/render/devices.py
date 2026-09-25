@@ -79,9 +79,6 @@ class SUPERLUXCORE_RENDER_PT_gpu_devices(RenderButtonsPanel, Panel):
 
     @classmethod
     def poll(cls, context):
-        simple = context.scene.superluxcore.config.simple
-        if simple.enabled and not simple.show_advanced:
-            return False
         config = context.scene.superluxcore.config
         return (
             context.scene.render.engine == "SUPERLUXCORE"
@@ -126,9 +123,6 @@ class SUPERLUXCORE_RENDER_PT_cpu_devices(RenderButtonsPanel, Panel):
 
     @classmethod
     def poll(cls, context):
-        simple = context.scene.superluxcore.config.simple
-        if simple.enabled and not simple.show_advanced:
-            return False
         config = context.scene.superluxcore.config
         return (
             context.scene.render.engine == "SUPERLUXCORE"
