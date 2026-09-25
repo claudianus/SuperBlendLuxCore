@@ -217,3 +217,33 @@
 - World > HDRI > `cdfdim` caps env importance CDF (block-summed,
   unbiased; default 4096, 0=unlimited).
 
+
+## Cycles light/world auto-resolution (use_cycles_settings)
+
+- `light.superluxcore.use_cycles_settings` / `world.superluxcore.…` now
+  default **True** — a .blend authored for Cycles stores no SuperLuxCore
+  prop values, so `utils.misc.resolve_use_cycles_settings` routes it
+  through the Cycles converter automatically (the ASiO Sun at
+  energy=1000 exported through the native path used the `sun_sky_gain`
+  default 2e-5 — ~500x too dark vs Cycles).
+- Resolution order: explicitly stored flag wins; if the flag was never
+  set, native-only prop writes on the datablock pin it to the native
+  path, otherwise Cycles. Shared props (`importance`, `link_groups`,
+  `lightgroup`) and `rna_type`/`name` never pin native.
+- `compatibility.run()` writes the resolved value into the flag at
+  load_post so the UI checkbox matches the export mode on old files.
+- Cycles sun → `distant`/`sharpdistant` with
+  `gain = energy / (2π(1-cos θ))`; Cycles world with unlinked Surface
+  emits nothing. Regression: `dev-tools/e45_cycles_light_defaults_test.py`.
+
+## Deferred RNA writes from the render callback
+
+- RNA writes throw RuntimeError inside `bpy.ops.render.render`
+  (`Writing to ID classes in this context`) but are legal in
+  `render_complete` handlers. `utils.render.find_suggested_clamp_value`
+  stashes the value in `_pending_suggested_clamp` on RuntimeError;
+  `handlers/render_complete.py` flushes it (render_complete fires before
+  `bpy.ops.render.render` returns, so post-render reads see the value).
+- `engine/final.py`: the clamp-suggestion check must run BEFORE the
+  `HasDone()` break — a fast render can hit the halt condition in the
+  first stats update and would otherwise never record the suggestion.

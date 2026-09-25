@@ -359,6 +359,28 @@ def compute_clamp_signature(scene):
     return _SIG_CACHE["sig"]
 
 
+# scene.as_pointer() -> suggested clamp value, waiting for a context
+# where RNA writes are allowed (see find_suggested_clamp_value)
+_pending_suggested_clamp = {}
+
+
+def _write_suggested_clamp(scene, suggested_clamping_value):
+    scene.superluxcore.config.path.suggested_clamping_value = suggested_clamping_value
+    # Stamp the suggestion with the scene's lighting content so a
+    # stale value is ignored once the scene's emitters change.
+    scene.superluxcore.config.path.suggested_clamping_sig = (
+        compute_clamp_signature(scene)
+    )
+
+
+def flush_suggested_clamp(scene):
+    """Apply a clamp suggestion deferred from the render callback.
+    Called by the render_complete handler, where RNA writes are legal."""
+    value = _pending_suggested_clamp.pop(scene.as_pointer(), None)
+    if value is not None:
+        _write_suggested_clamp(scene, value)
+
+
 def find_suggested_clamp_value(session, scene=None):
     """
     Find suggested clamp value.
@@ -376,17 +398,15 @@ def find_suggested_clamp_value(session, scene=None):
     if scene:
         try:
             # TODO: rework this so it can't fail anymore (some users have reported that it throws an AttributeError)
-            scene.superluxcore.config.path.suggested_clamping_value = suggested_clamping_value
-            # Stamp the suggestion with the scene's lighting content so a
-            # stale value is ignored once the scene's emitters change.
-            scene.superluxcore.config.path.suggested_clamping_sig = (
-                compute_clamp_signature(scene)
-            )
-        except (AttributeError, RuntimeError):
-            # AttributeError: reported by users on some versions.
-            # RuntimeError: RNA writes are forbidden while the render
-            # callback runs (Writing to ID classes in this context).
+            _write_suggested_clamp(scene, suggested_clamping_value)
+        except AttributeError:
+            # reported by users on some versions
             print("Warning: could not set suggested_clamping_value property")
+        except RuntimeError:
+            # RNA writes are forbidden while the render callback runs
+            # (Writing to ID classes in this context) - defer to the
+            # render_complete handler via flush_suggested_clamp.
+            _pending_suggested_clamp[scene.as_pointer()] = suggested_clamping_value
 
     return suggested_clamping_value
 

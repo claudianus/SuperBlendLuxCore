@@ -46,7 +46,7 @@ def convert_light(exporter, obj, obj_key, depsgraph, superluxcore_scene, transfo
 
         prefix = "scene.lights." + superluxcore_name + "."
 
-        if obj.data.superluxcore.use_cycles_settings:
+        if utils.misc.resolve_use_cycles_settings(obj.data.superluxcore):
             props, exported = _convert_cycles_light(
                 exporter, obj, depsgraph, superluxcore_scene, transform,
                 is_viewport_render, superluxcore_name, scene, prefix)
@@ -446,7 +446,7 @@ def convert_world(exporter, world, scene, is_viewport_render):
         superluxcore_name = WORLD_BACKGROUND_LIGHT_NAME
         prefix = "scene.lights." + superluxcore_name + "."
 
-        if world.superluxcore.use_cycles_settings:
+        if utils.misc.resolve_use_cycles_settings(world.superluxcore):
             definitions = _convert_cycles_world(exporter, scene, world, is_viewport_render)
         else:
             definitions = _convert_superluxcore_world(exporter, scene, world, is_viewport_render)

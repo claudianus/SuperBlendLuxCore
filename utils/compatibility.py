@@ -46,6 +46,17 @@ def run():
             camera.dof.aperture_fstop = camera.superluxcore.fstop
             camera.superluxcore.use_dof = False
 
+    # "Use Cycles Settings" now defaults to the Cycles interpretation.
+    # Pin datablocks carrying authored native settings to the native
+    # path so the stored flag matches the effective export mode
+    # (utils.misc.resolve_use_cycles_settings).
+    from ..utils.misc import resolve_use_cycles_settings
+    for datablocks in (bpy.data.lights, bpy.data.worlds):
+        for datablock in datablocks:
+            sl_props = datablock.superluxcore
+            if not sl_props.is_property_set("use_cycles_settings"):
+                sl_props.use_cycles_settings = resolve_use_cycles_settings(sl_props)
+
 
 def update_mat_output_volume_change(node_tree):
     # commit 3078719a9a33a7e2a798965294463dce6c8b7749
