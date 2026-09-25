@@ -170,6 +170,30 @@ check(
     abs(props.Get("path.clamping.variance.maxvalue").GetFloat() - 7.0)
     < 1e-6,
 )
+
+# Adaptive Robust Clamping settings are emitted alongside maxvalue
+check(
+    "clamp.arc-props",
+    props.IsDefined("path.clamping.variance.adaptive")
+    and props.Get("path.clamping.variance.adaptive").GetBool()
+    and props.Get("path.clamping.variance.scope").GetString() == "indirect"
+    and abs(props.Get("path.clamping.variance.sigma").GetFloat() - 6.0)
+    < 1e-6,
+)
+scene2.superluxcore.config.path.clamp_scope = "ALL"
+scene2.superluxcore.config.path.clamp_adaptive = False
+scene2.superluxcore.config.path.clamp_sigma = 3.0
+props = export_config.convert(None, scene2)
+check(
+    "clamp.arc-custom",
+    not props.Get("path.clamping.variance.adaptive").GetBool()
+    and props.Get("path.clamping.variance.scope").GetString() == "all"
+    and abs(props.Get("path.clamping.variance.sigma").GetFloat() - 3.0)
+    < 1e-6,
+)
+scene2.superluxcore.config.path.clamp_scope = "INDIRECT"
+scene2.superluxcore.config.path.clamp_adaptive = True
+scene2.superluxcore.config.path.clamp_sigma = 6.0
 scene2.superluxcore.config.path.use_clamping = False
 
 scene2.superluxcore.config.path.auto_clamping = False

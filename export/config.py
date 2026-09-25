@@ -318,6 +318,9 @@ def convert(exporter, scene, context=None, engine=None):
             and not utils.using_photongi_debug_mode(is_viewport_render, scene)
         ):
             definitions["path.clamping.variance.maxvalue"] = clamping_value
+            definitions["path.clamping.variance.adaptive"] = config.path.clamp_adaptive
+            definitions["path.clamping.variance.scope"] = config.path.clamp_scope.lower()
+            definitions["path.clamping.variance.sigma"] = config.path.clamp_sigma
 
         # Filter
         if config.filter == "GAUSSIAN":

@@ -551,6 +551,46 @@ class SuperLuxCoreConfigPath(PropertyGroup):
     )
     # path.clamping.variance.maxvalue
     clamping: FloatProperty(name="Max Brightness", default=10, min=0,soft_max=10000,  description=CLAMPING_DESC)
+    # path.clamping.variance.scope - Cycles-style clamp scope: fireflies
+    # almost always come from indirect paths, so clamping only the indirect
+    # share preserves legitimate direct highlights, sun glints and emissive
+    # surfaces untouched.
+    clamp_scope: EnumProperty(
+        name="Scope",
+        default="INDIRECT",
+        description="Which path classes the clamp is applied to",
+        items=[
+            ("INDIRECT", "Indirect Only",
+             "Clamp only indirect (multi-bounce) contributions - direct "
+             "lights, sun glints and emissive surfaces are never dimmed. "
+             "Recommended for most scenes"),
+            ("DIRECT", "Direct Only",
+             "Clamp only emission and first-vertex direct light - indirect "
+             "contributions pass through"),
+            ("ALL", "Everything",
+             "Clamp every contribution (legacy behaviour)"),
+        ]
+    )
+    # path.clamping.variance.adaptive - robust per-pixel statistics:
+    # the clamp bound is estimated from the 3x3 neighbourhood median and
+    # median-absolute-deviation, so it is tight in flat/dark areas (kills
+    # fireflies) and relaxed in legitimately bright regions (keeps caustics
+    # and highlights).
+    clamp_adaptive: BoolProperty(
+        name="Adaptive Margin",
+        default=True,
+        description="Estimate the clamp margin from robust statistics of "
+                    "the pixel neighbourhood (median + MAD). Tighter in "
+                    "flat regions, more permissive in bright/variable ones"
+    )
+    # path.clamping.variance.sigma
+    clamp_sigma: FloatProperty(
+        name="Adaptive Sigma",
+        default=6, min=0.5, soft_max=16,
+        description="Neighbourhood deviation multiplier for the adaptive "
+                    "margin. Lower values suppress outliers more "
+                    "aggressively; higher values are more conservative"
+    )
     # This should only be set in the engine code after export. Only show a read-only label to the user.
     suggested_clamping_value: FloatProperty(name="", default=-1)
     # Fingerprint of the scene's light/emission content at the time the

@@ -369,8 +369,20 @@ class SUPERLUXCORE_RENDER_PT_lightpaths_clamping(RenderButtonsPanel, Panel):
         layout.use_property_split = True
         layout.use_property_decorate = False
 
-        layout.active = config.path.use_clamping
-        layout.prop(config.path, "clamping")
+        row = layout.row()
+        row.active = config.path.use_clamping
+        row.prop(config.path, "clamping")
+
+        # Adaptive Robust Clamping controls apply to manual and
+        # auto-suggested clamping alike, so they stay editable whenever a
+        # clamp can engage
+        col = layout.column()
+        col.active = config.path.use_clamping or config.path.auto_clamping
+        col.prop(config.path, "clamp_scope")
+        col.prop(config.path, "clamp_adaptive")
+        sig = col.column()
+        sig.active = col.active and config.path.clamp_adaptive
+        sig.prop(config.path, "clamp_sigma")
 
         if not config.path.use_clamping:
             layout.prop(config.path, "auto_clamping")
