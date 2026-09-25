@@ -95,8 +95,8 @@
   masks) + aligned raw sections: verts, tris, normals?, uv/col/alpha/
   vertAOV/triAOV layers. Same-build portability only (raw POD dump);
   load-time validation covers truncation, bad magic, and crafted
-  element counts. Windows MapFileCopyOnWrite not implemented yet
-  (fails gracefully).
+  element counts. Windows read-only path maps via FILE_MAP_READ
+  fallback (MapFileCopyOnWrite is implemented — see below).
 - Regression: `dev-tools/lxm_proxy_test.py` (byte-exact round-trip +
   720p render compare + error paths).
 

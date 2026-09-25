@@ -9,9 +9,11 @@ validated.
 
 **What/why.** Blender scenes use Cycles shader nodes; to render them SuperLuxCore
 must translate each node to an equivalent SuperLuxCore texture/material. Coverage
-grew from **36 to 71 of the ~101 Blender 5.2 shader nodes** by auto-routing
-unmapped node trees through the Cycles reader (`Blender-first materials:
-auto-route Blender node trees to the Cycles reader`).
+grew from 36 to **42 mapped + 32 approx of the 102 `ShaderNode*` types registered
+by Blender 5.2.1** (remaining warn-tier nodes emit a warning + neutral fallback)
+by auto-routing unmapped node trees through the Cycles reader. The authoritative,
+type-by-type audit — including the denominator definition — is
+`doc/cycles_node_coverage.md`.
 
 **Added mappings** (commit `Cycles node reader: ...` and follow-ups):
 
@@ -32,7 +34,10 @@ auto-route Blender node trees to the Cycles reader`).
 | Subsurface Scattering | Disney `subsurface` | approximation (no BSSRDF) |
 | Attribute (generic/named) | `hitpointvertexaov` / `hitpointtriangleaov` / `hitpointcolor` | GN "Store Named Attribute" output and hand-authored `mesh.attributes`: scalar float/int/bool → vertex or triangle AOV, vector/float2 → extra color layer. Fac/Color/Vector outputs resolved; edge-domain and string attributes warn |
 
-**Validation:** exported SDL parses + renders; coverage measured at 71/101.
+**Validation:** exported SDL parses + renders; coverage measured at
+42 mapped + 32 approx + 8 warn-fallback of 102 registered node types
+(`dev-tools/cycles_node_coverage_test.py` non-rendering audit +
+`dev-tools/e23_cycles_compat_e2e_test.py` headless render).
 Remaining unmapped: Sky/Environment (material context), PointDensity,
 RayPortal — tracked on the roadmap. VectorRotate/VectorTransform are
 mapped for constant transforms; texture-driven axes warn.
