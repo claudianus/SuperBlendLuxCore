@@ -4,7 +4,7 @@ from .. import utils
 import pysuperluxcore
 
 class SuperLuxCoreViewportSettings(bpy.types.PropertyGroup):
-    halt_time: IntProperty(name="Render Time Limit (s)", default=10, min=1,
+    halt_time: IntProperty(name="Halt Time (s)", default=10, min=1,
                             description="How long to render in the viewport. "
                                         "When this time is reached, the render is paused")
 
@@ -44,8 +44,8 @@ class SuperLuxCoreViewportSettings(bpy.types.PropertyGroup):
                                          "you need to preview them in the viewport render. If disabled, "
                                          "the RT Path engine is used in the viewport, which is optimized "
                                          "for quick feedback but can't handle complex light paths")
-    add_light_tracing: BoolProperty(name="Light Tracing", default=False,
-                                    description="Trace light paths in the viewport too (caustics). If disabled, "
+    add_light_tracing: BoolProperty(name="Add Light Tracing", default=False,
+                                    description="Add light tracing in viewport. If disabled, "
                                          "the RT Path engine is used in the viewport, which is optimized "
                                          "for quick feedback but can't handle complex light paths")
 
