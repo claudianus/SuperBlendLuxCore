@@ -283,3 +283,24 @@
 - `engine/final.py`: the clamp-suggestion check must run BEFORE the
   `HasDone()` break — a fast render can hit the halt condition in the
   first stats update and would otherwise never record the suggestion.
+
+## Viewport config restart MUST include imagepipeline+halt props
+
+- `config_cache.props` holds only `config.convert()` output —
+  `film.imagepipelines.*` and `batch.halt*` are merged into the session
+  config AFTER `config_cache.diff()` (`export_scene`), so they are NOT
+  in the cache. A viewport config change restarts the session via
+  `worker.submit_config` -> `SessionWorker._do_config` ->
+  `RenderConfig(props, reused_scene)`.
+- With no `film.imagepipelines.*` props the new film gets ONE EMPTY
+  pipeline: `Film::GetOutput(RGB(A)_IMAGEPIPELINE)` then returns the
+  merged raw HDR radiance (no tonemap) -> blown-out white viewport; on a
+  film without the ALPHA channel (RGBA read on RGB film) GetOutput
+  early-returns WITHOUT writing the buffer. Always submit
+  `exporter.get_restart_config_props()` (config + imagepipeline + halt
+  caches merged) — never `config_cache.props` alone.
+- `draw/viewport.py::_fetch_pixels` uses `np.zeros` (not `np.empty`):
+  an early-returned GetOutputFloat leaves zeros -> held as "empty film"
+  instead of uploading uninitialized garbage (which `np.any(data>0)`
+  accepts as content -> white). Same reason the FrameBuffer ctor
+  zero-inits its gpu buffer.
