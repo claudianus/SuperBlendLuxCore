@@ -340,14 +340,38 @@ class SUPERLUXCORE_RENDER_PT_lightpaths_guiding(RenderButtonsPanel, Panel):
         # Optional warm-start table; empty trains inline (GPU engines
         # refine it through the record drain loop)
         col.prop(config, "guiding_tablefile")
+        col.prop(config, "guiding_savetable")
+        col.prop(config, "guiding_strength")
         # RIS product guiding: resample K mixture candidates against
         # f*cos*Lhat (0 = plain one-sample mixture)
         col.prop(config, "guiding_ris_k")
+
+        # P5 gates: which bounces the guide may steer
+        box = layout.box()
+        box.label(text="Bounce Gates")
+        col = box.column(align=True)
+        col.prop(config, "guiding_min_depth")
+        col.prop(config, "guiding_glossy_threshold")
+        col.prop(config, "guiding_diffuse")
+
+        # P5 tree/fit knobs: field granularity and training cadence
+        box = layout.box()
+        box.label(text="Field")
+        col = box.column(align=True)
+        col.prop(config, "guiding_warmup")
+        col.prop(config, "guiding_components")
+        col.prop(config, "guiding_split")
+        col.prop(config, "guiding_max_depth")
+        col.prop(config, "guiding_max_leaves")
+        col.prop(config, "guiding_swaprecords")
+        col.prop(config, "guiding_freeze")
+        col.prop(config, "guiding_debug")
 
         # Light portals (M5): caps the aperture-proposal share; only
         # takes effect when a mesh object is flagged "Light Portal"
         # (object properties). Works with or without guiding - the
         # adaptive share falls back to this fixed value.
+        col = layout.column(align=True)
         col.prop(config, "portal_weight")
 
 

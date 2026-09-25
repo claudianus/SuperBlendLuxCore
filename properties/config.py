@@ -1186,6 +1186,71 @@ class SuperLuxCoreConfig(PropertyGroup):
                                            "resample toward f*cos*incident-radiance - better on glossy "
                                            "paths at the cost of extra BSDF evaluations")
 
+    # P5 artist gates (path.guiding.*): strength scales the guide share
+    # in the one-sample mixture (still exact at any value); diffuse
+    # opts matte bounces in (their cosine lobe is already near-optimal,
+    # so it costs throughput on simple scenes but helps textured ones).
+    guiding_strength: FloatProperty(name="Strength", default=1.,
+                                    min=0., max=1.,
+                                    description="How much the learned field steers bounce sampling "
+                                                "(1 = full adaptive weight, 0 = BSDF only). Lower values "
+                                                "help scenes where the guide is still rough")
+    guiding_diffuse: BoolProperty(name="Guide Diffuse", default=False,
+                                  description="Also guide diffuse bounces - helps diffuse-indirect "
+                                              "heavy scenes at some extra cost. Glossy and volume "
+                                              "bounces are always guided")
+    guiding_min_depth: IntProperty(name="Min Depth", default=2,
+                                   min=0, max=16,
+                                   description="First bounce depth that may use the guide. 2 skips "
+                                               "camera-visible bounces where direct light already "
+                                               "dominates")
+    guiding_glossy_threshold: FloatProperty(name="Glossy Threshold", default=.3,
+                                            min=0., max=1.,
+                                            description="Minimum surface glossiness for a guided bounce "
+                                                        "(0 = guide even mirror-rough lobes, 1 = glossy "
+                                                        "only). Lower includes sharper lobes")
+    guiding_warmup: IntProperty(name="Warmup", default=256,
+                                min=1, max=65536,
+                                description="Samples a region needs before its learned field is trusted "
+                                            "(higher = slower start, steadier guide)")
+    guiding_components: IntProperty(name="Max Components", default=4,
+                                    min=1, max=4,
+                                    description="Max light-field lobes learned per region (BIC picks "
+                                                "fewer when the field is simple; lower caps memory and "
+                                                "avoids overfitting sparse areas)")
+    # Save the trained field on render stop: warm-start future renders
+    # via the Guiding Table path above.
+    guiding_savetable: StringProperty(name="Save Table", default="",
+                                      subtype="FILE_PATH",
+                                      description="Save the trained guiding field to this file when the "
+                                                  "render stops (CPU engines). Reload via Guiding Table "
+                                                  "for an instant warm start")
+    guiding_freeze: BoolProperty(name="Freeze Table", default=True,
+                                 description="Keep a loaded guiding table frozen instead of refining it "
+                                             "during the render")
+    # Expert spatial-tree knobs (path.guiding.split/.maxdepth/.maxleaves/
+    # .swaprecords) - finer tree = more local fields at more memory.
+    guiding_split: FloatProperty(name="Split Fraction", default=.004,
+                                 min=1e-6, max=.5,
+                                 description="A cell subdivides when it carries this fraction of the "
+                                             "round's light (smaller = finer spatial tree)")
+    guiding_max_depth: IntProperty(name="Max Depth", default=12,
+                                   min=1, max=12,
+                                   description="Spatial tree depth limit (12 = finest cells are "
+                                               "1/4096 of the scene)")
+    guiding_max_leaves: IntProperty(name="Max Leaves", default=8192,
+                                    min=16, max=65536,
+                                    description="Spatial tree leaf budget (each leaf ~1.6KB of "
+                                                "training state)")
+    guiding_swaprecords: IntProperty(name="Swap Records", default=1000000,
+                                     min=1000,
+                                     description="Training round length in recorded samples before the "
+                                                 "learned field is rebuilt (smaller = faster adaptation, "
+                                                 "noisier rounds)")
+    guiding_debug: BoolProperty(name="Debug Log", default=False,
+                                description="Log per-round tree statistics (leaf count, warm/borrowed "
+                                            "leaves) to stderr")
+
     # Light portals (M5): caps the one-sample MIS share of the aperture
     # proposal. Only used when at least one mesh object is flagged as a
     # Light Portal; the learned field adaptively spends less than this

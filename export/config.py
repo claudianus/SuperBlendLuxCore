@@ -262,6 +262,40 @@ def convert(exporter, scene, context=None, engine=None):
                 )
             if config.guiding_ris_k:
                 definitions["path.guiding.risk"] = config.guiding_ris_k
+            # P5 gates - emit only non-defaults so unchanged configs
+            # keep exporting the same property set.
+            # float props compare against the float32-rounded default -
+            # RNA stores float32, so a literal compare would always emit.
+            if config.guiding_strength != 1.:
+                definitions["path.guiding.strength"] = config.guiding_strength
+            if config.guiding_diffuse:
+                definitions["path.guiding.diffuse"] = True
+            if config.guiding_min_depth != 2:
+                definitions["path.guiding.mindepth"] = config.guiding_min_depth
+            if abs(config.guiding_glossy_threshold - .3) > 1e-6:
+                definitions["path.guiding.glossythreshold"] = (
+                    config.guiding_glossy_threshold)
+            if config.guiding_warmup != 256:
+                definitions["path.guiding.warmup"] = config.guiding_warmup
+            if config.guiding_components != 4:
+                definitions["path.guiding.components"] = config.guiding_components
+            if config.guiding_savetable:
+                definitions["path.guiding.savetable"] = (
+                    bpy.path.abspath(config.guiding_savetable)
+                )
+            if not config.guiding_freeze:
+                definitions["path.guiding.freeze"] = False
+            if abs(config.guiding_split - .004) > 1e-7:
+                definitions["path.guiding.split"] = config.guiding_split
+            if config.guiding_max_depth != 12:
+                definitions["path.guiding.maxdepth"] = config.guiding_max_depth
+            if config.guiding_max_leaves != 8192:
+                definitions["path.guiding.maxleaves"] = config.guiding_max_leaves
+            if config.guiding_swaprecords != 1000000:
+                definitions["path.guiding.swaprecords"] = (
+                    config.guiding_swaprecords)
+            if config.guiding_debug:
+                definitions["path.guiding.debug"] = True
 
         # Light portals (M5): quad faces of objects flagged
         # "Light Portal" become aperture rects for the portal bounce
