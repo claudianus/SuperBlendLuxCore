@@ -143,7 +143,7 @@ def update_status_msg(stats, engine, scene, config, time_until_film_refresh):
         # Reset to 0 in case the user disables the halt conditions during render
         engine.update_progress(0)
 
-    if "TILE" in config.GetProperties().Get("renderengine.type").GetString():
+    if "TILE" in _session_property(config, "renderengine.type", "PATHCPU"):
         TileStats.film_width, TileStats.film_height = calc_filmsize(scene)
         tile_w = stats.Get("stats.tilepath.tiles.size.x").GetInt()
         tile_h = stats.Get("stats.tilepath.tiles.size.y").GetInt()
@@ -156,9 +156,24 @@ def update_status_msg(stats, engine, scene, config, time_until_film_refresh):
         TileStats.notconverged_passcounts = stats.Get('stats.tilepath.tiles.notconverged.pass').GetInts()
 
 
+def _session_property(config, name, fallback):
+    """Read a property off a session's RenderConfig.
+
+    RenderConfig::GetProperties() exposes the internal config by a
+    non-owning reference — under pybind11's smart_holder it can fail with
+    "Non-owning holder (load_as_shared_ptr)" once the owning wrapper was
+    garbage-collected. GetProperty() returns the value by copy and is
+    safe on the borrowed object.
+    """
+    try:
+        return config.GetProperty(name).GetString()
+    except RuntimeError:
+        return fallback
+
+
 def get_pretty_stats(config, stats, scene, context=None):
     halt = get_halt_conditions(scene)
-    engine = config.GetProperties().Get("renderengine.type").GetString()
+    engine = _session_property(config, "renderengine.type", "PATHCPU")
 
     # Here we collect strings in a list and later join them
     # so the result will look like: "message 1 | message 2 | ..."
@@ -219,7 +234,7 @@ def get_pretty_stats(config, stats, scene, context=None):
     pretty.append("Rays/Sample " + rays_per_sample_to_string(get_rays_per_sample(stats)))
 
     # Engine + Sampler
-    sampler = config.GetProperties().Get("sampler.type").GetString()
+    sampler = _session_property(config, "sampler.type", "SOBOL")
     pretty.append(engine_to_str(engine) + " + " + sampler_to_str(sampler))
 
     # Triangle count
@@ -367,10 +382,11 @@ def find_suggested_clamp_value(session, scene=None):
             scene.superluxcore.config.path.suggested_clamping_sig = (
                 compute_clamp_signature(scene)
             )
-        except AttributeError:
+        except (AttributeError, RuntimeError):
+            # AttributeError: reported by users on some versions.
+            # RuntimeError: RNA writes are forbidden while the render
+            # callback runs (Writing to ID classes in this context).
             print("Warning: could not set suggested_clamping_value property")
-            import traceback
-            traceback.print_exc()
 
     return suggested_clamping_value
 

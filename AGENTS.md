@@ -83,6 +83,53 @@
   CompileGeometry rebuilds the SpillableArrays (mutating ops pull them
   back to heap), the upload then re-spills — verified by a second
   "Host staging spilled" log line after EndSceneEdit.
+- `RenderConfig.GetProperties()` returns a CLONED Properties (owned).
+  The native method returns a `const unique_ptr&` which py::smart_holder
+  cannot materialize on the non-owning wrapper from
+  `RenderSession.GetRenderConfig()` — it threw
+  "Non-owning holder (load_as_shared_ptr)". `GetRenderConfig` also has
+  `py::keep_alive<0,1>` so the borrowed config keeps the session alive.
+  Scalar reads can still use `config.GetProperty(name)` (returns by copy,
+  always safe). `SessionWorker` keeps `worker.scene` = the exported
+  scene rather than re-fetching via `GetRenderConfig().GetScene()`.
+
+## Phantom mesh lights (Cycles emission compat)
+
+- Blender 5.x defaults Principled to Emission Strength=1.0 + black
+  Emission Color. Emitting `scale(strength, color)` for that makes a
+  NON-constant texture — SuperLuxCore nulls only literal constant
+  zero/black emissions (`parsematerials.cpp`), so the material stayed
+  `IsLightSource()` and every triangle became a mesh light (546,123
+  fake lights on the ASiO scene: multi-GB task buffers + light BVH).
+- Fix: `cycles_node_reader` folds/skips provably-zero emission
+  (`_is_zero`, `_tex_binary` constant folding) in the Principled,
+  standalone-Emission and AddShader paths — emits constant `0.0`
+  instead. Linked/textured emission is untouched.
+- Regression: `dev-tools/e44_black_emission_test.py` (7 cases:
+  black/zero/real emission on Principled, Emission node, Add Shader).
+
+## Blender 5.2 RNA/API gotchas
+
+- `CurveMap` lost `.evaluate()` — call
+  `curve_mapping.evaluate(curve_map, position)` (helper
+  `_evaluate_curve` keeps both signatures).
+- RNA writes ("Writing to ID classes in this context is not allowed")
+  inside render/viewport callbacks: `utils_compatibility.run()` is
+  wrapped in try/RuntimeError during export (load_post already ran the
+  same upgrades); `find_suggested_clamp_value` swallows the
+  RuntimeError; `config._enabled_gpu_devices` falls back to reading
+  `GetOpenCLDeviceDescs()` when the device collection can't be
+  lazily populated.
+- `get_current_view_layer()` returns None outside the final-render
+  path (`State.active_view_layer` unset — direct export calls, tests);
+  `aovs.convert` falls back to `view_layers[0]` instead of dropping
+  all film outputs.
+- Empty `config.convert()` result (export exception) is checked with
+  `str(config_props) == ""` in BOTH `export_scene` (raises) and
+  `get_viewport_changes` (skips the config-cache diff) — never feed an
+  empty config to the session worker: `renderengine.type` would be
+  undefined downstream. All `config_props.Get("renderengine.type")`
+  sites use an explicit fallback.
 
 ## .lxm mesh proxy
 
