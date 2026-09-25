@@ -304,3 +304,27 @@
   instead of uploading uninitialized garbage (which `np.any(data>0)`
   accepts as content -> white). Same reason the FrameBuffer ctor
   zero-inits its gpu buffer.
+
+## Background-mode node creation bug (Blender 5.2.1, found 2026-09)
+
+`nt.nodes.new("<any SuperLuxCore node>")` on a
+`node_groups.new(type="superluxcore_material_nodes")` tree fails in
+`--background` mode with "Cannot add node of type ..." — for EVERY node
+class (Mirror, Matte, Output; reproduces in dev-tools/e32). The Python
+`poll` is never invoked: the C-side RNA type lookup fails first. Startup
+logs show every `LuxCore*` alias class "has been registered before,
+unregistering previous" — the addon registers twice at startup, and the
+re-registration orphans the first generation of RNA node types. Suspect
+background-specific extension double-registration. Interactive UI path
+unverified here — verify manually. If it hits interactively, guard the
+register() entry point for idempotency (skip when classes already
+registered) or find the second caller.
+
+## Diffraction material node
+
+`nodes/materials/diffraction.py` — exports the engine's `diffraction`
+type (SuperLuxCore). Props: kr, spacing (nm — UI shows live lines/mm),
+roughness, fillfactor, orientation (u|v|radialuv|radial), center /
+centeru/centerv, blaze (scene prop is DEGREES — node stores radians via
+subtype ANGLE, export converts with math.degrees), orders. Spectral-mode
+hint when `config.spectral_enable` is off.
