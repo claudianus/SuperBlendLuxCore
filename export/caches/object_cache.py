@@ -351,7 +351,8 @@ def get_material(obj, material_index, depsgraph):
 
 
 def export_material(
-    obj, material_index, exporter, depsgraph, is_viewport_render
+    obj, material_index, exporter, depsgraph, is_viewport_render,
+    view_layer=None,
 ):
     mat = get_material(obj, material_index, depsgraph)
 
@@ -368,12 +369,12 @@ def export_material(
         # catcher, holdout) live on the object, not the material - a
         # cloned material variant carries them (see cycles_compat).
         lux_mat_name = cycles_compat.apply_object_shading_flags(
-            obj, lux_mat_name, mat_props, exporter)
+            obj, lux_mat_name, mat_props, exporter, view_layer)
         return lux_mat_name, mat_props, node_tree
     else:
         lux_mat_name, mat_props = material.fallback()
         lux_mat_name = cycles_compat.apply_object_shading_flags(
-            obj, lux_mat_name, mat_props, exporter)
+            obj, lux_mat_name, mat_props, exporter, view_layer)
         return lux_mat_name, mat_props, None
 
 
@@ -879,7 +880,8 @@ class ObjectCache2:
                             )
 
                             lux_mat, mat_props, node_tree = export_material(
-                                obj, 0, exporter, depsgraph, is_viewport_render
+                                obj, 0, exporter, depsgraph,
+                                is_viewport_render, view_layer,
                             )
                             scene_props.Set(mat_props)
 
@@ -1048,7 +1050,8 @@ class ObjectCache2:
 
                 if lux_shape:
                     lux_mat, mat_props, node_tree = export_material(
-                        obj, mat_index, exporter, depsgraph, is_viewport_render
+                        obj, mat_index, exporter, depsgraph,
+                        is_viewport_render, view_layer,
                     )
                     scene_props.Set(mat_props)
                     set_hair_props(
@@ -1311,7 +1314,8 @@ class ObjectCache2:
             ):
                 shape = shape_name
                 lux_mat_name, mat_props, node_tree = export_material(
-                    obj, mat_index, exporter, depsgraph, is_viewport_render
+                    obj, mat_index, exporter, depsgraph,
+                    is_viewport_render, view_layer,
                 )
                 scene_props.Set(mat_props)
                 mat_names.append(lux_mat_name)

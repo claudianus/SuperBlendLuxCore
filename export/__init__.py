@@ -284,6 +284,12 @@ class Exporter(object):
         # reference to temporary data, even if only for a while
         self.scene = depsgraph.scene_eval
         scene = self.scene
+        # Evaluated view layer: needed to resolve layer_collection
+        # holdout/indirect_only and indirect_only_get/holdout_get for
+        # evaluated objects. Final render passes it explicitly; the
+        # viewport path falls back to the depsgraph's.
+        if view_layer is None:
+            view_layer = getattr(depsgraph, "view_layer_eval", None)
         stats = self.stats
         if stats:
             stats.reset()
@@ -375,6 +381,13 @@ class Exporter(object):
                     o.visible_shadow,
                     o.is_shadow_catcher,
                     o.is_holdout,
+                    # View-layer resolved flags (cover layer_collection
+                    # holdout / indirect_only, which may not dirty the
+                    # objects themselves).
+                    o.holdout_get(view_layer=view_layer)
+                    if view_layer else False,
+                    o.indirect_only_get(view_layer=view_layer)
+                    if view_layer else False,
                     # Cycles per-object blur flags gate emitted motion
                     # properties (use_motion_blur / use_deform_motion).
                     getattr(o.cycles, "use_motion_blur", True),

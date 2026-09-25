@@ -542,6 +542,10 @@ def visible_to_camera(dg_obj_instance, is_viewport_render, view_layer=None):
         return False
     if is_viewport_render:
         obj = obj.original
+        # Original objects pair with the original view layer; mixing
+        # evaluated/original RNA objects in *_get calls is not allowed.
+        if view_layer is not None:
+            view_layer = getattr(view_layer, "original", view_layer)
     return not obj.indirect_only_get(view_layer=view_layer)
 
 
