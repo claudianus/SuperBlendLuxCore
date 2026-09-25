@@ -73,10 +73,12 @@ class ExportedObject(ExportedData):
         # entry is a dict {"mesh", "kind", "sig", "space_matrix",
         # "wrapped"} consumed by motion_blur's per-step strand sampler.
         self.strand_recs = []
-        # Cycles light linking: sorted accept-group names emitted as
-        # scene.objects.X.linkgroups (linkmode=include). See
+        # link_groups accepts either the manual UI string (emitted
+        # verbatim with link_mode) or a Cycles-plan tuple of accept-group
+        # names (emitted comma-joined, linkmode=include). The Cycles plan
+        # is authoritative for receiver members; objects it does not
+        # cover keep the manual UI values. See
         # cycles_compat.light_link_plan.
-        self.link_groups = ()
 
         for (shape_name, mat_index), mat_name in zip(mesh_definitions, mat_names):
             obj_name = lux_name_base + str(mat_index)
@@ -100,13 +102,14 @@ class ExportedObject(ExportedData):
             if self.obj_id != -1:
                 definitions[part.lux_obj + ".id"] = self.obj_id
             if self.link_groups:
-                definitions[part.lux_obj + ".linkgroups"] = self.link_groups
-                if self.link_mode == "exclude":
-                    definitions[part.lux_obj + ".linkmode"] = "exclude"
-            if self.link_groups:
-                definitions[part.lux_obj + ".linkgroups"] = \
-                    ",".join(self.link_groups)
-                definitions[part.lux_obj + ".linkmode"] = "include"
+                if isinstance(self.link_groups, str):
+                    definitions[part.lux_obj + ".linkgroups"] = self.link_groups
+                    if self.link_mode == "exclude":
+                        definitions[part.lux_obj + ".linkmode"] = "exclude"
+                else:
+                    definitions[part.lux_obj + ".linkgroups"] = \
+                        ",".join(self.link_groups)
+                    definitions[part.lux_obj + ".linkmode"] = "include"
 
             if self.transform:
                 definitions[part.lux_obj + ".transformation"] = utils.luxutils.matrix_to_list(self.transform)
