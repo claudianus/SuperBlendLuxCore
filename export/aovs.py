@@ -133,6 +133,21 @@ def convert(exporter, scene, context=None, engine=None):
                         pipeline_index = _make_imagepipeline(pipeline_props, context, scene, output_name,
                                                              pipeline_index, definitions, engine)
 
+            # Light path expressions: film.lpe.N + one LPE output per
+            # expression (the output .index selects the expression)
+            lpe_out_index = 0
+            for entry in aovs.lpe_list:
+                expression = entry.expression.strip()
+                if not expression:
+                    continue
+                lpe_name = entry.name.strip() or ("lpe%d" % lpe_out_index)
+                pipeline_props.Set(pysuperluxcore.Property(
+                    "film.lpe.%d.expression" % lpe_out_index, expression))
+                pipeline_props.Set(pysuperluxcore.Property(
+                    "film.lpe.%d.name" % lpe_out_index, lpe_name))
+                _add_output(definitions, "LPE", pipeline_index=lpe_out_index)
+                lpe_out_index += 1
+
             # Light groups
             if exporter.lightgroup_cache == {0}:
                 # Only the default lightgroup in the cache, it doesn't make sense to export lightgroups
