@@ -1106,7 +1106,10 @@ class ObjectCache2:
         persistent-scene delta to veto in-place DefineMesh patching
         (a proxied object must re-export through _convert_mesh_obj)."""
         config = getattr(getattr(scene, "superluxcore", None), "config", None)
-        if not getattr(config, "proxy_auto", False):
+        if not getattr(config, "proxy_auto", False) and not (
+            utils.scene_analysis.wants_mesh_proxy(
+                getattr(config, "simple", None), scene)
+        ):
             return False
         if (
             obj.type != "MESH"
@@ -1357,11 +1360,12 @@ class ObjectCache2:
                 obj.superluxcore.link_mode,
             )
             # Cycles light linking: emitter groups this object accepts
-            # (see cycles_compat.light_link_plan).
-            exported_obj.link_groups = tuple(
-                cycles_compat.object_link_groups(
-                    obj, depsgraph, cycles_compat._warned_set(exporter))
-                or ())
+            # (see cycles_compat.light_link_plan). Only override the
+            # manual UI link_groups when the plan covers this object.
+            plan_groups = cycles_compat.object_link_groups(
+                obj, depsgraph, cycles_compat._warned_set(exporter))
+            if plan_groups:
+                exported_obj.link_groups = tuple(plan_groups)
             # Geometry-delta metadata (A6-III): the ordered base shape
             # list lets the persistent-scene delta re-DefineMesh in
             # place and the shape signature replay the wrapper chain,

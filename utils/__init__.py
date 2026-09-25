@@ -25,7 +25,7 @@ _needs_reload = "bpy" in locals()
 import bpy
 import mathutils
 
-from . import view_layer, errorlog, misc
+from . import view_layer, errorlog, misc, scene_analysis
 
 from .misc import get_name_with_lib, pluralize
 
@@ -35,6 +35,7 @@ if _needs_reload:
     view_layer = importlib.reload(view_layer)
     errorlog = importlib.reload(errorlog)
     misc = importlib.reload(misc)
+    scene_analysis = importlib.reload(scene_analysis)
 
 MESH_OBJECTS = {"MESH", "CURVE", "CURVES", "SURFACE", "META", "FONT"}
 EXPORTABLE_OBJECTS = MESH_OBJECTS | {"LIGHT", "VOLUME", "POINTCLOUD"}
@@ -532,6 +533,12 @@ def visible_to_camera(dg_obj_instance, is_viewport_render, view_layer=None):
         else dg_obj_instance.object
     )
     if not obj.superluxcore.visible_to_camera:
+        return False
+    # Cycles ray-visibility 'Camera' flag: evaluated on the instanced
+    # member object for collection/GN instances (falls back to the
+    # instancer for instance kinds that have no member object).
+    member = getattr(dg_obj_instance, "instance_object", None) or obj
+    if not member.visible_camera:
         return False
     if is_viewport_render:
         obj = obj.original
