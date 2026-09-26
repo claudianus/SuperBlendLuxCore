@@ -305,20 +305,40 @@
   accepts as content -> white). Same reason the FrameBuffer ctor
   zero-inits its gpu buffer.
 
-## Background-mode node creation bug (Blender 5.2.1, found 2026-09)
+## Legacy alias registration — do NOT subclass (Blender 5.2, fixed 2026-09)
 
-`nt.nodes.new("<any SuperLuxCore node>")` on a
-`node_groups.new(type="superluxcore_material_nodes")` tree fails in
-`--background` mode with "Cannot add node of type ..." — for EVERY node
-class (Mirror, Matte, Output; reproduces in dev-tools/e32). The Python
-`poll` is never invoked: the C-side RNA type lookup fails first. Startup
-logs show every `LuxCore*` alias class "has been registered before,
-unregistering previous" — the addon registers twice at startup, and the
-re-registration orphans the first generation of RNA node types. Suspect
-background-specific extension double-registration. Interactive UI path
-unverified here — verify manually. If it hits interactively, guard the
-register() entry point for idempotency (skip when classes already
-registered) or find the second caller.
+`nodes.new("<any SuperLuxCore node>")` failed for EVERY addon node
+("Cannot add node of type ...", Add menu empty — interactive AND
+background). Root cause was the legacy-alias machinery: each alias was
+created as `type(legacy, (cls,), ...)` — a SUBCLASS of the real node
+class registered under a different bl_idname. In Blender 5.2 that
+orphans the base class's RNA python binding (`pyrna_find_class` returns
+NULL for 'SuperLuxCoreNodeMatMirror' even though the class exists in
+bpy.types) so node-type resolution dies before `poll` is ever called.
+Registering the alias against plain `bpy.types.Node` instead leaves the
+parent fully working — bisected 1:1 (alias on mirror breaks ONLY
+mirror).
+
+Fix (nodes/__init__.py `_register_legacy_idname_aliases`):
+- Aliases are flattened siblings, not subclasses: registered bpy bases
+  (e.g. SuperLuxCoreNodeMaterial) are inlined — their own attrs copied
+  into the alias dict, their bases spliced in — so the alias keeps full
+  behavior (props/methods/prefix) without touching the parent's RNA.
+- `walk()` needs a `seen` set: `(Mixin, bpy.types.Node)` diamond bases
+  made every class yield twice → each alias registered twice
+  ("registered before" spam).
+- `_rebind_super_cells`: zero-arg `super()` captures the DEFINING class
+  in a `__class__` closure cell — copied methods raised TypeError on
+  alias instances. The cell is retargeted to the alias before
+  register_class so super() resolves down the alias's own base chain
+  (which mirrors the canonical tail MRO).
+- `bpy.types.LuxCoreX`/`dir(bpy.types)` is NOT a reliable probe — addon
+  node RNA structs don't show up there even when fully functional; test
+  via `nodes.new`/`node_groups.new` only.
+
+Regression: `dev-tools/e47_legacy_node_alias_test.py` (canonical
+creation under aliases, legacy alias exports identical props, no double
+registration).
 
 ## Diffraction material node
 
