@@ -53,6 +53,12 @@ class SUPERLUXCORE_RENDER_PT_viewport_settings(RenderButtonsPanel, Panel):
             layout.prop(viewport, "use_bidir")
 
         layout.prop(viewport, "use_infill")
+        sub = layout.column(align=True)
+        sub.active = viewport.use_infill
+        sub.prop(viewport, "lt_blend")
+        sub.prop(viewport, "use_temporal")
+        sub.prop(viewport, "use_smooth")
+        layout.prop(viewport, "use_adaptive")
 
     def draw_header(self, context):
         layout = self.layout

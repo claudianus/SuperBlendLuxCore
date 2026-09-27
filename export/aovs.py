@@ -107,16 +107,25 @@ def convert(exporter, scene, context=None, engine=None):
         # AOVs
         if (final and aovs.alpha) or use_transparent_film or use_backgroundimage(context, scene):
             _add_output(definitions, "ALPHA")
-        if (final and aovs.depth) or pipeline.mist.enabled:
+        vp = scene.superluxcore.viewport if not final else None
+        if (final and aovs.depth) or pipeline.mist.enabled \
+                or (vp and vp.use_temporal) or (vp and vp.use_smooth):
+            # Viewport: DEPTH feeds the smoothing filter's edge weights
             _add_output(definitions, "DEPTH")
+        if vp and vp.use_temporal:
+            # POSITION feeds the temporal reprojection: each history
+            # pixel's world position is reprojected into the new camera
+            _add_output(definitions, "POSITION")
         if (final and aovs.irradiance) or pipeline.contour_lines.enabled:
             _add_output(definitions, "IRRADIANCE")
         if (final and aovs.albedo) or add_DENOISER_AOVs:
             _add_output(definitions, "ALBEDO")
-        if (final and aovs.avg_shading_normal) or add_DENOISER_AOVs:
+        if (final and aovs.avg_shading_normal) or add_DENOISER_AOVs \
+                or (vp and vp.use_smooth):
             # TODO: This AOV is temporarily disabled for OPTIX because of a bug that leads to
             #  black squares in the result - re-enable when this is fixed in OptiX
-            if final or (context and scene.superluxcore.viewport.get_denoiser(context) == "OIDN"):
+            if final or (vp and vp.use_smooth) \
+                    or (context and scene.superluxcore.viewport.get_denoiser(context) == "OIDN"):
                 _add_output(definitions, "AVG_SHADING_NORMAL")
 
         pipeline_props = pysuperluxcore.Properties()

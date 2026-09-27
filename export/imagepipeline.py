@@ -33,11 +33,22 @@ def convert(scene, context=None, index=0):
             index = add_temporal_accumulate(definitions, index, scene)
 
         if context is not None and scene.superluxcore.viewport.use_infill:
-            # Viewport-only: pull-push hole filling on the linear beauty,
-            # before tonemapping, so sparse coverage reads as a coherent
-            # preview instead of stale blocks.
+            vp = scene.superluxcore.viewport
+            # Viewport-only chain on the linear beauty, before tonemapping:
+            # INFILL pull-push fills not-yet-sampled pixels (incl. LT
+            # speckle softening), SMOOTH edge-aware filters low-sample
+            # pixels, TEMPORAL reprojects the last frame across camera
+            # edits into remaining holes and snapshots the dense display.
+            # Real samples always win over all three.
             definitions[str(index) + ".type"] = "VIEWPORT_INFILL"
+            definitions[str(index) + ".ltblend"] = vp.lt_blend
             index += 1
+            if vp.use_smooth:
+                definitions[str(index) + ".type"] = "VIEWPORT_SMOOTH"
+                index += 1
+            if vp.use_temporal:
+                definitions[str(index) + ".type"] = "VIEWPORT_TEMPORAL"
+                index += 1
 
         convert_defs(context, scene, definitions, index)
 

@@ -53,6 +53,24 @@ class SuperLuxCoreViewportSettings(bpy.types.PropertyGroup):
                              description="Fill not-yet-sampled pixels from nearby covered pixels "
                                          "(pull-push reconstruction) so the whole screen becomes "
                                          "coherent immediately instead of showing stale blocks")
+    lt_blend: FloatProperty(name="LT Speckle Softening", default=0.5, min=0.0, max=1.0,
+                            subtype="FACTOR",
+                            description="Blend light-tracing splats that landed without eye-path "
+                                        "coverage toward the neighbourhood, so sparse caustic/LT "
+                                        "contributions appear as soft light rather than isolated speckles")
+    use_adaptive: BoolProperty(name="Adaptive Sampling", default=True,
+                               description="Steer samples toward noisy/difficult regions "
+                                           "(film noise estimation + importance) once coverage is "
+                                           "established, so glass, caustics and glossy areas converge "
+                                           "faster. Every pixel keeps a sampling floor")
+    use_temporal: BoolProperty(name="Temporal Reuse", default=True,
+                               description="Reproject the previous frame across camera moves so the "
+                                           "viewport stays coherent while new samples accumulate "
+                                           "(depth-validated; disoccluded areas are rebuilt)")
+    use_smooth: BoolProperty(name="Interactive Smoothing", default=True,
+                             description="Edge-aware filtering of not-yet-converged pixels "
+                                         "(depth/normal guided) to suppress visible noise during "
+                                         "interaction. Converged pixels keep their raw samples")
     use_denoiser: BoolProperty(name="Denoise", default=True,
                            description="Denoise the viewport render once the halt time is reached. "
                                        "Note that this disables most imagepipeline plugins in the viewport")

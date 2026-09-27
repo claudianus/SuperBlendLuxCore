@@ -449,19 +449,29 @@ def convert_viewport_engine(context, scene, definitions, config):
         else 1
     )
 
+    # Viewport adaptive sampling: once coverage is established, steer
+    # samples toward noisy/difficult regions (glass, caustics, glossy)
+    # using the film noise estimation. Every pixel keeps a floor, so
+    # coverage stays complete.
+    adaptive_strength = 0.8 if viewport.use_adaptive else 0
+    if adaptive_strength:
+        # Fast cadence for interactivity (final renders use 32+)
+        definitions["film.noiseestimation.warmup"] = 8
+        definitions["film.noiseestimation.step"] = 8
+
     if utils.using_bidir_in_viewport(scene):
         superluxcore_engine = "BIDIRCPU"
         definitions["light.maxdepth"] = config.bidir_light_maxdepth
         definitions["path.maxdepth"] = config.bidir_path_maxdepth
         sampler = config.sampler
-        definitions["sampler.sobol.adaptive.strength"] = 0
-        definitions["sampler.random.adaptive.strength"] = 0
+        definitions["sampler.sobol.adaptive.strength"] = adaptive_strength
+        definitions["sampler.random.adaptive.strength"] = adaptive_strength
         _convert_metropolis_settings(definitions, config)
     elif device == "CPU":
         if using_hybridbackforward:
             superluxcore_engine = "PATHCPU"
             sampler = "SOBOL"
-            definitions["sampler.sobol.adaptive.strength"] = 0
+            definitions["sampler.sobol.adaptive.strength"] = adaptive_strength
         else:
             superluxcore_engine = "RTPATHCPU"
             sampler = "RTPATHCPUSAMPLER"
@@ -470,15 +480,17 @@ def convert_viewport_engine(context, scene, definitions, config):
             # How to blend new samples over old ones.
             # Set to 0 because otherwise bright pixels (e.g. meshlights) stay blocky for a long time.
             definitions["rtpathcpu.zoomphase.weight"] = 0
+            definitions["sampler.rtpathcpusampler.adaptive.strength"] = adaptive_strength
     else:
         assert device == "OCL"
         if using_hybridbackforward:
             superluxcore_engine = "PATHOCL"
             sampler = "SOBOL"
-            definitions["sampler.sobol.adaptive.strength"] = 0
+            definitions["sampler.sobol.adaptive.strength"] = adaptive_strength
         else:
             superluxcore_engine = "RTPATHOCL"
             sampler = "TILEPATHSAMPLER"
+            definitions["sampler.tilepath.adaptive.strength"] = adaptive_strength
             """
             # Render a sample every n x n pixels in the first passes.
             # For instance 4x4 then 2x2 and then always 1x1.
