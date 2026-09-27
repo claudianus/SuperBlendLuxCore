@@ -203,6 +203,39 @@ gradients on CPU and Metal/OpenCL.
   deltas at ~30% of full-export time (measured on export-stage
   timings, not render wall time).
 
+## Materials — OpenPBR measured SSS presets + Principled-style sockets
+
+**What/why.** The OpenPBR node's subsurface sockets used the OpenPBR
+spec's naming — scalar `Subsurface Radius`, RGB `Subsurface Radius
+Scale` — which is inverted relative to Blender Principled conventions
+(Principled: `Scale` = scalar, `Radius` = RGB). The node now matches
+Principled: **`Subsurface Radius`** (RGB, per-channel relative mfp) and
+**`Subsurface Scale`** (scalar, absolute mfp in scene units, default
+0.01). Enabling *Subsurface* exposes a **Subsurface Preset** dropdown
+(Custom plus 10 measured media: Skin Light/Dark, Marble, Cream, Whole/
+Skim Milk, Ketchup, Apple, Potato, Chicken — Jensen'01 σa/σs′ via
+PBRT-v3's table) that seeds Color/Radius/Scale/Weight with measured
+values; every socket stays editable, and the preset also exports
+`subsurfacepreset` so engine defaults and the visible socket values
+agree. Linked sockets are never overwritten by a preset pick.
+
+**Mapping.** SDL keeps the OpenPBR names, so the adapter swaps them at
+export: `Subsurface Radius` (UI, RGB) → `subsurfaceradiusscale`,
+`Subsurface Scale` (UI, scalar) → `subsurfaceradius`,
+`subsurfacepreset` exported only when ≠ Custom.
+
+**Compatibility.** Pre-rename .blend files migrate lazily in
+`update_use_subsurface`/`export_subnodes` (`_migrate_sss_sockets`:
+rename the old float socket to `Subsurface Scale` first, then the old
+RGB socket to `Subsurface Radius` — order matters because the old
+scalar already occupied the new RGB name). Values and links are
+preserved.
+
+**Validation:** `SuperLuxCore/dev-tools/e53_sss_presets.py` (preset ↔
+explicit equivalence, override, error) + `e53_sss_visual.py` (720p AgX
+Punchy two-skin render). Engine doc:
+`SuperLuxCore/doc/features/sss-presets.md`.
+
 ## UX — viewport stability
 
 - **Automatic light strategy** (`light_strategy = "AUTO"`, opt-in):
@@ -261,6 +294,23 @@ gradients on CPU and Metal/OpenCL.
   avoid raw/denoised alternation; a fresh denoise still runs on pause).
 - Backend options: **Metal GPU** (Apple silicon) and a **spectral render**
   toggle.
+- **Viewport convergence/responsiveness pass (phase 2)**: viewport light
+  tracing no longer swaps engines — CPU+LT runs light paths natively
+  inside RTPATHCPU (Metropolis splats interleaved with the coverage
+  lattice, held back until each thread's coarse first frame completes),
+  and GPU+LT uses RTPATHOCL's light-task population, so the progressive
+  look and zoom phase survive toggling LT. Per-viewport-size pass
+  budgets: the steady `rtpath.resolutionreduction`, the preview rr and
+  the interaction `SetRuntimeResolutionReduction` are all derived from
+  the film pixel count so a 4K region costs the same per pass as 720p.
+  Above ~2.5 Mpx an interaction burst also downsamples the film itself
+  2x via the Parse-based `Begin/EndFilmEdit` fast path (no session
+  restart, no kernel re-init; the framebuffer follows the live film
+  dims and the display shader upscales). **Foveated sampling**
+  (`viewport.use_fovea`, strength/radius/depth-falloff): screen-centre
+  bias times an optional near-depth gain multiplied into the adaptive
+  acceptance — centre and close-up detail converge first, edges keep a
+  nonzero floor so coverage stays unbiased.
 
 ## Platform compatibility
 

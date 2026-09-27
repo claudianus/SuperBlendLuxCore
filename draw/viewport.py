@@ -41,13 +41,17 @@ def _mutation_seq(engine):
     return getattr(worker, "mutation_seq", 0) if worker else 0
 
 
-def _fetch_pixels(output_type, width, height, transparent,
+def _fetch_pixels(output_type, transparent,
                   superluxcore_session, execute_imagepipeline, lock=None,
                   seq_probe=None):
     """Blocking film readback + imagepipeline. Runs the device-queue
     drain; with the GIL released by pysuperluxcore this is safe to call on a
     worker thread. ``lock`` (the session worker's session_lock) keeps
     the read from racing a scene edit / session stop on the worker.
+
+    Film dimensions are read from the live film while holding the lock:
+    interaction downscaling resizes the film via Parse() without a
+    framebuffer rebuild, so the read must always match the live dims.
 
     ``seq_probe`` (optional callable) is invoked while still holding the
     lock, right after the fetch: sampling the worker's mutation_seq here
@@ -58,28 +62,30 @@ def _fetch_pixels(output_type, width, height, transparent,
     Module-level (not a FrameBuffer method) so read threads never keep a
     FrameBuffer alive: GL objects must die on the main thread."""
     bufferdepth = 4 if transparent else 3
-    size = width * height * bufferdepth
-    # Zeros, not np.empty: GetOutputFloat early-returns without touching
-    # the buffer when the channel does not exist (e.g. a restarted film
-    # without imagepipelines). Garbage here would bypass the empty-film
-    # gate in _accept_pixels and upload as a white viewport.
-    data = np.zeros(size, dtype=np.float32)
+
+    def read():
+        film = superluxcore_session.GetFilm()
+        w, h = film.GetWidth(), film.GetHeight()
+        # Zeros, not np.empty: GetOutputFloat early-returns without touching
+        # the buffer when the channel does not exist (e.g. a restarted film
+        # without imagepipelines). Garbage here would bypass the empty-film
+        # gate in _accept_pixels and upload as a white viewport.
+        data = np.zeros(w * h * bufferdepth, dtype=np.float32)
+        film.GetOutputFloat(output_type, data, 0, execute_imagepipeline)
+        return data, w, h
+
     seq = None
     if lock is None:
-        superluxcore_session.GetFilm().GetOutputFloat(
-            output_type, data, 0, execute_imagepipeline
-        )
+        data, width, height = read()
         seq = seq_probe() if seq_probe else None
     else:
         with lock:
-            superluxcore_session.GetFilm().GetOutputFloat(
-                output_type, data, 0, execute_imagepipeline
-            )
+            data, width, height = read()
             seq = seq_probe() if seq_probe else None
     # The gpu buffer uses 16-bit float. Values >= 65520 get cast to
     # infinity, leading to a black viewport.
     data[data > 65519] = 65519
-    return data, seq
+    return data, width, height, seq
 
 
 def run_denoiser(session, lock, box):
@@ -115,6 +121,16 @@ class FrameBuffer:
 
     def __init__(self, engine, context, scene):
         filmsize = utils.calc_filmsize(scene, context)
+        # Track the live film dims when a session exists: interaction
+        # downscaling resizes the film via Parse() so the real film can
+        # legitimately differ from the configured size
+        session = getattr(engine, "session", None)
+        if session is not None:
+            try:
+                film = session.GetFilm()
+                filmsize = (film.GetWidth(), film.GetHeight())
+            except Exception:
+                pass
         self._width, self._height = filmsize
         self._border = utils.calc_blender_border(scene, context)
         self._view_rect = self._calc_view_rect(context, scene, self._border)
@@ -251,8 +267,22 @@ class FrameBuffer:
             except Exception:
                 pass
 
-    def needs_replacement(self, context, scene):
-        if (self._width, self._height) != utils.calc_filmsize(scene, context):
+    def needs_replacement(self, context, scene, engine=None):
+        # The framebuffer dims track the LIVE film (_accept_pixels
+        # resizes on the fetched dims), so compare against the actual
+        # film, not the configured size: during an interaction
+        # downscale Parse the film dims legitimately differ from
+        # calc_filmsize and must not trigger a rebuild thrash
+        session = getattr(engine, "session", None) if engine is not None else None
+        live_dims = None
+        if session is not None:
+            try:
+                film = session.GetFilm()
+                live_dims = (film.GetWidth(), film.GetHeight())
+            except Exception:
+                live_dims = None
+        expected = live_dims or utils.calc_filmsize(scene, context)
+        if (self._width, self._height) != expected:
             return True
         valid_cam = utils.is_valid_camera(scene.camera)
         if valid_cam:
@@ -427,7 +457,7 @@ class FrameBuffer:
             self.denoised = True
         return True
 
-    def _accept_pixels(self, data, force=False, mut_seq=None):
+    def _accept_pixels(self, data, width, height, force=False, mut_seq=None):
         """Swap newly fetched pixels into the GPU buffer (main thread).
 
         ``mut_seq`` is the worker's mutation counter sampled when the
@@ -467,11 +497,17 @@ class FrameBuffer:
             # with them and flicker.
             return False
         bufferdepth = 4 if self._transparent else 3
+        # Track the live film dims: interaction downscaling resizes the
+        # film in place via Parse(), so the framebuffer follows whatever
+        # the fetch actually read instead of a rebuild
+        if (width, height) != (self._width, self._height):
+            self._width, self._height = width, height
+            self._texture = None
         # Keep a copy of the last rendered pixels so a replacement framebuffer
         # can show them (resampled) while the new session starts up
-        self._last_pixels = data.reshape(self._height, self._width, bufferdepth).copy()
+        self._last_pixels = data.reshape(height, width, bufferdepth).copy()
         self.buffer = gpu.types.Buffer(
-            "FLOAT", [self._width * self._height * bufferdepth], data
+            "FLOAT", [width * height * bufferdepth], data
         )
         self._pixels_dirty = True
         return True
@@ -502,10 +538,8 @@ class FrameBuffer:
         try:
             # The probe runs while we still hold the lock, so mut_seq
             # labels the fetched pixels with their exact generation.
-            data, mut_seq = _fetch_pixels(
+            data, width, height, mut_seq = _fetch_pixels(
                 self._output_type,
-                self._width,
-                self._height,
                 self._transparent,
                 superluxcore_session,
                 execute_imagepipeline,
@@ -517,7 +551,9 @@ class FrameBuffer:
         finally:
             if lock is not None:
                 lock.release()
-        return self._accept_pixels(data, force, mut_seq=mut_seq)
+        return self._accept_pixels(
+            data, width, height, force, mut_seq=mut_seq
+        )
 
     def start_async_update(
         self, superluxcore_session, engine=None, execute_imagepipeline=True
@@ -534,12 +570,7 @@ class FrameBuffer:
         self._last_update = time.time()
         worker = getattr(engine, "session_worker", None)
         lock = getattr(worker, "session_lock", None) if worker else None
-        output_type, width, height, transparent = (
-            self._output_type,
-            self._width,
-            self._height,
-            self._transparent,
-        )
+        output_type, transparent = self._output_type, self._transparent
 
         def work():
             try:
@@ -547,10 +578,12 @@ class FrameBuffer:
                 # after the fetch, so box.mut_seq is the exact generation
                 # of these pixels (never a pre-edit label on post-edit
                 # pixels from the kickoff→lock window).
-                box["data"], box["mut_seq"] = _fetch_pixels(
-                    output_type, width, height, transparent,
-                    superluxcore_session, execute_imagepipeline, lock,
-                    seq_probe=lambda: getattr(worker, "mutation_seq", 0),
+                box["data"], box["width"], box["height"], box["mut_seq"] = (
+                    _fetch_pixels(
+                        output_type, transparent,
+                        superluxcore_session, execute_imagepipeline, lock,
+                        seq_probe=lambda: getattr(worker, "mutation_seq", 0),
+                    )
                 )
             except Exception:
                 import traceback
@@ -574,7 +607,9 @@ class FrameBuffer:
         self._read_thread = None
         if self._read_session is not superluxcore_session or box["data"] is None:
             return False
-        return self._accept_pixels(box["data"], mut_seq=box["mut_seq"])
+        return self._accept_pixels(
+            box["data"], box["width"], box["height"], mut_seq=box["mut_seq"]
+        )
 
     def update_async(
         self, superluxcore_session, engine=None, execute_imagepipeline=True

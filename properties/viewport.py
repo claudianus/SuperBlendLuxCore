@@ -63,6 +63,23 @@ class SuperLuxCoreViewportSettings(bpy.types.PropertyGroup):
                                            "(film noise estimation + importance) once coverage is "
                                            "established, so glass, caustics and glossy areas converge "
                                            "faster. Every pixel keeps a sampling floor")
+    use_fovea: BoolProperty(name="Foveated", default=True,
+                            description="Concentrate sampling near the frame centre (and near "
+                                        "geometry when a depth falloff is set). Far edges converge "
+                                        "slower during interaction but keep a nonzero floor")
+    fovea_strength: FloatProperty(name="Strength", default=0.7, min=0.0, max=0.95,
+                                  subtype="FACTOR",
+                                  description="How strongly sampling density drops toward the frame "
+                                              "edges (0 = uniform)")
+    fovea_radius: FloatProperty(name="Radius", default=0.45, min=0.05, max=1.0,
+                                subtype="FACTOR",
+                                description="Fraction of the frame half-diagonal that keeps full "
+                                            "sampling density before the falloff starts")
+    fovea_depthscale: FloatProperty(name="Depth Falloff", default=0.0, min=0.0,
+                                    unit="LENGTH",
+                                    description="World-space distance beyond which sampling thins "
+                                                "out (0 = disabled). Near geometry always keeps "
+                                                "full density")
     use_temporal: BoolProperty(name="Temporal Reuse", default=True,
                                description="Reproject the previous frame across camera moves so the "
                                            "viewport stays coherent while new samples accumulate "

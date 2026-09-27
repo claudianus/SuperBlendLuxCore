@@ -418,6 +418,22 @@ def _convert_opencl_settings(scene, definitions, is_final_render):
             definitions["opencl.native.threads.count"] = 0
 
 
+def _steady_pass_rr(width, height):
+    """Steady-state RTPATH resolution reduction scaled to film size.
+
+    Each pass renders 1/(rr^2) of the film, so a fixed rr makes every
+    pass proportionally heavier as the viewport grows (4K at rr=4 is
+    ~518K samples/pass - several display frames of latency). Snap the
+    result to a power of two, matching the engine's RoundUpPow2, so the
+    per-pass sample budget stays roughly constant (~64K) from small
+    embedded viewports up to a full-screen 4K region.
+    """
+    import math
+
+    pixels = max(1, width * height)
+    return 1 << min(4, max(0, round(0.5 * math.log2(pixels / 65536))))
+
+
 def convert_viewport_engine(context, scene, definitions, config):
     if utils.in_material_shading_mode(context):
         definitions["path.pathdepth.total"] = 1
@@ -448,6 +464,11 @@ def convert_viewport_engine(context, scene, definitions, config):
         if viewport.reduce_resolution_on_edit
         else 1
     )
+    # Resolution-adaptive pass sparsity: filmsize-derived steady rr keeps
+    # pass duration (and therefore edit latency) independent of viewport
+    # size - the dominant 4K responsiveness fix
+    film_w, film_h = utils.calc_filmsize(scene, context)
+    steady_rr = _steady_pass_rr(film_w, film_h)
 
     # Viewport adaptive sampling: once coverage is established, steer
     # samples toward noisy/difficult regions (glass, caustics, glossy)
@@ -459,6 +480,19 @@ def convert_viewport_engine(context, scene, definitions, config):
         definitions["film.noiseestimation.warmup"] = 8
         definitions["film.noiseestimation.step"] = 8
 
+    # Foveated sampling: geometric importance - screen-centre bias plus
+    # an optional near-depth gain - multiplied into the adaptive
+    # acceptance. Only the RT samplers implement it; the hybrid SOBOL
+    # path keeps plain adaptive.
+    fovea = viewport.use_fovea
+    def _fovea_defs(prefix):
+        if not fovea:
+            definitions[prefix + ".fovea.strength"] = 0
+            return
+        definitions[prefix + ".fovea.strength"] = viewport.fovea_strength
+        definitions[prefix + ".fovea.radius"] = viewport.fovea_radius
+        definitions[prefix + ".fovea.depthscale"] = viewport.fovea_depthscale
+
     if utils.using_bidir_in_viewport(scene):
         superluxcore_engine = "BIDIRCPU"
         definitions["light.maxdepth"] = config.bidir_light_maxdepth
@@ -468,60 +502,53 @@ def convert_viewport_engine(context, scene, definitions, config):
         definitions["sampler.random.adaptive.strength"] = adaptive_strength
         _convert_metropolis_settings(definitions, config)
     elif device == "CPU":
-        if using_hybridbackforward:
-            superluxcore_engine = "PATHCPU"
-            sampler = "SOBOL"
-            definitions["sampler.sobol.adaptive.strength"] = adaptive_strength
-        else:
-            superluxcore_engine = "RTPATHCPU"
-            sampler = "RTPATHCPUSAMPLER"
-            # Size of the blocks right after a scene edit (in pixels)
-            definitions["rtpathcpu.zoomphase.size"] = resolutionreduction
-            # How to blend new samples over old ones.
-            # Set to 0 because otherwise bright pixels (e.g. meshlights) stay blocky for a long time.
-            definitions["rtpathcpu.zoomphase.weight"] = 0
-            definitions["sampler.rtpathcpusampler.adaptive.strength"] = adaptive_strength
+        # RTPATHCPU handles hybrid light tracing natively: Metropolis light
+        # paths interleave with the RT lattice, so CPU+LT keeps the
+        # progressive look (no PATHCPU/SOBOL engine swap, no lost coverage).
+        superluxcore_engine = "RTPATHCPU"
+        sampler = "RTPATHCPUSAMPLER"
+        # Size of the blocks right after a scene edit (in pixels).
+        # Grows with film size so the coarse first frame stays instant
+        # at 4K too (user setting is the floor).
+        definitions["rtpathcpu.zoomphase.size"] = max(
+            resolutionreduction, steady_rr
+        )
+        # How to blend new samples over old ones.
+        # Set to 0 because otherwise bright pixels (e.g. meshlights) stay blocky for a long time.
+        definitions["rtpathcpu.zoomphase.weight"] = 0
+        definitions["sampler.rtpathcpusampler.adaptive.strength"] = adaptive_strength
+        _fovea_defs("sampler.rtpathcpusampler")
     else:
         assert device == "OCL"
-        if using_hybridbackforward:
-            superluxcore_engine = "PATHOCL"
-            sampler = "SOBOL"
-            definitions["sampler.sobol.adaptive.strength"] = adaptive_strength
-        else:
-            superluxcore_engine = "RTPATHOCL"
-            sampler = "TILEPATHSAMPLER"
-            definitions["sampler.tilepath.adaptive.strength"] = adaptive_strength
-            """
-            # Render a sample every n x n pixels in the first passes.
-            # For instance 4x4 then 2x2 and then always 1x1.
-            definitions["rtpath.resolutionreduction.preview"] = resolutionreduction
-            # Each preview step is rendered for n frames.
-            definitions["rtpath.resolutionreduction.step"] = 1
-            # Render a sample every n x n pixels, outside the preview phase,
-            # in order to reduce the per frame rendering time.
-            definitions["rtpath.resolutionreduction"] = 1
-            """
+        # RTPATHOCL runs GPU light tracing natively (UpdateTaskCount turns
+        # path.lighttracing.enable into a dedicated light-task population
+        # that splats into the film), so LT viewports keep the RT
+        # progressive pipeline instead of swapping to PATHOCL/SOBOL.
+        superluxcore_engine = "RTPATHOCL"
+        sampler = "TILEPATHSAMPLER"
+        definitions["sampler.tilepath.adaptive.strength"] = adaptive_strength
+        _fovea_defs("sampler.tilepath")
 
-            # First passes after a reset run at 1/(preview^2) of the film
-            # resolution and splat into blocks (weight ~0) so a single
-            # pass covers the whole frame. Camera edits reset the film at
-            # every frame boundary - if the first preview pass takes
-            # longer than the orbit edit rate (~16 ms/draw) the film stays
-            # empty and the viewport renders black for the entire drag.
-            # A coarse preview (1/64 res) is what makes the first frame
-            # land within a few dozen ms even mid-orbit.
-            definitions["rtpath.resolutionreduction.preview"] = (
-                max(resolutionreduction, 8)
-                if viewport.reduce_resolution_on_edit
-                else 1
-            )
-            definitions["rtpath.resolutionreduction.preview.step"] = 2
-            # Steady-state passes also render 1/(N^2) of the film per
-            # pass; edits only apply at frame boundaries, so a pass
-            # longer than ~50 ms makes every camera move wait that long
-            # for its first samples. N=4 (upstream default) keeps
-            # boundaries ~4x faster than 2 at identical throughput.
-            definitions["rtpath.resolutionreduction"] = 4
+        # First passes after a reset run at 1/(preview^2) of the film
+        # resolution and splat into blocks (weight ~0) so a single
+        # pass covers the whole frame. Camera edits reset the film at
+        # every frame boundary - if the first preview pass takes
+        # longer than the orbit edit rate (~16 ms/draw) the film stays
+        # empty and the viewport renders black for the entire drag.
+        # A coarse preview (1/64 res) is what makes the first frame
+        # land within a few dozen ms even mid-orbit.
+        definitions["rtpath.resolutionreduction.preview"] = (
+            max(resolutionreduction, 8, steady_rr * 2)
+            if viewport.reduce_resolution_on_edit
+            else 1
+        )
+        definitions["rtpath.resolutionreduction.preview.step"] = 2
+        # Steady-state passes also render 1/(N^2) of the film per
+        # pass; edits only apply at frame boundaries, so a pass
+        # longer than ~50 ms makes every camera move wait that long
+        # for its first samples. N scales with film size so the
+        # per-pass budget stays ~64K samples on any viewport.
+        definitions["rtpath.resolutionreduction"] = steady_rr
 
         _convert_opencl_settings(scene, definitions, using_hybridbackforward)
 

@@ -59,6 +59,12 @@ class SUPERLUXCORE_RENDER_PT_viewport_settings(RenderButtonsPanel, Panel):
         sub.prop(viewport, "use_temporal")
         sub.prop(viewport, "use_smooth")
         layout.prop(viewport, "use_adaptive")
+        layout.prop(viewport, "use_fovea")
+        sub = layout.column(align=True)
+        sub.active = viewport.use_fovea
+        sub.prop(viewport, "fovea_strength")
+        sub.prop(viewport, "fovea_radius")
+        sub.prop(viewport, "fovea_depthscale")
 
     def draw_header(self, context):
         layout = self.layout

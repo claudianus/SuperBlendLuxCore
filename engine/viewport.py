@@ -1,4 +1,5 @@
 from time import time
+import math
 
 _needs_reload = "bpy" in locals()
 
@@ -45,6 +46,60 @@ _LOCK_BUSY = object()
 # stop arriving for _DYN_RES_TAIL_S the configured reduction is restored.
 _DYN_RES_VALUE = 16
 _DYN_RES_TAIL_S = 0.4
+# Above this pixel count interaction additionally downscales the film
+# itself (Parse-based BeginFilmEdit/EndFilmEdit fast path): render
+# passes, the display-pipeline plugins AND the GetOutputFloat readback
+# all shrink quadratically - at 4K the readback alone is ~100 MB/frame.
+_INTERACTION_DOWNSCALE_PIXELS = 2_500_000
+_INTERACTION_DOWNSCALE_FACTOR = 2
+_RT_ENGINES = {"RTPATHOCL", "RTPATHCPU"}
+
+
+def _dyn_res_value(pixels):
+    """Sparse-pass factor while interacting, scaled to film size.
+
+    Same budget math as the steady rr in convert_viewport_engine:
+    per-pass samples stay ~constant regardless of viewport size, so a
+    4K region gets 32-64 instead of the 720p-tuned 16."""
+    if pixels <= 0:
+        return _DYN_RES_VALUE
+    steady = 1 << min(4, max(0, round(0.5 * math.log2(pixels / 65536))))
+    return min(64, max(16, steady * 4))
+
+
+def _interaction_film_scale(engine):
+    """Linear film divisor during interaction bursts.
+
+    Only the RT engines get it: their BeginFilmEdit/EndFilmEdit
+    suspends/resumes render threads in place, while the classic engines
+    pay a full Stop/Start (kernel re-init) per transition - not worth it
+    for a sub-second drag."""
+    if getattr(engine, "_engine_type", "") not in _RT_ENGINES:
+        return 1
+    w, h = getattr(engine, "last_viewport_size", (0, 0))
+    if w * h > _INTERACTION_DOWNSCALE_PIXELS:
+        return _INTERACTION_DOWNSCALE_FACTOR
+    return 1
+
+
+def _submit_film_scale(engine, worker, scale):
+    """Ask the worker to resize the live film (Parse fast path).
+
+    ``engine._film_scale`` records the requested factor so a redundant
+    request is never re-parsed; the framebuffer itself follows the live
+    film dims, so no display-side coordination is needed."""
+    if getattr(engine, "_film_scale", 1) == scale:
+        return
+    engine._film_scale = scale
+    w, h = getattr(engine, "last_viewport_size", (0, 0))
+    if w <= 0 or h <= 0:
+        return
+    props = pysuperluxcore.Properties()
+    props.Set(pysuperluxcore.Property(
+        "film.width", max(16, w // scale)))
+    props.Set(pysuperluxcore.Property(
+        "film.height", max(16, h // scale)))
+    worker.submit_parse(props)
 
 
 def _set_stats(engine, text, sub):
@@ -73,7 +128,13 @@ def _submit_jobs(engine, worker, framebuffer, jobs, has_camera):
     # Sparse fast passes for the whole interaction burst - also while the
     # edit sits deferred behind a pending reset, so that reset resolves
     # faster and the deferred edit lands sooner.
-    worker.submit_resolution_reduction(_DYN_RES_VALUE)
+    pixels = 0
+    if framebuffer is not None:
+        pixels = framebuffer._width * framebuffer._height
+    elif getattr(engine, "last_viewport_size", None):
+        pixels = engine.last_viewport_size[0] * engine.last_viewport_size[1]
+    worker.submit_resolution_reduction(_dyn_res_value(pixels))
+    _submit_film_scale(engine, worker, _interaction_film_scale(engine))
     engine._dyn_res_until = time() + _DYN_RES_TAIL_S
     engine._dyn_res_active = True
     if (
@@ -180,6 +241,9 @@ def view_update(engine, context, depsgraph, changes=None):
         # permanently dead viewport; genuinely fatal errors reappear).
         engine.viewport_fatal_error = None
         engine.kernel_check_cache = None
+        # A fresh session always starts at the configured film size;
+        # forget any interaction downscale from the previous session
+        engine._film_scale = 1
         if not engine.viewport_starting_message_shown:
             # Let one engine.view_draw() happen so it shows a message in the UI
             return
@@ -226,6 +290,12 @@ def view_update(engine, context, depsgraph, changes=None):
             if result is not None:
                 superluxcore_scene, config_props = result
                 engine.viewport_phase = ""
+                try:
+                    engine._engine_type = config_props.Get(
+                        "renderengine.type"
+                    ).GetString()
+                except Exception:
+                    engine._engine_type = ""
                 worker.submit_start(superluxcore_scene, config_props)
         except Exception as error:
             engine.session = None
@@ -360,7 +430,7 @@ def view_draw(engine, context, depsgraph):
         return
 
     if not engine.framebuffer or engine.framebuffer.needs_replacement(
-        context, scene
+        context, scene, engine
     ):
         engine.framebuffer = FrameBuffer._transition_from(
             engine.framebuffer, engine, context, scene
@@ -439,7 +509,13 @@ def view_draw(engine, context, depsgraph):
                 elif kind == "parse":
                     worker.submit_parse(payload)
             # Deferred edit finally firing: still interacting.
-            worker.submit_resolution_reduction(_DYN_RES_VALUE)
+            _pixels = 0
+            if framebuffer is not None:
+                _pixels = framebuffer._width * framebuffer._height
+            worker.submit_resolution_reduction(_dyn_res_value(_pixels))
+            _submit_film_scale(
+                engine, worker, _interaction_film_scale(engine)
+            )
             engine._dyn_res_until = time() + _DYN_RES_TAIL_S
             engine._dyn_res_active = True
             engine.viewport_start_time = time()
@@ -457,6 +533,8 @@ def view_draw(engine, context, depsgraph):
         time() > getattr(engine, "_dyn_res_until", 0)
     ):
         engine._dyn_res_active = False
+        # Film regrows first (one reset), then dense passes resume on it
+        _submit_film_scale(engine, worker, 1)
         worker.submit_resolution_reduction(0)
 
     if utils.in_material_shading_mode(context):
