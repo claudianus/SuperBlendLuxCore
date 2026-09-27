@@ -25,4 +25,12 @@
   empty config to the session worker: `renderengine.type` would be
   undefined downstream. All `config_props.Get("renderengine.type")`
   sites use an explicit fallback.
+- **Disabled sockets are excluded from `inputs[name]` key lookups** —
+  use `inputs.find(name)` (index lookup, hits disabled sockets too).
+  This bit the OpenPBR SSS preset seeder: subsurface sockets sit
+  disabled until the lobe is enabled, so `inputs["Subsurface Radius"]`
+  raised while `inputs.find()` works.
+- Renaming a socket preserves `default_value` and links, so old-file
+  migration can just rename — but order the renames when old and new
+  names overlap (`_migrate_sss_sockets` in `nodes/materials/openpbr.py`).
 
