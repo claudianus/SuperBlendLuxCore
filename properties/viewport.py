@@ -49,6 +49,10 @@ class SuperLuxCoreViewportSettings(bpy.types.PropertyGroup):
                                          "the RT Path engine is used in the viewport, which is optimized "
                                          "for quick feedback but can't handle complex light paths")
 
+    use_infill: BoolProperty(name="Instant Coverage", default=True,
+                             description="Fill not-yet-sampled pixels from nearby covered pixels "
+                                         "(pull-push reconstruction) so the whole screen becomes "
+                                         "coherent immediately instead of showing stale blocks")
     use_denoiser: BoolProperty(name="Denoise", default=True,
                            description="Denoise the viewport render once the halt time is reached. "
                                        "Note that this disables most imagepipeline plugins in the viewport")

@@ -210,3 +210,22 @@ progress instead of a frozen frame.
 - SuperLuxCore `pyunittests/.../testrtpathocldynres.py` — override keeps the
   film accumulating, clamps below configured, recovers after mid-burst
   edits.
+
+## Instant Coverage (VIEWPORT_INFILL)
+
+`viewport.use_infill` (default on, "Instant Coverage" in Viewport Render
+panel) injects the engine-side `VIEWPORT_INFILL` imagepipeline plugin as
+plugin 0 of the main viewport pipeline - linear HDR, before tonemapping.
+Pixels with zero accumulated sample weight are filled from the nearest
+covered pixels via pull-push pyramid, so the first frames after an edit
+read as a coherent, slightly soft image instead of stale rectangles.
+
+Pairs with the engine-side lattice coverage order (RTPATHOCL) and the
+single-pixel RTPATHCPU first frame; applies to every viewport path
+(RTPATHOCL, PATHOCL+light tracing, RTPATHCPU, PATHCPU, BIDIRCPU) because
+coverage is read from film channels, not engine internals. LT-only
+pixels count as covered and act as fill sources, so light-traced splats
+spread into soft blobs instead of isolated speckles.
+
+See SuperLuxCore `doc/features/viewport-instant-coverage.md` and
+`dev-tools/e51_viewport_infill.py` for the coverage metrics.

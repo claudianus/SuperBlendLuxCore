@@ -32,6 +32,13 @@ def convert(scene, context=None, index=0):
             from .aovs import add_temporal_accumulate
             index = add_temporal_accumulate(definitions, index, scene)
 
+        if context is not None and scene.superluxcore.viewport.use_infill:
+            # Viewport-only: pull-push hole filling on the linear beauty,
+            # before tonemapping, so sparse coverage reads as a coherent
+            # preview instead of stale blocks.
+            definitions[str(index) + ".type"] = "VIEWPORT_INFILL"
+            index += 1
+
         convert_defs(context, scene, definitions, index)
 
         return utils.luxutils.create_props(prefix, definitions)

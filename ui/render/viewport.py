@@ -52,6 +52,8 @@ class SUPERLUXCORE_RENDER_PT_viewport_settings(RenderButtonsPanel, Panel):
         if superluxcore_engine == "BIDIR":
             layout.prop(viewport, "use_bidir")
 
+        layout.prop(viewport, "use_infill")
+
     def draw_header(self, context):
         layout = self.layout
         layout.label(text="", icon_value=icon_manager.get_icon_id("logotype"))
