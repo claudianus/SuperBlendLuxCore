@@ -82,6 +82,11 @@ class SuperLuxCoreNodeMatOpenPBR(SuperLuxCoreNodeMaterial, bpy.types.Node):
                            "Subsurface Anisotropy"), self.use_subsurface)
 
     def update_sss_preset(self, context):
+        # Old files can reach this path with pre-rename sockets (the
+        # dropdown is visible without toggling use_subsurface) - migrate
+        # first or the RGB tuple lands on the scalar socket's
+        # default_value and the seeding aborts mid-way.
+        self._migrate_sss_sockets()
         preset = SSS_PRESETS.get(self.sss_preset)
         if preset:
             albedo, radius, scale = preset

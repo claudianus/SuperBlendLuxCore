@@ -33,4 +33,9 @@
 - Renaming a socket preserves `default_value` and links, so old-file
   migration can just rename — but order the renames when old and new
   names overlap (`_migrate_sss_sockets` in `nodes/materials/openpbr.py`).
+  EVERY code path that looks up the new names must migrate first — an
+  update callback can fire without the toggle that owns the migration
+  (e.g. `update_sss_preset` on an old file, where the pre-rename float
+  socket still answers to "Subsurface Radius" and rejects the RGB
+  tuple's `default_value` assignment).
 
