@@ -59,6 +59,9 @@ class SuperLuxCoreNodeMatMetal(SuperLuxCoreNodeMaterial, bpy.types.Node):
         self.add_input("SuperLuxCoreSocketColor", "Color", (0.7, 0.7, 0.7))
         self.inputs.new("SuperLuxCoreSocketFresnel", "Fresnel")
         self.inputs["Fresnel"].enabled = False
+        # F82 edge tint: tints the grazing-angle Fresnel response
+        # (e.g. gold's warm edge). White = no tint.
+        self.add_input("SuperLuxCoreSocketColor", "Edge Tint", (1.0, 1.0, 1.0))
         Roughness.init(self, 0.05)
         
         self.add_common_inputs()
@@ -79,9 +82,16 @@ class SuperLuxCoreNodeMatMetal(SuperLuxCoreNodeMaterial, bpy.types.Node):
             "multibounce": self.multibounce,
         }
 
+        edge_tint_socket = self.inputs["Edge Tint"]
+        edge_tint = edge_tint_socket.export(exporter, depsgraph, props)
+        if edge_tint_socket.is_linked or \
+                (isinstance(edge_tint, list) and
+                 any(abs(c - 1.0) > 1e-3 for c in edge_tint[:3])):
+            definitions["edgetint"] = edge_tint
+
         if self.input_type == "fresnel":
             definitions["fresnel"] = self.inputs["Fresnel"].export(exporter, depsgraph, props)
-        else:            
+        else:
             # Implicitly create a fresnelcolor texture with unique name
             tex_name = self.make_name() + "fresnel_helper"
             helper_prefix = "scene.textures." + tex_name + "."

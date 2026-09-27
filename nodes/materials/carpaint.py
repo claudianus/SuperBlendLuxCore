@@ -1,5 +1,5 @@
 import bpy
-from bpy.props import FloatProperty, EnumProperty
+from bpy.props import FloatProperty, BoolProperty, EnumProperty
 from ..base import SuperLuxCoreNodeMaterial
 from ..sockets import SuperLuxCoreSocketFloat
 from .glossytranslucent import DISTRIBUTION_ITEMS, DISTRIBUTION_DESCRIPTION
@@ -56,6 +56,11 @@ class SuperLuxCoreNodeMatCarpaint(SuperLuxCoreNodeMaterial, bpy.types.Node):
                                default="schlick",
                                description=DISTRIBUTION_DESCRIPTION,
                                update=utils_node.force_viewport_update)
+    multibounce: BoolProperty(name="Multibounce", default=False,
+                              description="Compensate the energy lost by "
+                                          "multiple scattering inside the "
+                                          "three glossy layers",
+                              update=utils_node.force_viewport_update)
 
     def init(self, context):
         self.add_input("SuperLuxCoreSocketColor", "Diffuse Color", (0.3, 0.3, 0.3))
@@ -79,6 +84,7 @@ class SuperLuxCoreNodeMatCarpaint(SuperLuxCoreNodeMaterial, bpy.types.Node):
         op.url = "https://wiki.luxcorerender.org/LuxCoreRender_Materials_Car_Paint"
         layout.prop(self, "preset")
         layout.prop(self, "distribution")
+        layout.prop(self, "multibounce")
 
     def sub_export(self, exporter, depsgraph, props, superluxcore_name=None, output_socket=None):
         if self.preset != "manual":
@@ -88,6 +94,7 @@ class SuperLuxCoreNodeMatCarpaint(SuperLuxCoreNodeMaterial, bpy.types.Node):
                 "ka": self.inputs["Absorption Color"].export(exporter, depsgraph, props),
                 "d": self.inputs["Absorption Depth (nm)"].export(exporter, depsgraph, props),
                 "distribution": self.distribution,
+                "multibounce": self.multibounce,
             }
         else:
             definitions = {
@@ -105,6 +112,7 @@ class SuperLuxCoreNodeMatCarpaint(SuperLuxCoreNodeMaterial, bpy.types.Node):
                 "r2": self.inputs["R2"].export(exporter, depsgraph, props),
                 "r3": self.inputs["R3"].export(exporter, depsgraph, props),
                 "distribution": self.distribution,
+                "multibounce": self.multibounce,
             }
 
         self.export_common_inputs(exporter, depsgraph, props, definitions)

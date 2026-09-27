@@ -1,17 +1,17 @@
 import bpy
-from bpy.props import FloatProperty, BoolProperty, EnumProperty
+from bpy.props import FloatProperty, BoolProperty, EnumProperty, FloatVectorProperty
 from ..base import SuperLuxCoreNodeMaterial
 from ..sockets import SuperLuxCoreSocketFloat
 from ...utils.node import get_active_output
 from ... import icons
 from ...utils import node as utils_node
-from ...utils.node import Roughness, ThinFilmCoating
+from ...utils.node import Roughness, ThinFilmCoating, SellmeierDispersion
 from .glossy2 import DISTRIBUTION_ITEMS, DISTRIBUTION_DESCRIPTION
 
 CAUCHYB_DESCRIPTION = (
     "Dispersion strength (cauchy B coefficient)\n"
     "Realistic values range from 0.00354 to 0.01342\n"
-    "Not supported by architectural and rough glass"
+    "Not supported by architectural glass"
 )
 
 ARCHGLASS_DESCRIPTION = (
@@ -43,9 +43,9 @@ class SuperLuxCoreSocketCauchyC(bpy.types.NodeSocket, SuperLuxCoreSocketFloat):
             # archglass does not support dispersion
             layout.active = False
 
-        if getattr(node, "rough", False):
-            # This socket is used on a glass node and is not exported because
-            # roughglass does not support dispersion
+        if getattr(node, "dispersion_model", "cauchy") != "cauchy":
+            # Sellmeier mode selected on the node: the Cauchy-B socket is
+            # not exported
             layout.active = False
 
         super().draw(context, layout, node, text)
@@ -75,6 +75,27 @@ class SuperLuxCoreNodeMatGlass(SuperLuxCoreNodeMaterial, bpy.types.Node):
                                default="schlick",
                                description=DISTRIBUTION_DESCRIPTION,
                                update=utils_node.force_viewport_update)
+    multibounce: BoolProperty(name="Multibounce", default=False,
+                              description="Compensate the energy lost by "
+                                          "multiple scattering inside the "
+                                          "reflection lobe (rough glass only)",
+                              update=utils_node.force_viewport_update)
+    dispersion_model: EnumProperty(name="Dispersion Model",
+                                   items=SellmeierDispersion.MODEL_ITEMS,
+                                   default="cauchy",
+                                   update=utils_node.force_viewport_update)
+    sellmeier_preset: EnumProperty(name="Glass Preset",
+                                   items=SellmeierDispersion.PRESET_ITEMS,
+                                   default="N-BK7",
+                                   update=utils_node.force_viewport_update)
+    sellmeier_b: FloatVectorProperty(name="Sellmeier B", size=3,
+                                     default=(1.0, 0.5, 1.0),
+                                     description="Sellmeier B1 B2 B3 coefficients",
+                                     update=utils_node.force_viewport_update)
+    sellmeier_c: FloatVectorProperty(name="Sellmeier C", size=3,
+                                     default=(0.006, 0.02, 100.0),
+                                     description="Sellmeier C1 C2 C3 coefficients (um^2)",
+                                     update=utils_node.force_viewport_update)
 
     def init(self, context):
         self.add_input("SuperLuxCoreSocketColor", "Transmission Color", (1, 1, 1))
@@ -98,6 +119,7 @@ class SuperLuxCoreNodeMatGlass(SuperLuxCoreNodeMaterial, bpy.types.Node):
 
         if self.rough:
             layout.prop(self, "distribution")
+            layout.prop(self, "multibounce")
             Roughness.draw(self, context, layout)
 
         # Rough glass cannot be archglass
@@ -106,6 +128,9 @@ class SuperLuxCoreNodeMatGlass(SuperLuxCoreNodeMaterial, bpy.types.Node):
         row.prop(self, "architectural")
         
         layout.prop(self, "use_thinfilmcoating")
+
+        if not self.architectural:
+            SellmeierDispersion.draw(self, layout)
 
         if self.get_interior_volume():
             layout.label(text="Using IOR of interior volume", icon=icons.INFO)
@@ -128,15 +153,18 @@ class SuperLuxCoreNodeMatGlass(SuperLuxCoreNodeMaterial, bpy.types.Node):
         if not self.get_interior_volume():
             definitions["interiorior"] = self.inputs["IOR"].export(exporter, depsgraph, props)
 
-        cauchyb = self.inputs["Dispersion"].export(exporter, depsgraph, props)
-        if self.inputs["Dispersion"].is_linked or cauchyb > 0:
-            definitions["cauchyb"] = cauchyb
+        # archglass supports neither Cauchy nor Sellmeier dispersion
+        if type != "archglass" and not SellmeierDispersion.export(self, definitions):
+            cauchyb = self.inputs["Dispersion"].export(exporter, depsgraph, props)
+            if self.inputs["Dispersion"].is_linked or cauchyb > 0:
+                definitions["cauchyb"] = cauchyb
 
         if self.use_thinfilmcoating:
             ThinFilmCoating.export(self, exporter, depsgraph, props, definitions)
 
         if self.rough:
             definitions["distribution"] = self.distribution
+            definitions["multibounce"] = self.multibounce
             Roughness.export(self, exporter, depsgraph, props, definitions)
         self.export_common_inputs(exporter, depsgraph, props, definitions)
 

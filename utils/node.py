@@ -488,6 +488,93 @@ class ThinFilmCoating:
             definitions["filmior"] = node.inputs[ThinFilmCoating.IOR_NAME].export(exporter, depsgraph, props)
 
 
+class SellmeierDispersion:
+    """
+    Shared Sellmeier 3-term dispersion controls for
+    glass/roughglass/disney/openpbr nodes.
+
+    How to use:
+    Declare on the node:
+        dispersion_model: EnumProperty(items=SellmeierDispersion.MODEL_ITEMS,
+                                       default="cauchy", update=force_viewport_update)
+        sellmeier_preset: EnumProperty(items=SellmeierDispersion.PRESET_ITEMS,
+                                       default="N-BK7", update=force_viewport_update)
+        sellmeier_b: FloatVectorProperty(size=3, ...)
+        sellmeier_c: FloatVectorProperty(size=3, ...)
+
+    Draw with SellmeierDispersion.draw(node, layout) and export with
+    SellmeierDispersion.export(node, definitions). The latter emits
+    "sellmeier" (preset name) or "sellmeierb"/"sellmeierc" and returns
+    True if a Sellmeier mode is active (so the caller skips cauchyb).
+    """
+
+    MODEL_ITEMS = [
+        ("cauchy", "Cauchy", "Cauchy-B model: n(lambda) = A + B/lambda^2 "
+                             "(legacy Dispersion socket)", 0),
+        ("sellmeier_preset", "Sellmeier (Glass Preset)",
+         "Sellmeier 3-term model from a measured optical glass preset", 1),
+        ("sellmeier_custom", "Sellmeier (Custom)",
+         "Sellmeier 3-term model from explicit B/C coefficients "
+         "(lambda in micrometers, C in um^2)", 2),
+    ]
+
+    PRESET_ITEMS = [
+        ("N-BK7", "N-BK7 (Borosilicate Crown)", "Schott N-BK7, standard optical glass", 0),
+        ("N-SF6", "N-SF6 (Dense Flint)", "Schott N-SF6, strong dispersion", 1),
+        ("N-SF10", "N-SF10 (Dense Flint)", "Schott N-SF10, strong dispersion", 2),
+        ("F2", "F2 (Flint)", "Schott F2", 3),
+        ("fusedsilica", "Fused Silica", "Malitson 1965", 4),
+        ("diamond", "Diamond", "Peter 1923", 5),
+        ("water", "Water", "Daimon-Masumura 2007", 6),
+    ]
+
+    PRESETS = {
+        "N-BK7": ((1.03961212, 0.231792344, 1.01046945),
+                  (0.00600069867, 0.0200179144, 103.560653)),
+        "N-SF6": ((1.72448482, 0.390104889, 1.04572858),
+                  (0.0134871947, 0.0569318095, 118.557185)),
+        "N-SF10": ((1.61625977, 0.259229334, 1.07762317),
+                   (0.0127534559, 0.0581983954, 116.607680)),
+        "F2": ((1.34533359, 0.209073176, 0.937357162),
+               (0.00997743871, 0.0470450767, 111.886764)),
+        "fusedsilica": ((0.6961663, 0.4079426, 0.8974794),
+                        (0.004679148, 0.013512063, 97.9340025)),
+        "diamond": ((0.3306, 4.3356, 0.0), (0.030625, 0.011236, 1.0)),
+        "water": ((0.5684027565, 0.1726177391, 0.1130748688),
+                  (0.0051018297, 0.0182115394, 10.69792721)),
+    }
+
+    @staticmethod
+    def is_active(node):
+        return getattr(node, "dispersion_model", "cauchy") != "cauchy"
+
+    @staticmethod
+    def draw(node, layout):
+        layout.prop(node, "dispersion_model")
+        if node.dispersion_model == "sellmeier_preset":
+            layout.prop(node, "sellmeier_preset")
+        elif node.dispersion_model == "sellmeier_custom":
+            layout.prop(node, "sellmeier_b")
+            layout.prop(node, "sellmeier_c")
+
+    @staticmethod
+    def export(node, definitions):
+        """
+        Writes sellmeier properties into `definitions` when a Sellmeier mode
+        is selected. Returns True when Sellmeier is active (caller must skip
+        the cauchy/dispersion property).
+        """
+        model = getattr(node, "dispersion_model", "cauchy")
+        if model == "sellmeier_preset":
+            definitions["sellmeier"] = node.sellmeier_preset
+            return True
+        if model == "sellmeier_custom":
+            definitions["sellmeierb"] = list(node.sellmeier_b)
+            definitions["sellmeierc"] = list(node.sellmeier_c)
+            return True
+        return False
+
+
 class Roughness:
     """
     How to use this class:

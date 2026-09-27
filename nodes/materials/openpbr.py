@@ -1,9 +1,10 @@
 import bpy
-from bpy.props import BoolProperty
+from bpy.props import BoolProperty, EnumProperty, FloatVectorProperty
 from ..base import SuperLuxCoreNodeMaterial
 from .glass import THIN_FILM_DESCRIPTION
 from ... import utils
-from ...utils.node import ThinFilmCoating
+from ...utils import node as utils_node
+from ...utils.node import ThinFilmCoating, SellmeierDispersion
 
 
 class SuperLuxCoreNodeMatOpenPBR(SuperLuxCoreNodeMaterial, bpy.types.Node):
@@ -63,6 +64,23 @@ class SuperLuxCoreNodeMatOpenPBR(SuperLuxCoreNodeMaterial, bpy.types.Node):
                            description="Enable the retro-reflective fuzz (sheen) lobe",
                            update=update_use_fuzz)
 
+    dispersion_model: EnumProperty(name="Dispersion Model",
+                                   items=SellmeierDispersion.MODEL_ITEMS,
+                                   default="cauchy",
+                                   update=utils_node.force_viewport_update)
+    sellmeier_preset: EnumProperty(name="Glass Preset",
+                                   items=SellmeierDispersion.PRESET_ITEMS,
+                                   default="N-BK7",
+                                   update=utils_node.force_viewport_update)
+    sellmeier_b: FloatVectorProperty(name="Sellmeier B", size=3,
+                                     default=(1.0, 0.5, 1.0),
+                                     description="Sellmeier B1 B2 B3 coefficients",
+                                     update=utils_node.force_viewport_update)
+    sellmeier_c: FloatVectorProperty(name="Sellmeier C", size=3,
+                                     default=(0.006, 0.02, 100.0),
+                                     description="Sellmeier C1 C2 C3 coefficients (um^2)",
+                                     update=utils_node.force_viewport_update)
+
     def init(self, context):
         # Base
         self.add_input("SuperLuxCoreSocketColor", "Base Color", [0.8] * 3)
@@ -115,6 +133,8 @@ class SuperLuxCoreNodeMatOpenPBR(SuperLuxCoreNodeMaterial, bpy.types.Node):
         col.prop(self, "use_coat")
         col.prop(self, "use_fuzz")
         col.prop(self, "use_thinfilmcoating")
+        if self.use_transmission:
+            SellmeierDispersion.draw(self, layout)
 
     def sub_export(self, exporter, depsgraph, props, superluxcore_name=None, output_socket=None):
         exp = lambda n: self.inputs[n].export(exporter, depsgraph, props)
@@ -138,7 +158,9 @@ class SuperLuxCoreNodeMatOpenPBR(SuperLuxCoreNodeMaterial, bpy.types.Node):
             definitions["transmissiondepth"] = exp("Transmission Depth")
             definitions["transmissionscatter"] = exp("Transmission Scatter")
             definitions["transmissionscatteranisotropy"] = exp("Transmission Scatter Anisotropy")
-            definitions["dispersion"] = exp("Dispersion")
+            # Sellmeier replaces the Cauchy-B "dispersion" property
+            if not SellmeierDispersion.export(self, definitions):
+                definitions["dispersion"] = exp("Dispersion")
 
         if self.use_subsurface:
             definitions["subsurfaceweight"] = exp("Subsurface Weight")

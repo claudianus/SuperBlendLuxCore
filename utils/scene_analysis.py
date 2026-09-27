@@ -84,17 +84,18 @@ def _scan_nodes(nodes, flags):
         t = node.bl_idname
         if t == "SuperLuxCoreNodeMatGlass":
             flags["transmissive"] = True
-            # archglass/roughglass do not support dispersion
+            # archglass does not support dispersion
             if not getattr(node, "architectural", False) and \
-                    not getattr(node, "rough", False) and \
-                    _weight_input(node, "Dispersion"):
+                    (getattr(node, "dispersion_model", "cauchy") != "cauchy" or
+                     _weight_input(node, "Dispersion")):
                 flags["dispersion"] = True
         elif t == "SuperLuxCoreNodeMatOpenPBR":
             if _weight_input(node, "Transmission Weight"):
                 flags["transmissive"] = True
             if _weight_input(node, "Subsurface Weight"):
                 flags["sss"] = True
-            if _weight_input(node, "Dispersion"):
+            if getattr(node, "dispersion_model", "cauchy") != "cauchy" or \
+                    _weight_input(node, "Dispersion"):
                 flags["dispersion"] = True
         elif t == "ShaderNodeBsdfPrincipled":
             if _weight_input(node, "Transmission Weight"):
