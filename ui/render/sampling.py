@@ -246,6 +246,7 @@ class SUPERLUXCORE_RENDER_PT_sampling_advanced(RenderButtonsPanel, Panel):
             col.prop(config, "mnee_maxspecular")
             col.prop(config, "mnee_maxiterations")
             col.prop(config, "mnee_seedcache")
+            col.prop(config, "ssp_enable")
 
         col.prop(config, "guiding_enable")
         if config.guiding_enable:

@@ -1007,6 +1007,11 @@ class SuperLuxCoreConfig(PropertyGroup):
                                               "(mirrors: skips the seed trace; glass: rescues solves the "
                                               "cold line seed fails on). Leave on - it never biases the "
                                               "result and only adds recovered caustic energy")
+    ssp_enable: BoolProperty(name="Specular Tail Reuse", default=True,
+                                  description="Record the specular run each eye path walks and reuse it "
+                                              "as the manifold chain when a light path's camera connection "
+                                              "is blocked by the same glass/mirror object. Faster and "
+                                              "better-seeded than rediscovering the chain - still unbiased")
 
     # Path guiding (P1-3): learned incident-radiance field steers glossy bounces
     guiding_enable: BoolProperty(name="Path Guiding", default=True,

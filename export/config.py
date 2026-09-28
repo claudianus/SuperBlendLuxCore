@@ -234,6 +234,8 @@ def convert(exporter, scene, context=None, engine=None):
                 definitions["path.mnee.maxiterations"] = config.mnee_maxiterations
             if not config.mnee_seedcache:
                 definitions["path.mnee.seedcache"] = False
+            if not config.ssp_enable:
+                definitions["path.ssp.enable"] = False
 
         if config.guiding_enable and superluxcore_engine in (
             "PATHCPU", "PATHOCL", "TILEPATHCPU", "TILEPATHOCL",
