@@ -919,7 +919,14 @@ def _convert_photongi_settings(is_viewport_render, scene, definitions, config):
     else:
         raise Exception("Unknown preset mode")
 
-    caustic_radius = photongi.caustic_lookup_radius
+    caustic_radius = (
+        0 if photongi.caustic_lookup_radius_auto else photongi.caustic_lookup_radius
+    )
+    caustic_maxsize = (
+        0
+        if photongi.caustic_maxsize_auto
+        else round(photongi.caustic_maxsize * 1000000)
+    )
     caustic_updatespp = (
         photongi.caustic_updatespp if photongi.caustic_periodic_update else 0
     )
@@ -945,9 +952,7 @@ def _convert_photongi_settings(is_viewport_render, scene, definitions, config):
             ),
             "path.photongi.indirect.usagethresholdscale": photongi.indirect_usagethresholdscale,
             "path.photongi.caustic.enabled": photongi.caustic_enabled,
-            "path.photongi.caustic.maxsize": round(
-                photongi.caustic_maxsize * 1000000
-            ),
+            "path.photongi.caustic.maxsize": caustic_maxsize,
             "path.photongi.caustic.lookup.radius": caustic_radius,
             "path.photongi.caustic.lookup.normalangle": degrees(
                 photongi.caustic_normalangle

@@ -531,9 +531,15 @@ class SuperLuxCoreConfigPhotonGI(PropertyGroup):
     # Caustic cache
     caustic_enabled: BoolProperty(name="Use Caustic Cache", default=False,
                                   description="Accelerates rendering of caustics at the cost of blurring them")
+    caustic_maxsize_auto: BoolProperty(name="Automatic Max. Size", default=True,
+                                        description="Automatically scale the caustic cache capacity with the "
+                                                    "render resolution (~2 photons per pixel)")
     caustic_maxsize: FloatProperty(name="Max. Size (Millions)", default=0.1, soft_min=0.01, min=0.001, soft_max=10,
                                     precision=1, step=1,
                                     description="Max. number of photons stored in caustic cache (value in millions)")
+    caustic_lookup_radius_auto: BoolProperty(name="Automatic Lookup Radius", default=True,
+                                              description="Automatically choose a good lookup radius from the "
+                                                          "camera footprint in the scene")
     caustic_lookup_radius: FloatProperty(name="Lookup Radius", default=0.075, min=0.00001, subtype="DISTANCE",
                                           description=LOOKUP_RADIUS_DESC)
     caustic_normalangle: FloatProperty(name="Normal Angle", default=radians(10), min=0, max=radians(90),
@@ -546,8 +552,9 @@ class SuperLuxCoreConfigPhotonGI(PropertyGroup):
     caustic_updatespp_radiusreduction: FloatProperty(name="Radius Reduction", default=90, min=1, soft_min=70,
                                                      max=99.9, soft_max=99, subtype="PERCENTAGE",
                                                      description="Shrinking factor for the lookup radius after each pass")
-    caustic_updatespp_minradius: FloatProperty(name="Minimum Radius", default=0.003, min=0.00001,
-                                               subtype="DISTANCE", description="Radius at which the radius reduction stops")
+    caustic_updatespp_minradius: FloatProperty(name="Minimum Radius", default=0.0, min=0.0,
+                                               subtype="DISTANCE", description="Radius at which the radius reduction "
+                                                                              "stops (0 = automatic, 2% of the lookup radius)")
     caustic_volumebeams: BoolProperty(name="Volume Beams", default=True,
                                       description="Deposit photon beams along light flights inside homogeneous "
                                                   "volumes (CPU). Recovers thin focused shafts and volumetric "

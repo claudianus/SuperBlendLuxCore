@@ -167,8 +167,14 @@ class SUPERLUXCORE_RENDER_PT_caches_photongi_caustic(RenderButtonsPanel, Panel):
         col = layout.column(align=True)
         col.enabled = photongi.caustic_enabled
         sub = col.column(align=True)
-        sub.prop(photongi, "caustic_maxsize")
-        sub.prop(photongi, "caustic_lookup_radius")
+        sub.prop(photongi, "caustic_maxsize_auto")
+        sub2 = sub.column(align=True)
+        sub2.enabled = not photongi.caustic_maxsize_auto
+        sub2.prop(photongi, "caustic_maxsize")
+        sub.prop(photongi, "caustic_lookup_radius_auto")
+        sub2 = sub.column(align=True)
+        sub2.enabled = not photongi.caustic_lookup_radius_auto
+        sub2.prop(photongi, "caustic_lookup_radius")
         sub.prop(photongi, "caustic_normalangle")
         sub.prop(photongi, "caustic_volumebeams")
         sub.prop(photongi, "caustic_periodic_update")
@@ -181,7 +187,9 @@ class SUPERLUXCORE_RENDER_PT_caches_photongi_caustic(RenderButtonsPanel, Panel):
         radius = photongi.caustic_lookup_radius
         minradius = photongi.caustic_updatespp_minradius
 
-        if minradius >= radius:
+        if photongi.caustic_lookup_radius_auto or minradius == 0:
+            sub.label(text="Automatic radius schedule")
+        elif minradius >= radius:
             sub.label(text="Radius reduction disabled (min radius >= radius)")
         else:
             radius_multiplier = photongi.caustic_updatespp_radiusreduction / 100
