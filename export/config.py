@@ -956,6 +956,7 @@ def _convert_photongi_settings(is_viewport_render, scene, definitions, config):
             "path.photongi.caustic.updatespp.radiusreduction": photongi.caustic_updatespp_radiusreduction
             / 100,
             "path.photongi.caustic.updatespp.minradius": photongi.caustic_updatespp_minradius,
+            "path.photongi.caustic.volumebeams": photongi.caustic_volumebeams,
             "path.photongi.persistent.file": file_path,
         }
     )

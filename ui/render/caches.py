@@ -170,6 +170,7 @@ class SUPERLUXCORE_RENDER_PT_caches_photongi_caustic(RenderButtonsPanel, Panel):
         sub.prop(photongi, "caustic_maxsize")
         sub.prop(photongi, "caustic_lookup_radius")
         sub.prop(photongi, "caustic_normalangle")
+        sub.prop(photongi, "caustic_volumebeams")
         sub.prop(photongi, "caustic_periodic_update")
         sub = col.column(align=True)
         sub.enabled = photongi.caustic_periodic_update

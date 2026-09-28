@@ -548,6 +548,11 @@ class SuperLuxCoreConfigPhotonGI(PropertyGroup):
                                                      description="Shrinking factor for the lookup radius after each pass")
     caustic_updatespp_minradius: FloatProperty(name="Minimum Radius", default=0.003, min=0.00001,
                                                subtype="DISTANCE", description="Radius at which the radius reduction stops")
+    caustic_volumebeams: BoolProperty(name="Volume Beams", default=True,
+                                      description="Deposit photon beams along light flights inside homogeneous "
+                                                  "volumes (CPU). Recovers thin focused shafts and volumetric "
+                                                  "caustics where point photons are too sparse. GPU falls back "
+                                                  "to point photons")
 
     debug_items = [
         ("off", "Off (Final Render Mode)", "", 0),
