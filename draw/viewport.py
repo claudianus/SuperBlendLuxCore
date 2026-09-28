@@ -112,8 +112,12 @@ def run_denoiser(session, lock, box):
         import traceback
 
         traceback.print_exc()
-        return
-    box["done"] = True
+    finally:
+        # Always signal completion: without done=True a failed worker
+        # leaves _denoise_box stuck on "not done" - the pause path would
+        # restart OIDN forever on every draw. A failed run simply
+        # uploads whatever the channel holds (raw image).
+        box["done"] = True
 
 
 class FrameBuffer:

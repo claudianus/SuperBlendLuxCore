@@ -30,8 +30,22 @@ def _worker(engine):
     worker = getattr(engine, "session_worker", None)
     if worker is None:
         # Attribute access (not the stale `from`-import) so addon reload
-        # picks up the reloaded class.
-        worker = session_worker.SessionWorker(engine)
+        # picks up the reloaded class. redraw_hook keeps the worker
+        # bpy-free: bpy.app.timers.register is the only thread-safe bpy
+        # call, the timer itself then runs tag_redraw on the main thread
+        # (calling it directly from the worker crashed Blender).
+        def _marshal_redraw(fn):
+            def _call():
+                try:
+                    fn()
+                except ReferenceError:
+                    pass
+                return None
+            bpy.app.timers.register(_call, first_interval=0.0)
+
+        worker = session_worker.SessionWorker(
+            engine, redraw_hook=_marshal_redraw
+        )
         engine.session_worker = worker
     return worker
 

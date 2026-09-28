@@ -14,3 +14,4 @@ docs live alongside in `doc/`.
 | [pysuperluxcore-notes.md](pysuperluxcore-notes.md) | Standalone pysuperluxcore API notes |
 | [out-of-core.md](out-of-core.md) | Out-of-core memory: spilling, .lxm proxies, streaming |
 | [diffraction-node.md](diffraction-node.md) | Diffraction material node |
+| [thread-safety.md](thread-safety.md) | bpy/RNA main-thread rules, worker marshalling, crash fixes |

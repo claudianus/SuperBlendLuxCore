@@ -112,9 +112,16 @@ class SuperLuxCoreRenderEngine(bpy.types.RenderEngine):
 
     def log_listener(self, msg):
         if "Direct light sampling cache entries" in msg:
-            self.update_stats("", msg)
-            # We have to sleep for a bit, otherwise Blender does not update the UI
-            sleep(0.01)
+            # update_stats is a bpy method — the log handler runs on
+            # LuxCore engine threads, so marshal the call to the main
+            # thread (bpy.app.timers.register is thread-safe).
+            def _main(_msg=msg):
+                try:
+                    self.update_stats("", _msg)
+                except Exception:
+                    pass
+                return None
+            bpy.app.timers.register(_main)
 
     def render(self, depsgraph):
         display_superluxcore_logs = get_addon_preferences(bpy.context).display_superluxcore_logs

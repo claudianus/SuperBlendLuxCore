@@ -38,12 +38,80 @@ import urllib.error
 from mathutils import Vector, Matrix
 import threading
 from threading import _MainThread, Thread, Lock
+from queue import Queue
 from .timer import timer_update
 from ...utils import get_addon_preferences, compatibility
 
 download_threads = []
 bg_threads = []
 stop_check_cache = False
+
+# bpy/RNA is main-thread-only: workers (Downloader, check_cache,
+# bg_download_thumbnails) must never touch bpy.data/bpy.context/RNA
+# properties - that access pattern crashes Blender intermittently.
+# Workers push plain-data results here; _drain_main_results applies
+# them on the main thread via bpy.app.timers.
+_main_results = Queue()
+_main_results_registered = False
+
+
+def _ensure_result_timer():
+    global _main_results_registered
+    if _main_results_registered:
+        return
+    if not bpy.app.timers.is_registered(_drain_main_results):
+        bpy.app.timers.register(
+            _drain_main_results, first_interval=0.5, persistent=True
+        )
+    _main_results_registered = True
+
+
+def _drain_main_results():
+    while True:
+        try:
+            kind, payload = _main_results.get_nowait()
+        except Exception:
+            break
+        try:
+            if kind == "thumbnail":
+                tpath, tpath_full, asset_type, url = payload
+                from shutil import copyfile
+                copyfile(tpath, tpath_full)
+                img = bpy.data.images.load(tpath)
+                img.scale(128, 128)
+                img.save()
+                thumb = bpy.data.images.load(tpath)
+                thumb.name = '.LOL_preview'
+                ol = bpy.context.scene.superluxcoreOL
+                coll = {
+                    'model': ol.model,
+                    'scene': ol.scene,
+                    'material': ol.material,
+                }[asset_type.lower()]['assets']
+                for a in coll:
+                    if a['url'] == url:
+                        a['thumbnail'] = thumb
+                        break
+            elif kind == "cache_hit":
+                asset_type, url = payload
+                assets = bpy.context.scene.superluxcoreOL
+                coll = {
+                    'model': assets.model,
+                    'scene': assets.scene,
+                    'material': assets.material,
+                }[asset_type]['assets']
+                for a in coll:
+                    if a['url'] == url:
+                        a['downloaded'] = 100.0
+                        break
+        except (ReferenceError, RuntimeError, KeyError, AttributeError):
+            # RNA asset died between queue and drain (scene closed /
+            # collection rebuilt) or the file vanished - skip it.
+            pass
+        except Exception:
+            import traceback
+            traceback.print_exc()
+    return 0.5
 
 def load_local_TOC(context, asset_type):
     import json
@@ -208,9 +276,22 @@ def download_table_of_contents(context):
         ui_props.ToC_loaded = True
         init_categories(context)
 
-        bg_task = Thread(target=check_cache, args=(context, ))
+        # Snapshot the RNA data on the main thread: the worker only
+        # hashes files (bpy/RNA access is not thread-safe).
+        tasks = []
+        for asset_type in ('model', 'material'):
+            coll = getattr(scene.superluxcoreOL, asset_type)['assets']
+            for asset in coll:
+                tasks.append((
+                    asset_type, asset["url"], asset["hash"],
+                    join(user_preferences.global_dir, asset_type,
+                         splitext(asset["url"])[0] + '.blend'),
+                ))
+
+        bg_task = Thread(target=check_cache, args=(tasks,))
         bg_threads.append(["check_cache", bg_task])
         bg_task.start()
+        _ensure_result_timer()
         return True
     except ConnectionError as error:
         print("[LOL] Connection error: Could not download table of contents")
@@ -262,38 +343,22 @@ def init_categories(context):
     asset_props['categories'] = categories
 
 
-def check_cache(args):
-    (context) = args
+def check_cache(tasks):
+    """Worker: pure filesystem hashing only - no bpy/RNA access (the bpy
+    API is main-thread-only; touching it here crashed Blender
+    intermittently). Hits are applied by _drain_main_results."""
     global bg_threads
     global stop_check_cache
 
-    user_preferences = get_addon_preferences(context)
-    scene = context.scene
-    assets = scene.superluxcoreOL.model['assets']
-    for asset in assets:
+    for asset_type, url, expected_hash, filepath in tasks:
         if stop_check_cache:
             break
-        filename = asset["url"]
-        filepath = join(user_preferences.global_dir, "model", splitext(filename)[0] + '.blend')
-
-        if os.path.exists(filepath):
-            if calc_hash(filepath) == asset["hash"]:
-                asset['downloaded'] = 100.0
-
-    assets = scene.superluxcoreOL.material['assets']
-    for asset in assets:
-        if stop_check_cache:
-            break
-        filename = asset["url"]
-        filepath = join(user_preferences.global_dir, "material", splitext(filename)[0] + '.blend')
-
-        if os.path.exists(filepath):
-            if calc_hash(filepath) == asset["hash"]:
-                asset['downloaded'] = 100.0
+        if os.path.exists(filepath) and calc_hash(filepath) == expected_hash:
+            _main_results.put(("cache_hit", (asset_type, url)))
 
     stop_check_cache = False
 
-    for threaddata in bg_threads:
+    for threaddata in list(bg_threads):
         tag, bg_task = threaddata
         if tag == "check_cache":
             bg_threads.remove(threaddata)
@@ -329,12 +394,26 @@ def download_file(asset_type, asset, location, rotation, target_object, target_s
         tcom = ThreadCom()
         tcom.passargs['downloaders'] = [downloader]
         tcom.passargs['asset type'] = asset_type
-        asset_data = asset.to_dict()
+        # Snapshot the preference values the worker needs - reading
+        # bpy.context off the main thread is not safe.
+        prefs = get_addon_preferences(bpy.context)
+        tcom.passargs['lol_host'] = prefs.lol_host
+        tcom.passargs['lol_http_host'] = prefs.lol_http_host
+        tcom.passargs['lol_useragent'] = prefs.lol_useragent
+        tcom.passargs['global_dir'] = prefs.global_dir
+        # Deep-copy the RNA idprop into plain Python data: the worker
+        # and the timer both dereference it, and a held RNA group can
+        # dangle if the scene's OL props are rebuilt meanwhile.
+        try:
+            asset_data = asset.to_dict()
+        except AttributeError:
+            asset_data = dict(asset)
 
         downloadthread = Downloader(asset_data, tcom)
 
         download_threads.append([downloadthread, asset_data, tcom])
-        bpy.app.timers.register(timer_update)
+        if not bpy.app.timers.is_registered(timer_update):
+            bpy.app.timers.register(timer_update)
     else:
         tcom.passargs['downloaders'].append(downloader)
 
@@ -358,12 +437,13 @@ class Downloader(threading.Thread):
     # def main_download_thread(asset_data, tcom, scene_id, api_key):
     def run(self):
         import urllib.request
-        user_preferences = get_addon_preferences(bpy.context)
-        LOL_HOST_URL = user_preferences.lol_host
-        LOL_VERSION = user_preferences.lol_version
-        LOL_HTTP_HOST = user_preferences.lol_http_host
-        LOL_USERAGENT = user_preferences.lol_useragent
         tcom = self.tcom
+        # Prefs snapshot taken on the main thread in download_file() -
+        # bpy.context is not accessible from a worker thread.
+        LOL_HOST_URL = tcom.passargs['lol_host']
+        LOL_HTTP_HOST = tcom.passargs['lol_http_host']
+        LOL_USERAGENT = tcom.passargs['lol_useragent']
+        global_dir = tcom.passargs['global_dir']
 
         filename = self.asset["url"]
 
@@ -406,8 +486,8 @@ class Downloader(threading.Thread):
                 print("[LOL] Download finished")
                 import zipfile
                 with zipfile.ZipFile(temp_zip_path) as zf:
-                    print("[LOL] Extracting zip to", os.path.join(user_preferences.global_dir, tcom.passargs['asset type'].lower()))
-                    zf.extractall(os.path.join(user_preferences.global_dir, tcom.passargs['asset type'].lower()))
+                    print("[LOL] Extracting zip to", os.path.join(global_dir, tcom.passargs['asset type'].lower()))
+                    zf.extractall(os.path.join(global_dir, tcom.passargs['asset type'].lower()))
 
             except TimeoutError as error:
                 print("[LOL] TimeoutError error: Could not download " + filename)
@@ -695,11 +775,23 @@ def bg_load_previews(context, asset_type):
 
                 asset["thumbnail"] = img
             else:
-                download_queue.put((asset_type, imagename, asset))
+                # Queue the lookup key, not the RNA asset — the worker
+                # must never hold a Blender data reference.
+                download_queue.put((asset_type, imagename, asset['url']))
 
-    bg_task = Thread(target=bg_download_thumbnails, args=(context, download_queue))
+    # The worker only downloads files: pass the prefs it needs as plain
+    # values (bpy access is main-thread-only); image loading + RNA
+    # thumbnail assignment happens in _drain_main_results.
+    prefs = {
+        'lol_host': user_preferences.lol_host,
+        'lol_http_host': user_preferences.lol_http_host,
+        'lol_useragent': user_preferences.lol_useragent,
+        'global_dir': user_preferences.global_dir,
+    }
+    bg_task = Thread(target=bg_download_thumbnails, args=(prefs, download_queue))
     bg_threads.append(["bg_download_thumbnails", bg_task])
     bg_task.start()
+    _ensure_result_timer()
 
     for threaddata in bg_threads:
         tag, bg_task = threaddata
@@ -707,14 +799,18 @@ def bg_load_previews(context, asset_type):
             bg_threads.remove(threaddata)
 
 
-def bg_download_thumbnails(context, download_queue):
+def bg_download_thumbnails(prefs, download_queue):
+    """Worker: downloads preview files to disk only. The image load/
+    scale/save and the RNA thumbnail assign run in _drain_main_results
+    on the main thread - bpy.data.images access from a worker crashed
+    Blender (see the original comment below). ``prefs`` is a plain dict
+    snapshotted on the main thread (no bpy access here)."""
     import urllib.request
 
-    user_preferences = get_addon_preferences(context)
-    LOL_HOST_URL = user_preferences.lol_host
-    LOL_VERSION = user_preferences.lol_version
-    LOL_HTTP_HOST = user_preferences.lol_http_host
-    LOL_USERAGENT = user_preferences.lol_useragent
+    LOL_HOST_URL = prefs['lol_host']
+    LOL_HTTP_HOST = prefs['lol_http_host']
+    LOL_USERAGENT = prefs['lol_useragent']
+    global_dir = prefs['global_dir']
 
     while not download_queue.empty():
         # Stop download if Blender is closed
@@ -723,38 +819,34 @@ def bg_download_thumbnails(context, download_queue):
                 if not thread.is_alive():
                     break
 
-        asset_type, imagename, asset = download_queue.get()
+        asset_type, imagename, url = download_queue.get()
 
-        tpath_full = join(user_preferences.global_dir, asset_type.lower(), 'preview', 'full', imagename)
-        tpath = join(user_preferences.global_dir, asset_type.lower(), 'preview', imagename)
+        tpath_full = join(global_dir, asset_type.lower(), 'preview', 'full', imagename)
+        tpath = join(global_dir, asset_type.lower(), 'preview', imagename)
 
         print("[LOL] Downloading ", imagename)
         urlstr = LOL_HOST_URL + "/"+ asset_type.lower() +"/preview/" + imagename
-        req = urllib.request.Request(
-            urlstr, headers={'User-Agent': LOL_USERAGENT, 'Host': LOL_HTTP_HOST}
-        )
-        with urllib.request.urlopen(req, timeout=60) as response, open(tpath, "wb") as file_handle:
-            if response.getcode() == 200:
-                file_handle.write(response.read())
+        try:
+            req = urllib.request.Request(
+                urlstr, headers={'User-Agent': LOL_USERAGENT, 'Host': LOL_HTTP_HOST}
+            )
+            with urllib.request.urlopen(req, timeout=60) as response, open(tpath, "wb") as file_handle:
+                if response.getcode() == 200:
+                    file_handle.write(response.read())
+                    # bpy work happens on the main thread: copyfile +
+                    # image load + scale/save + asset['thumbnail'].
+                    _main_results.put(
+                        ("thumbnail", (tpath, tpath_full, asset_type, url))
+                    )
+                else:
+                    print("[LOL] Download error ", response.status_code, ": ", urlstr)
+        except Exception as error:
+            # One failed preview must not kill the worker and orphan
+            # every queued download after it.
+            print("[LOL] Could not download preview " + imagename)
+            print(error)
 
-                from shutil import copyfile
-                copyfile(tpath, tpath_full)
-                img = bpy.data.images.load(tpath)
-                img.scale(128, 128)
-                img.save()
-                # NOTE: The following line is commented because if can lead to crashes of Blender
-                # (only when executed as a Thread but that is done here)
-                # There is no console or any visible log entry why this happens
-                # Leads to about 100MB of additonal RAM usage at the moment when the preview images are first downloaded
-                # Hence not considered a problem and not treated further.
-                # bpy.data.images.remove(img)
-
-                asset['thumbnail'] = bpy.data.images.load(tpath)
-                asset['thumbnail'].name = '.LOL_preview'
-            else:
-                print("[LOL] Download error ", response.status_code, ": ", urlstr)
-
-    for threaddata in bg_threads:
+    for threaddata in list(bg_threads):
         tag, bg_task = threaddata
         if tag == "bg_download_thumbnails":
             bg_threads.remove(threaddata)

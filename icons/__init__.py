@@ -1,5 +1,6 @@
 import typing
 import os
+import threading
 import bpy
 import bpy.utils.previews
 
@@ -96,8 +97,12 @@ class IconManager:
         return self.icon_previews[icon_name].icon_id
 
     def __del__(self):
-        if bpy:
-            bpy.utils.previews.remove(self.icon_previews)
+        # GC can run on any thread — bpy access is main-thread only.
+        if bpy and threading.current_thread() is threading.main_thread():
+            try:
+                bpy.utils.previews.remove(self.icon_previews)
+            except Exception:
+                pass
 
 
 icon_manager = IconManager()

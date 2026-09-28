@@ -33,7 +33,13 @@ def _setif_changed(obj, attr, value):
 
 def _init_SuperLuxCoreOnlineLibrary():
     user_preferences = utils.get_addon_preferences(bpy.context)
-    ol = bpy.context.scene.superluxcoreOL
+    scene = bpy.context.scene
+    if scene is None:
+        # load_post can fire before a context scene exists (background
+        # mode, factory startup) — an AttributeError here would abort
+        # the rest of the handler loop.
+        return
+    ol = scene.superluxcoreOL
     ui_props = ol.ui
 
     _setif_changed(ol, "on_search", False)

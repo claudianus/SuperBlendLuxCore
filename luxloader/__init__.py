@@ -505,6 +505,23 @@ def ensure_pysuperluxcore():
 
     print("[BLC] Ensuring pysuperluxcore")
 
+    # Bundled-wheel fast path: when the extension ships real wheels in
+    # wheels/, Blender already installed the platform-matched one at
+    # extension-install time. Skip the whole fetch/install ceremony —
+    # in particular the (offline-fatal) pip download attempt. Only skip
+    # when the version matches, so a stale module still gets refreshed.
+    try:
+        import pysuperluxcore  # noqa: F401
+        from importlib.metadata import version as _pkg_version
+        if _pkg_version("pysuperluxcore") == PYSUPERLUXCORE_VERSION:
+            print(
+                f"[BLC] pysuperluxcore {PYSUPERLUXCORE_VERSION} already "
+                "installed (bundled wheel) - skipping download"
+            )
+            return
+    except Exception:
+        pass
+
     # Fetch wheels (download or copy from local source, depending on settings)
     # and install them
     fetch_result, wheel_hash = _fetch_wheels()

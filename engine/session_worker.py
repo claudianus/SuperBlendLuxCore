@@ -96,10 +96,16 @@ def precompile_kernels(config_props, renderconfig, progress_cb=None):
 class SessionWorker:
     """Single worker thread owning the live pysuperluxcore session."""
 
-    def __init__(self, engine=None):
+    def __init__(self, engine=None, redraw_hook=None):
         self._cond = threading.Condition()
         self._queue = deque()
         self._shutdown = False
+        # Marshals a callable onto Blender's main thread
+        # (bpy.app.timers.register is the only thread-safe bpy entry
+        # point). Without it, _publish would call engine.tag_redraw()
+        # directly from this worker - bpy/RNA methods off the main
+        # thread crash Blender intermittently.
+        self._redraw_hook = redraw_hook
 
         # Live session, owned by the worker. Mirrored to engine.session
         # on every publish so main-thread readers (stats, film fetch)
@@ -277,10 +283,13 @@ class SessionWorker:
             try:
                 engine.session = session
                 engine.viewport_start_time = time.time()
-                engine.tag_redraw()
             except ReferenceError:
                 # RenderEngine struct deleted underneath us
-                pass
+                return
+        # tag_redraw is a bpy method - must run on the main thread.
+        hook = self._redraw_hook
+        if hook is not None and engine is not None:
+            hook(engine.tag_redraw)
 
     def _run(self):
         while True:
