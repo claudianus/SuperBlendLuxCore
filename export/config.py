@@ -226,6 +226,27 @@ def convert(exporter, scene, context=None, engine=None):
                     config.restir_gi_candidates
                 )
 
+        # ReSTIR PT (PT-1) is PATHCPU-only for now - the GPU track
+        # (PT-2 arena payload) is not landed, so exporting elsewhere
+        # would be a silent no-op.
+        if config.restir_pt_enable and superluxcore_engine != "PATHCPU":
+            SuperLuxCoreErrorLog.add_warning(
+                f"ReSTIR PT is not supported by {superluxcore_engine} "
+                "(PATHCPU only), the setting is ignored"
+            )
+        if config.restir_pt_enable and superluxcore_engine == "PATHCPU":
+            definitions["path.restir.pt.enable"] = True
+            definitions["path.restir.pt.temporal.enable"] = (
+                config.restir_pt_temporal_enable
+            )
+            definitions["path.restir.pt.spatial.enable"] = (
+                config.restir_pt_spatial_enable
+            )
+            if config.restir_pt_candidates > 0:
+                definitions["path.restir.pt.candidates"] = (
+                    config.restir_pt_candidates
+                )
+
         if config.mnee_enable:
             definitions["path.mnee.enable"] = True
             if config.mnee_maxspecular > 1:

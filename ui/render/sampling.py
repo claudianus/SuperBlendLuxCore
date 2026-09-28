@@ -241,6 +241,12 @@ class SUPERLUXCORE_RENDER_PT_sampling_advanced(RenderButtonsPanel, Panel):
             col.prop(config, "restir_gi_spatial_enable")
             col.prop(config, "restir_gi_candidates")
 
+        col.prop(config, "restir_pt_enable")
+        if config.restir_pt_enable:
+            col.prop(config, "restir_pt_temporal_enable")
+            col.prop(config, "restir_pt_spatial_enable")
+            col.prop(config, "restir_pt_candidates")
+
         col.prop(config, "mnee_enable")
         if config.mnee_enable:
             col.prop(config, "mnee_maxspecular")

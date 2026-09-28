@@ -992,6 +992,22 @@ class SuperLuxCoreConfig(PropertyGroup):
                                   description="Merge up to 2 same-surface-gated neighbour pixels "
                                               "with reconnection shift + visibility test")
 
+    # ReSTIR PT (PT-1 path-suffix reservoir, PATHCPU only)
+    restir_pt_enable: BoolProperty(name="ReSTIR PT", default=False,
+                                  description="EXPERIMENTAL: reuse whole measured path suffixes from a "
+                                              "per-pixel reservoir (ReSTIR PT). A stored winner contributes "
+                                              "its suffix radiance after one reconnection shadow ray instead "
+                                              "of retracing the path. Overrides ReSTIR GI; PATHCPU only")
+    restir_pt_candidates: IntProperty(name="PT Candidates", default=0, min=0, max=32,
+                                  description="Fresh first-bounce candidates per reservoir "
+                                              "(0 = engine default of 4)")
+    restir_pt_temporal_enable: BoolProperty(name="PT Temporal Reuse", default=True,
+                                  description="Merge the pixel's suffix reservoir across passes with a "
+                                              "Jacobian-corrected reconnection shift")
+    restir_pt_spatial_enable: BoolProperty(name="PT Spatial Reuse", default=True,
+                                  description="Merge up to 2 same-surface-gated neighbour pixels "
+                                              "with reconnection shift + visibility test")
+
     # MNEE (specular chain direct light sampling)
     mnee_enable: BoolProperty(name="MNEE Specular Caustics", default=False,
                                   description="Direct light through delta specular surfaces (mirrors, glass) via manifold next event estimation. Fix dark caustics from point/spot lights behind mirrors or glass")
