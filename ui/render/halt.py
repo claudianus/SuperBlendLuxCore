@@ -78,6 +78,13 @@ def draw(layout, context, halt):
         col.prop(halt, "noise_thresh_warmup")
         col.prop(halt, "noise_thresh_step")
 
+    layout.prop(halt, "use_noise_level")
+    col = layout.column(align=True)
+    if halt.use_noise_level:
+        col.prop(halt, "noise_level")
+        col.prop(halt, "noise_level_warmup")
+        col.prop(halt, "noise_level_step")
+
 
 class SUPERLUXCORE_RENDER_PT_halt_conditions(Panel, RenderButtonsPanel):
     """
@@ -141,6 +148,8 @@ class SUPERLUXCORE_RENDER_PT_halt_conditions(Panel, RenderButtonsPanel):
                     conditions.append("Light Path Samples (%d)" % halt.light_samples)
                 if halt.use_noise_thresh:
                     conditions.append("Noise (%d)" % halt.noise_thresh)
+                if halt.use_noise_level:
+                    conditions.append("Noise Level (%.1f%%)" % halt.noise_level)
 
                 if conditions:
                     text = layer.name + ": " + ", ".join(conditions)

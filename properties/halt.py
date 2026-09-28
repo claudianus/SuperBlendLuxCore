@@ -1,5 +1,5 @@
 import bpy
-from bpy.props import IntProperty, BoolProperty
+from bpy.props import IntProperty, BoolProperty, FloatProperty
 
 USE_SAMPLES_DESC = (
     "The rendering will stop when the number of samples reaches "
@@ -38,6 +38,17 @@ NOISE_THRESH_STEP_DESC = (
     "your scene renders very slowly, and higher values if it renders very fast"
 )
 
+USE_NOISE_LEVEL_DESC = (
+    "Stop when the statistical noise level of the image falls below the "
+    "target (relative pixel error, Corona-style). Uses film variance data, "
+    "works identically on CPU and GPU"
+)
+
+NOISE_LEVEL_DESC = (
+    "Noise level in percent of the average pixel value. Lower values mean "
+    "less noise. Typical production target: 2-5%"
+)
+
 
 # Attached to view layer and scene
 class SuperLuxCoreHaltConditions(bpy.types.PropertyGroup):
@@ -66,8 +77,20 @@ class SuperLuxCoreHaltConditions(bpy.types.PropertyGroup):
     noise_thresh_step: IntProperty(name="Test Step Samples", default=64, min=1, soft_min=16,
                                     description=NOISE_THRESH_STEP_DESC)
 
+    # Statistical noise level target (adaptive error, E5)
+    use_noise_level: BoolProperty(name="Use Noise Level", default=False,
+                                   description=USE_NOISE_LEVEL_DESC)
+    noise_level: FloatProperty(name="Noise Level (%)", default=3.0,
+                                min=0.05, soft_min=1.0, soft_max=25.0, max=100.0,
+                                description=NOISE_LEVEL_DESC)
+    noise_level_warmup: IntProperty(name="Warmup Samples", default=8, min=1,
+                                     description=NOISE_THRESH_WARMUP_DESC)
+    noise_level_step: IntProperty(name="Test Step Samples", default=16, min=1, soft_min=4,
+                                   description=NOISE_THRESH_STEP_DESC)
+
     def is_enabled(self):
-        return self.enable and (self.use_time or self.use_samples or self.use_noise_thresh)
+        return self.enable and (self.use_time or self.use_samples
+                or self.use_noise_thresh or self.use_noise_level)
 
 
 class SuperLuxCoreViewLayerHaltConditions(SuperLuxCoreHaltConditions):

@@ -36,6 +36,17 @@ def convert(scene):
             # from an earlier export with noise threshold enabled.
             definitions["batch.haltthreshold.filter.enable"] = False
             definitions["batch.haltthreshold.stoprendering.enable"] = False
+
+        if halt.use_noise_level:
+            # Statistical per-pixel error (VARIANCE/SAMPLECOUNT driven,
+            # CPU/GPU identical). Target is stored as percent in the UI.
+            definitions["film.adaptiveerror.target"] = halt.noise_level / 100
+            definitions["film.adaptiveerror.warmup"] = halt.noise_level_warmup
+            definitions["film.adaptiveerror.step"] = halt.noise_level_step
+            definitions["film.adaptiveerror.halt.enable"] = True
+        else:
+            # Same stale-property trap as above: explicitly disarm.
+            definitions["film.adaptiveerror.target"] = 0
     else:
         # All halt conditions disabled.
         # Note that we have to explicitly set halttime and haltspp to 0 because
