@@ -83,6 +83,16 @@ class SuperLuxCoreDenoiser(PropertyGroup):
                                       "denoising, in units of local robust sigma (0 disables). Useful for "
                                       "scenes with sparse fireflies; may flatten dense noise textures")
 
+    # Periodic refresh during final renders (Corona-style progress preview)
+    periodic_refresh: BoolProperty(name="Periodic Refresh", default=True,
+                                   description="Refresh the denoised result periodically during final "
+                                   "renders, so a cleaned-up preview is always available. The denoiser "
+                                   "still runs once more at the end of the render")
+    periodic_interval: FloatProperty(name="Interval (s)", default=15.0, min=2.0, soft_max=300.0,
+                                     description="Seconds between periodic denoise refreshes during "
+                                     "final renders. Each refresh briefly pauses the render; very low "
+                                     "values can measurably slow convergence")
+
     # Temporal accumulation (animation denoising, final renders only)
     temporal_enabled: BoolProperty(name="Temporal Accumulation", default=False,
                                    description="Reproject and blend previous frames through motion "

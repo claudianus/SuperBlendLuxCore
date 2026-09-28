@@ -64,6 +64,10 @@ class FrameBufferFinal:
         # How long the last run of the denoiser took, in seconds
         self.denoiser_last_elapsed_time = 0
         self.denoiser_last_samples = 0
+        # Wall clock of the last periodic refresh; the interval is
+        # counted from the START of the last run so a slow denoise
+        # can't make refreshes bunch up.
+        self.denoiser_last_time = time()
 
     def draw(self, engine, session, scene, render_stopped):
         """Draw rendering (callback)."""
@@ -230,9 +234,19 @@ class FrameBufferFinal:
             else plc.FilmOutputType.RGB_IMAGEPIPELINE
         )
 
-        # Refresh when ending the render (Esc/halt condition) or when the user
-        # presses the refresh button
-        refresh_denoised = render_stopped or SuperLuxCoreDenoiser.refresh
+        # Refresh when ending the render (Esc/halt condition), when the user
+        # presses the refresh button, or periodically while the render is
+        # still running. Animations are excluded: each frame already ends
+        # with a denoise pass, and nobody watches mid-frame previews.
+        denoiser_props = scene.superluxcore.denoiser
+        periodic_due = (
+            denoiser_props.periodic_refresh
+            and not render_stopped
+            and not engine.is_animation
+            and not SuperLuxCoreDisplaySettings.paused
+            and time() - self.denoiser_last_time >= denoiser_props.periodic_interval
+        )
+        refresh_denoised = render_stopped or SuperLuxCoreDenoiser.refresh or periodic_due
 
         stats = engine.session.GetStats()
         samples = stats.Get("stats.renderengine.pass").GetInt()
@@ -244,10 +258,15 @@ class FrameBufferFinal:
                 "No new samples since last denoiser run, skipping denoising."
             )
             refresh_denoised = False
+        elif periodic_due and not SuperLuxCoreDenoiser.refresh and samples == self.denoiser_last_samples:
+            # Periodic tick but nothing new accumulated (paused/just
+            # refreshed): running would only burn the pause overhead.
+            refresh_denoised = False
 
         if refresh_denoised:
             print("Refreshing DENOISED")
             self.denoiser_last_samples = samples
+            self.denoiser_last_time = time()
 
             # Update the imagepipeline
             denoiser_pipeline_index = engine.aov_imagepipelines[output_name]

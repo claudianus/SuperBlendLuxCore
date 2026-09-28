@@ -294,6 +294,14 @@ Punchy two-skin render). Engine doc:
   avoid raw/denoised alternation; a fresh denoise still runs on pause).
 - Backend options: **Metal GPU** (Apple silicon) and a **spectral render**
   toggle.
+- **Periodic denoise during final renders** (`denoiser.periodic_refresh`,
+  on by default; `periodic_interval`, 15 s): the DENOISED pass refreshes
+  itself while a final render is still running, giving a Corona-style
+  cleaned-up progress preview instead of raw noise until the end.
+  Skipped for animation frames (each frame ends with a denoise anyway)
+  and while the render is user-paused; a tick with no new samples costs
+  nothing. Each refresh briefly pauses the render threads, so very low
+  intervals measurably slow convergence.
 - **Viewport convergence/responsiveness pass (phase 2)**: viewport light
   tracing no longer swaps engines — CPU+LT runs light paths natively
   inside RTPATHCPU (Metropolis splats interleaved with the coverage
