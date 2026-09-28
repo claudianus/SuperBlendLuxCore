@@ -302,17 +302,17 @@ class SuperLuxCoreConfigPath(PropertyGroup):
     """
     # TODO: helpful descriptions
     # path.pathdepth.total
-    depth_total: IntProperty(name="Total Path Depth", default=12, min=1, soft_max=128)
+    depth_total: IntProperty(name="Total Path Depth", default=24, min=1, soft_max=128)
     # path.pathdepth.diffuse
-    depth_diffuse: IntProperty(name="Diffuse", default=4, min=1, soft_max=128)
+    depth_diffuse: IntProperty(name="Diffuse", default=8, min=1, soft_max=128)
     # path.pathdepth.glossy
-    depth_glossy: IntProperty(name="Glossy", default=4, min=1, soft_max=128)
+    depth_glossy: IntProperty(name="Glossy", default=8, min=1, soft_max=128)
     # path.pathdepth.specular
-    depth_specular: IntProperty(name="Specular", default=12, min=1, soft_max=128)
+    depth_specular: IntProperty(name="Specular", default=24, min=1, soft_max=128)
 
-    hybridbackforward_enable: BoolProperty(name="Add Light Tracing", default=False,
+    hybridbackforward_enable: BoolProperty(name="Add Light Tracing", default=True,
                                            description=HYBRID_BACKFORWARD_DESC)
-    hybridbackforward_lightpartition: FloatProperty(name="Light Rays", default=20, min=0, max=100,
+    hybridbackforward_lightpartition: FloatProperty(name="Light Rays", default=25, min=0, max=100,
                                                     subtype="PERCENTAGE",
                                                     description=HYBRID_BACKFORWARD_LIGHTPART_DESC)
     # Separate property so we can use a different default that makes more sense for OpenCL
@@ -328,7 +328,7 @@ class SuperLuxCoreConfigPath(PropertyGroup):
                                                     description=HYBRID_ADAPTIVE_CAUSTIC_DESC)
     hybridbackforward_terminalglossiness: FloatProperty(name="Terminal Glossiness", default=0.3, min=0, max=1,
                                                         description=HYBRID_TERMINAL_GLOSSINESS_DESC)
-    hybridbackforward_connectprob: FloatProperty(name="Connection Probability", default=0.5, min=0, max=1,
+    hybridbackforward_connectprob: FloatProperty(name="Connection Probability", default=0.3, min=0, max=1,
                                                  subtype="FACTOR",
                                                  description=HYBRID_CONNECT_PROB_DESC)
     # path.lighttracing.only - GPU light paths replace the eye pass
@@ -338,30 +338,30 @@ class SuperLuxCoreConfigPath(PropertyGroup):
     # path.lighttracing.focus.* - caustic focus cache (guided emission)
     lighttracing_focus: BoolProperty(name="Caustic Focus", default=True,
                                      description=LIGHTTRACING_FOCUS_DESC)
-    lighttracing_focus_ratio: FloatProperty(name="Focus Ratio", default=50, min=0, max=90,
+    lighttracing_focus_ratio: FloatProperty(name="Focus Ratio", default=70, min=0, max=90,
                                             subtype="PERCENTAGE",
                                             description=LIGHTTRACING_FOCUS_RATIO_DESC)
-    lighttracing_focus_radius: FloatProperty(name="Focus Radius", default=0.01, min=0.0001, max=1.0,
+    lighttracing_focus_radius: FloatProperty(name="Focus Radius", default=0.02, min=0.0001, max=1.0,
                                              description=LIGHTTRACING_FOCUS_RADIUS_DESC)
     # path.vertexconnection.enable - GPU BDPT connects: cached light
     # vertices are connected to eye vertices with BIDIRCPU-style MIS
-    vertex_connection: BoolProperty(name="Vertex Connection", default=False,
+    vertex_connection: BoolProperty(name="Vertex Connection", default=True,
                                     description=VERTEX_CONNECTION_DESC)
-    vertex_connection_connects: IntProperty(name="Connect Budget", default=0,
+    vertex_connection_connects: IntProperty(name="Connect Budget", default=4,
                                     min=0, max=256,
                                     description=VERTEX_CONNECTION_CONNECTS_DESC)
-    vertex_connection_pool: IntProperty(name="Connect Pool", default=1,
+    vertex_connection_pool: IntProperty(name="Connect Pool", default=4,
                                     min=1, max=64,
                                     description=VERTEX_CONNECTION_POOL_DESC)
     vertex_connection_adaptive: BoolProperty(name="Adaptive Budget", default=True,
                                     description=VERTEX_CONNECTION_ADAPTIVE_DESC)
-    vertex_connection_merge_radius: FloatProperty(name="Merge Radius", default=0.0,
+    vertex_connection_merge_radius: FloatProperty(name="Merge Radius", default=0.001,
                                     min=0.0, max=1.0, precision=5,
                                     description=VERTEX_CONNECTION_MERGE_RADIUS_DESC)
     vertex_connection_reuse: BoolProperty(name="Temporal Reuse", default=True,
                                     description=VERTEX_CONNECTION_REUSE_DESC)
 
-    use_clamping: BoolProperty(name="Clamp Output", default=False, description=CLAMPING_DESC)
+    use_clamping: BoolProperty(name="Clamp Output", default=True, description=CLAMPING_DESC)
     auto_clamping: BoolProperty(
         name="Auto Clamp",
         default=False,
@@ -372,7 +372,7 @@ class SuperLuxCoreConfigPath(PropertyGroup):
                     "suggestion can be measured"
     )
     # path.clamping.variance.maxvalue
-    clamping: FloatProperty(name="Max Brightness", default=10, min=0,soft_max=10000,  description=CLAMPING_DESC)
+    clamping: FloatProperty(name="Max Brightness", default=1000, min=0,soft_max=10000,  description=CLAMPING_DESC)
     # path.clamping.variance.scope - Cycles-style clamp scope: fireflies
     # almost always come from indirect paths, so clamping only the indirect
     # share preserves legitimate direct highlights, sun glints and emissive
@@ -408,7 +408,7 @@ class SuperLuxCoreConfigPath(PropertyGroup):
     # path.clamping.variance.sigma
     clamp_sigma: FloatProperty(
         name="Adaptive Sigma",
-        default=6, min=0.5, soft_max=16,
+        default=4, min=0.5, soft_max=16,
         description="Neighbourhood deviation multiplier for the adaptive "
                     "margin. Lower values suppress outliers more "
                     "aggressively; higher values are more conservative"
@@ -437,7 +437,7 @@ class SuperLuxCoreConfigTile(PropertyGroup):
                                         description=AA_SAMPLE_DESC)
 
     # tile.size
-    size: IntProperty(name="Tile Size", default=64, min=16, soft_min=32, soft_max=256, subtype="PIXEL",
+    size: IntProperty(name="Tile Size", default=128, min=16, soft_min=32, soft_max=256, subtype="PIXEL",
                        description=TILE_SIZE_DESC)
 
     # tile.multipass.enable
@@ -481,7 +481,7 @@ class SuperLuxCoreConfigDLSCache(PropertyGroup):
     lightthreshold: FloatProperty(name="Light Threshold", default=1, min=0, max=100, subtype="PERCENTAGE")
     targetcachehitratio: FloatProperty(name="Target Cache Hit Ratio",
                                         default=99.5, min=0, max=100, subtype="PERCENTAGE")
-    maxdepth: IntProperty(name="Max. Depth", default=4, min=0)
+    maxdepth: IntProperty(name="Max. Depth", default=8, min=0)
     maxsamplescount: IntProperty(name="Max. Samples", default=10000000, min=0)
 
     file_path: StringProperty(name="File Path", subtype="FILE_PATH",
@@ -499,7 +499,7 @@ class SuperLuxCoreConfigPhotonGI(PropertyGroup):
     photon_maxcount: FloatProperty(name="Photon Count (Millions)", default=20, min=1, soft_max=100,
                                     precision=0, step=10,
                                     description="Max. number of photons traced (value in millions)")
-    photon_maxdepth: IntProperty(name="Photon Depth", default=8, min=3, max=64,
+    photon_maxdepth: IntProperty(name="Photon Depth", default=16, min=3, max=64,
                                   description="Max. depth of photon paths. At each bounce, a photon might be stored")
     # I use 0.049 as default because then glossy materials with default roughness (0.05) are cached
     glossinessusagethreshold: FloatProperty(name="Glossiness Threshold", default=0.049, min=0, max=1,
@@ -541,9 +541,9 @@ class SuperLuxCoreConfigPhotonGI(PropertyGroup):
     caustic_periodic_update: BoolProperty(name="Periodic Update", default=True,
                                           description="Rebuild the caustic cache periodically to clean up photon noise. "
                                                        "The step samples parameter controls how often the cache is rebuilt")
-    caustic_updatespp: IntProperty(name="Step Samples", default=8, min=1,
+    caustic_updatespp: IntProperty(name="Step Samples", default=16, min=1,
                                    description="How often to rebuild the cache if periodic update is enabled")
-    caustic_updatespp_radiusreduction: FloatProperty(name="Radius Reduction", default=96, min=1, soft_min=70,
+    caustic_updatespp_radiusreduction: FloatProperty(name="Radius Reduction", default=90, min=1, soft_min=70,
                                                      max=99.9, soft_max=99, subtype="PERCENTAGE",
                                                      description="Shrinking factor for the lookup radius after each pass")
     caustic_updatespp_minradius: FloatProperty(name="Minimum Radius", default=0.003, min=0.00001,
@@ -579,14 +579,14 @@ class SuperLuxCoreConfigEnvLightCache(PropertyGroup):
 
 
 class SuperLuxCoreConfigNoiseEstimation(PropertyGroup):
-    warmup: IntProperty(name="Warmup Samples", default=8, min=1,
+    warmup: IntProperty(name="Warmup Samples", default=16, min=1,
                          description=NOISE_THRESH_WARMUP_DESC)
-    step: IntProperty(name="Test Step Samples", default=32, min=1, soft_min=16,
+    step: IntProperty(name="Test Step Samples", default=16, min=1, soft_min=16,
                        description=NOISE_THRESH_STEP_DESC)
 
 
 class SuperLuxCoreConfigImageResizePolicy(PropertyGroup):
-    enabled: BoolProperty(name="Use Image Resizing", default=False, description="")
+    enabled: BoolProperty(name="Use Image Resizing", default=True, description="")
     types = [
         ("MIPMAPMEM", "Auto-Scale to MipMaps", MIPMAPMEM_DESC, 0),
         ("MINMEM", "Auto-Scale to Lowest Size", MINMEM_DESC, 1),
@@ -596,7 +596,7 @@ class SuperLuxCoreConfigImageResizePolicy(PropertyGroup):
     scale: FloatProperty(name="Scale", default=100, min=0, soft_max=100, precision=1, subtype="PERCENTAGE",
                          description="Scale factor. For example, with scale = 50%, a 3000x2000 pixel image is scaled to 1500x1000. "
                                      "When using auto-scaling, this value acts as a multiplier for the automatic scale")
-    min_size: IntProperty(name="Min. Size (Pixels)", default=64, min=1,
+    min_size: IntProperty(name="Min. Size (Pixels)", default=128, min=1,
                           description="Lower limit for the scale. Images will never get scaled smaller than this size")
 
     def convert(self):
@@ -748,7 +748,7 @@ class SuperLuxCoreConfig(PropertyGroup):
     # SOBOL properties
     sobol_adaptive_strength: FloatProperty(name="Adaptive Strength", default=0.9, min=0, max=0.95,
                                             description=SOBOL_ADAPTIVE_STRENGTH_DESC)
-    sobol_bluenoise_enable: BoolProperty(name="Blue-Noise Dithering", default=False,
+    sobol_bluenoise_enable: BoolProperty(name="Blue-Noise Dithering", default=True,
                                           description="Blue-noise dithered Sobol sampling (Heitz 2019): "
                                           "each pixel gets a hashed per-dimension scramble and offset, "
                                           "decorrelating neighboring pixels to remove low-spp sampling artifacts")
@@ -765,7 +765,7 @@ class SuperLuxCoreConfig(PropertyGroup):
                                                "convergence is decided live on the device from each "
                                                "pixel's relative standard error instead of the periodic "
                                                "host-side noise heuristic")
-    sobol_adaptive_relerr: FloatProperty(name="Error Target", default=0.02, min=0.001, max=0.5,
+    sobol_adaptive_relerr: FloatProperty(name="Error Target", default=0.01, min=0.001, max=0.5,
                                           precision=4,
                                           description="Per-pixel relative standard error target for "
                                           "variance-driven adaptive sampling: lower values sample "
@@ -876,14 +876,14 @@ class SuperLuxCoreConfig(PropertyGroup):
 
     # METROPOLIS properties
     # sampler.metropolis.largesteprate
-    metropolis_largesteprate: FloatProperty(name="Large Mutation Probability", default=40,
+    metropolis_largesteprate: FloatProperty(name="Large Mutation Probability", default=30,
                                              min=0, max=100, precision=0, subtype="PERCENTAGE",
                                              description=LARGE_STEP_RATE_DESC)
     # sampler.metropolis.maxconsecutivereject
-    metropolis_maxconsecutivereject: IntProperty(name="Max Consecutive Rejects", default=512, min=0,
+    metropolis_maxconsecutivereject: IntProperty(name="Max Consecutive Rejects", default=1024, min=0,
                                                   description=MAX_CONSECUTIVE_REJECT_DESC)
     # sampler.metropolis.imagemutationrate
-    metropolis_imagemutationrate: FloatProperty(name="Image Mutation Rate", default=10,
+    metropolis_imagemutationrate: FloatProperty(name="Image Mutation Rate", default=5,
                                                  min=0, max=100, precision=0, subtype="PERCENTAGE",
                                                  description=IMAGE_MUTATION_RATE_DESC)
 
@@ -899,7 +899,7 @@ class SuperLuxCoreConfig(PropertyGroup):
                        "is chosen in the addon preferences. "
                        "You can enable/disable each device in the Devices panel below", 2),
     ]
-    device: EnumProperty(name="Device", items=devices, default="CPU")
+    device: EnumProperty(name="Device", items=devices, default="AUTO")
     # A trick so we can show the user that bidir can only be used on the CPU (see UI code)
     bidir_device: EnumProperty(name="Device", items=devices, default="CPU",
                                description="Bidir is only available on CPU. Switch to the Path engine if you want to render on the GPU")
@@ -915,10 +915,10 @@ class SuperLuxCoreConfig(PropertyGroup):
     # BIDIR properties
     # light.maxdepth
     # TODO description
-    bidir_light_maxdepth: IntProperty(name="Light Depth", default=10, min=1, soft_max=16)
+    bidir_light_maxdepth: IntProperty(name="Light Depth", default=24, min=1, soft_max=32)
     # path.maxdepth
     # TODO description
-    bidir_path_maxdepth: IntProperty(name="Eye Depth", default=10, min=1, soft_max=16)
+    bidir_path_maxdepth: IntProperty(name="Eye Depth", default=24, min=1, soft_max=32)
 
     # Pixel filter
     filter_enabled: BoolProperty(name="Enable Pixel Filtering", default=False, description=FILTER_DESC)
@@ -932,7 +932,7 @@ class SuperLuxCoreConfig(PropertyGroup):
     ]
     filter: EnumProperty(name="Filter", items=filters, default="BLACKMANHARRIS",
                           description=FILTER_DESC)
-    filter_width: FloatProperty(name="Filter Width", default=1.5, min=0.5, soft_max=3,
+    filter_width: FloatProperty(name="Filter Width", default=2.0, min=0.5, soft_max=3,
                                  description=FILTER_WIDTH_DESC, subtype="PIXEL")
     gaussian_alpha: FloatProperty(name="Gaussian Filter Alpha", default=2, min=0.1, max=10,
                                    description="Gaussian rate of falloff. Lower values give blurrier images")
@@ -947,7 +947,7 @@ class SuperLuxCoreConfig(PropertyGroup):
         ("RESTIR_DI", "ReSTIR DI (reservoir)", RESTIR_DI_DESC, 4),
         ("LIGHT_BVH", "Light BVH", LIGHT_BVH_DESC, 5),
     ]
-    light_strategy: EnumProperty(name="Light Strategy", items=light_strategy_items, default="LOG_POWER",
+    light_strategy: EnumProperty(name="Light Strategy", items=light_strategy_items, default="LIGHT_BVH",
                                   description="Decides how the lights in the scene are sampled")
 
     # ReSTIR DI options
@@ -983,10 +983,10 @@ class SuperLuxCoreConfig(PropertyGroup):
     # MNEE (specular chain direct light sampling)
     mnee_enable: BoolProperty(name="MNEE Specular Caustics", default=False,
                                   description="Direct light through delta specular surfaces (mirrors, glass) via manifold next event estimation. Fix dark caustics from point/spot lights behind mirrors or glass")
-    mnee_maxspecular: IntProperty(name="Max Specular Vertices", default=1, min=1, max=4,
+    mnee_maxspecular: IntProperty(name="Max Specular Vertices", default=2, min=1, max=4,
                                   description="Chain length for multi-specular transport (closed glass slabs need 2+). "
                                               "Higher values resolve thicker refractive stacks at extra cost")
-    mnee_maxiterations: IntProperty(name="Max Iterations", default=12, min=1, max=256,
+    mnee_maxiterations: IntProperty(name="Max Iterations", default=64, min=1, max=256,
                                   description="Newton solver iteration cap per manifold solve. Curved "
                                               "refractive casters and dispersive glass need ~64 to converge; "
                                               "lower values leave the manifold caustic darker")
@@ -997,7 +997,7 @@ class SuperLuxCoreConfig(PropertyGroup):
                                               "result and only adds recovered caustic energy")
 
     # Path guiding (P1-3): learned incident-radiance field steers glossy bounces
-    guiding_enable: BoolProperty(name="Path Guiding", default=False,
+    guiding_enable: BoolProperty(name="Path Guiding", default=True,
                                  description="Learn where the light comes from while rendering and steer "
                                              "glossy bounces toward it (one-sample MIS vs BSDF, unbiased). "
                                              "Helps indirect and glossy transport; needs some passes to warm up")
@@ -1012,7 +1012,7 @@ class SuperLuxCoreConfig(PropertyGroup):
     # RIS product guiding (M4b, path.guiding.risk): resample K candidates
     # from the BSDF/guide mixture against f*|cos|*Lhat - the proposal
     # learns the product, not just the incident field. 0 = plain mixture.
-    guiding_ris_k: IntProperty(name="RIS Candidates", default=0,
+    guiding_ris_k: IntProperty(name="RIS Candidates", default=2,
                                min=0, max=8,
                                description="Product-guiding resampling candidates per guided bounce "
                                            "(0 = off, 1 degenerates to the plain mixture). Values >1 "
@@ -1037,12 +1037,12 @@ class SuperLuxCoreConfig(PropertyGroup):
                                    description="First bounce depth that may use the guide. 2 skips "
                                                "camera-visible bounces where direct light already "
                                                "dominates")
-    guiding_glossy_threshold: FloatProperty(name="Glossy Threshold", default=.3,
+    guiding_glossy_threshold: FloatProperty(name="Glossy Threshold", default=.5,
                                             min=0., max=1.,
                                             description="Minimum surface glossiness for a guided bounce "
                                                         "(0 = guide even mirror-rough lobes, 1 = glossy "
                                                         "only). Lower includes sharper lobes")
-    guiding_warmup: IntProperty(name="Warmup", default=256,
+    guiding_warmup: IntProperty(name="Warmup", default=128,
                                 min=1, max=65536,
                                 description="Samples a region needs before its learned field is trusted "
                                             "(higher = slower start, steadier guide)")
@@ -1058,7 +1058,7 @@ class SuperLuxCoreConfig(PropertyGroup):
                                       description="Save the trained guiding field to this file when the "
                                                   "render stops (CPU engines). Reload via Guiding Table "
                                                   "for an instant warm start")
-    guiding_freeze: BoolProperty(name="Freeze Table", default=True,
+    guiding_freeze: BoolProperty(name="Freeze Table", default=False,
                                  description="Keep a loaded guiding table frozen instead of refining it "
                                              "during the render")
     # Expert spatial-tree knobs (path.guiding.split/.maxdepth/.maxleaves/
@@ -1067,15 +1067,15 @@ class SuperLuxCoreConfig(PropertyGroup):
                                  min=1e-6, max=.5,
                                  description="A cell subdivides when it carries this fraction of the "
                                              "round's light (smaller = finer spatial tree)")
-    guiding_max_depth: IntProperty(name="Max Depth", default=12,
+    guiding_max_depth: IntProperty(name="Max Depth", default=10,
                                    min=1, max=12,
                                    description="Spatial tree depth limit (12 = finest cells are "
                                                "1/4096 of the scene)")
-    guiding_max_leaves: IntProperty(name="Max Leaves", default=8192,
+    guiding_max_leaves: IntProperty(name="Max Leaves", default=16384,
                                     min=16, max=65536,
                                     description="Spatial tree leaf budget (each leaf ~1.6KB of "
                                                 "training state)")
-    guiding_swaprecords: IntProperty(name="Swap Records", default=1000000,
+    guiding_swaprecords: IntProperty(name="Swap Records", default=500000,
                                      min=1000,
                                      description="Training round length in recorded samples before the "
                                                  "learned field is rebuilt (smaller = faster adaptation, "
@@ -1088,7 +1088,7 @@ class SuperLuxCoreConfig(PropertyGroup):
     # proposal. Only used when at least one mesh object is flagged as a
     # Light Portal; the learned field adaptively spends less than this
     # wherever the portal is not the dominant light path.
-    portal_weight: FloatProperty(name="Portal Weight", default=.5,
+    portal_weight: FloatProperty(name="Portal Weight", default=.7,
                                  min=0., max=1.,
                                  description="Max sampling share for light portal objects (meshes "
                                              "flagged 'Light Portal' in their object settings). Higher "
@@ -1096,7 +1096,7 @@ class SuperLuxCoreConfig(PropertyGroup):
                                              "adapts per location so it is safe to raise")
 
     # Spectral rendering (hero-wavelength transport, 3 wavelength bins)
-    spectral_enable: BoolProperty(name="Spectral Rendering", default=False,
+    spectral_enable: BoolProperty(name="Spectral Rendering", default=True,
                                   description="Simulate light at sampled wavelengths instead of RGB "
                                               "(dispersion through glass, physically correct color transport). "
                                               "Slightly slower; results are projected back to RGB on film")
@@ -1114,15 +1114,15 @@ class SuperLuxCoreConfig(PropertyGroup):
         ("TXT", "Text", "Save as .scn and .cfg text files", 0),
         ("BIN", "Binary", "Save as .bcf binary file", 1),
     ]
-    filesaver_format: EnumProperty(name="", items=filesaver_format_items, default="TXT")
+    filesaver_format: EnumProperty(name="", items=filesaver_format_items, default="BIN")
     filesaver_path: StringProperty(name="", subtype="DIR_PATH", description="Output path where the scene is saved")
 
     # Seed
-    seed: IntProperty(name="Seed", default=1, min=1, description=SEED_DESC)
-    use_animated_seed: BoolProperty(name="Animated Seed", default=False, description=ANIM_SEED_DESC)
+    seed: IntProperty(name="Seed", default=42, min=1, description=SEED_DESC)
+    use_animated_seed: BoolProperty(name="Animated Seed", default=True, description=ANIM_SEED_DESC)
 
     # Min. epsilon settings (drawn in ui/units.py)
-    show_min_epsilon: BoolProperty(name="Advanced SuperLuxCore Settings", default=False,
+    show_min_epsilon: BoolProperty(name="Advanced SuperLuxCore Settings", default=True,
                                     description="Show/Hide advanced SuperLuxCore features. "
                                                 "Only change them if you know what you are doing")
     min_epsilon: FloatProperty(name="Min. Epsilon", default=1e-5, soft_min=1e-6, soft_max=1e-1,
