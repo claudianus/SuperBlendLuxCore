@@ -263,6 +263,12 @@ Punchy two-skin render). Engine doc:
   spatial reuse). Runs on PATHCPU and the pathoclbase GPU engines
   (PATHOCL/TILEPATHOCL); the export is gated so RTPATHOCL/BIDIR* never
   see a silent no-op. Experimental, opt-in.
+- **ReSTIR PT** (`restir_pt_enable`): exposes SuperLuxCore's
+  `path.restir.pt.enable` (per-pixel path-suffix reservoir — a stored
+  winner contributes its measured suffix radiance after one
+  reconnection shadow ray instead of retracing the path). Overrides
+  ReSTIR GI when both are enabled. PATHCPU only (GPU = engine PT-2
+  track); experimental, opt-in.
 - **Convergence stat**: the render statistics panel shows the converged-
   pixel percentage whenever a convergence test runs — always on tiled
   engines, and on PATH*/PATHOCL when the noise-threshold halt condition is
