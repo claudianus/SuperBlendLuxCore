@@ -94,6 +94,29 @@ def _rebind_super_cells(cls):
         setattr(cls, name, wrapper(new_fn))
 
 
+# Legacy tree type idnames (registered for .blend compatibility only).
+_LEGACY_TREE_TYPES = {t for t in TREE_TYPES if t.startswith("luxcore_")}
+
+
+def _tree_alias_poll(cls, context):
+    # The node editor's tree-type menu lists every registered NodeTree.
+    # Legacy aliases exist only to load upstream .blend files, so keep
+    # them out of the menu unless the file actually contains such a
+    # tree (poll gates only the menu; opening/assigning is unaffected).
+    try:
+        tid = cls.bl_idname
+        return any(tree.bl_idname == tid for tree in bpy.data.node_groups)
+    except Exception:
+        return True  # restricted context - leave visible
+
+
+def _node_alias_poll(cls, ntree):
+    # Alias nodes are only offered inside legacy trees; canonical trees
+    # use the SuperLuxCore* types, keeping the Add menu/search free of
+    # identical duplicates.
+    return getattr(ntree, "bl_idname", "") in _LEGACY_TREE_TYPES
+
+
 def _register_legacy_idname_aliases():
     """Give every SuperLuxCore node/socket/tree class an alias under its
     upstream LuxCore* bl_idname so legacy .blend files keep working.
@@ -149,6 +172,13 @@ def _register_legacy_idname_aliases():
                     attrs[k] = v
             attrs["bl_idname"] = legacy
             attrs["__module__"] = cls.__module__
+            if kind is bpy.types.NodeTree:
+                attrs["poll"] = classmethod(_tree_alias_poll)
+                label = attrs.get("bl_label")
+                if isinstance(label, str):
+                    attrs["bl_label"] = label + " (Legacy)"
+            elif kind is bpy.types.Node:
+                attrs["poll"] = classmethod(_node_alias_poll)
             if not any(b in _BPY_NODE_BASES for b in bases):
                 bases.append(kind)
             # Name the class after the legacy idname so name-derived

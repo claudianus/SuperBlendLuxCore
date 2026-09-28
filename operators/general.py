@@ -1,7 +1,34 @@
 import bpy
-from bpy.props import StringProperty, BoolProperty
+from bpy.props import StringProperty, BoolProperty, EnumProperty
 from .utils import init_vol_node_tree, poll_node
 from ..utils.errorlog import SuperLuxCoreErrorLog
+
+
+class SUPERLUXCORE_OT_set_light_world_mode(bpy.types.Operator):
+    """Pin a light/world datablock to the Cycles-compatible or the native
+    SuperLuxCore interpretation. The written use_cycles_settings flag is
+    honored by utils.misc.use_cycles_compat() before any auto-detection.
+    """
+    bl_idname = "superluxcore.set_light_world_mode"
+    bl_label = ""
+    bl_description = "Switch between Cycles-compatible and native SuperLuxCore settings"
+    bl_options = {"UNDO"}
+
+    target: EnumProperty(items=(("LIGHT", "Light", ""), ("WORLD", "World", "")))
+    use_cycles_settings: BoolProperty()
+
+    @classmethod
+    def poll(cls, context):
+        return getattr(context, "light", None) is not None \
+            or getattr(context, "world", None) is not None
+
+    def execute(self, context):
+        datablock = context.light if self.target == "LIGHT" else context.world
+        if datablock is None:
+            return {"CANCELLED"}
+        datablock.superluxcore.use_cycles_settings = self.use_cycles_settings
+        datablock.update_tag()
+        return {"FINISHED"}
 
 
 class SUPERLUXCORE_OT_errorlog_clear(bpy.types.Operator):

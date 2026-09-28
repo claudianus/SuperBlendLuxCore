@@ -44,7 +44,20 @@ class SUPERLUXCORE_LIGHT_PT_context_light(DataButtonsPanel, Panel):
         row = layout.row(align=True)
         row.prop(light, "type", expand=True)
 
-        if use_cycles_compat(context.light.superluxcore):
+        cycles = use_cycles_compat(light.superluxcore)
+
+        row = layout.row(align=True)
+        row.label(text="Mode:")
+        op = row.operator("superluxcore.set_light_world_mode",
+                          text="SuperLuxCore", depress=not cycles)
+        op.target = "LIGHT"
+        op.use_cycles_settings = False
+        op = row.operator("superluxcore.set_light_world_mode",
+                          text="Cycles", depress=cycles)
+        op.target = "LIGHT"
+        op.use_cycles_settings = True
+
+        if cycles:
             self.draw_cycles_settings(context)
         else:
             self.draw_superluxcore_settings(context)

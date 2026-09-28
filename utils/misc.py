@@ -129,24 +129,105 @@ def _group_has_authored_leaf(group):
     return False
 
 
-def use_cycles_compat(sl_props):
-    """True: the light/world datablock carries no authored LuxCore
-    settings, so export it through the Cycles-compatible translation
-    layer (Blender energy/color/shape are converted faithfully).
+# Whether the file currently loaded in this session was authored under
+# SuperLuxCore (i.e. contains at least one SUPERLUXCORE scene). Datablocks
+# that came with such a file and carry no authored settings resolve to
+# the native path; datablocks of a foreign-authored file fall back to
+# Cycles. Recomputed at register() and on load_post/factory-startup.
+_file_authored_luxcore = False
 
-    False: LuxCore-authored settings exist - either in the datablock's
-    own 'superluxcore' storage or in upstream 'luxcore' storage - and
-    drive the native conversion. LuxCore content is always recognized
-    first; the Cycles interpretation is the fallback for untouched
-    datablocks.
+# session_uids of lights/worlds that already existed (loaded or seeded
+# at registration). Newly appearing uids are runtime-created datablocks
+# and get their interpretation pinned by the authoring engine.
+_known_light_world_uids = set()
+
+# False until the file context was successfully established (register()
+# runs in a restricted context without bpy.data; the first depsgraph
+# tick or load_post then performs the real refresh).
+_context_initialized = False
+
+
+def refresh_file_context():
+    """Recompute the file-level context and snapshot existing
+    lights/worlds so datablocks that came with the file are never
+    mistaken for runtime-created ones. No-op in restricted contexts
+    (bpy.data unavailable during addon registration) - the next
+    load_post or the first depsgraph tag then establishes context."""
+    global _file_authored_luxcore, _context_initialized
+    try:
+        scenes = bpy.data.scenes
+    except AttributeError:
+        return
+    _file_authored_luxcore = any(
+        scene.render.engine == "SUPERLUXCORE" for scene in scenes
+    )
+    _known_light_world_uids.clear()
+    for coll in (bpy.data.lights, bpy.data.worlds):
+        _known_light_world_uids.update(d.session_uid for d in coll)
+    _context_initialized = True
+
+
+def tag_new_light_world(engine):
+    """Pin the interpretation of newly created lights/worlds to the
+    engine that authored them (called from depsgraph_update_post).
+
+    The stored use_cycles_settings flag survives save/load, so a
+    datablock created under a foreign engine keeps the Cycles
+    interpretation even if the file later becomes LuxCore-authored
+    (and vice versa). Idempotent: each datablock is tagged once."""
+    if not _context_initialized:
+        # Addon enabled while a file was open: establish the context
+        # first so pre-existing datablocks are treated as load-era.
+        refresh_file_context()
+        if not _context_initialized:
+            return
+    cycles = engine != "SUPERLUXCORE"
+    for coll in (bpy.data.lights, bpy.data.worlds):
+        for d in coll:
+            uid = d.session_uid
+            if uid in _known_light_world_uids:
+                continue
+            _known_light_world_uids.add(uid)
+            if d.library is not None:
+                continue
+            try:
+                # Never overwrite an explicit write that happened
+                # between creation and this tick.
+                if not d.superluxcore.is_property_set(
+                        "use_cycles_settings"):
+                    d.superluxcore.use_cycles_settings = cycles
+            except (AttributeError, TypeError):
+                pass
+
+
+def use_cycles_compat(sl_props):
+    """True: the light/world datablock resolves to the Cycles-compatible
+    translation layer (Blender energy/color/shape are converted
+    faithfully).
+
+    False: the datablock drives the native conversion. Resolution order:
+
+    1. An explicitly stored use_cycles_settings flag wins - either
+       written to the registered RNA group (current files, and the
+       pin set by tag_new_light_world) or found in the raw ID storage
+       (older files where the member was never unregistered).
+    2. Any authored LuxCore settings - under "luxcore" (upstream files)
+       or "superluxcore" - force the native path.
+    3. Untouched datablocks follow the file context: datablocks loaded
+       with a LuxCore-authored file stay native, foreign-authored
+       datablocks use the Cycles fallback.
     """
-    # A stored "use_cycles_settings" value from older files is still
-    # honored (explicit user intent), even though the feature and its UI
-    # are gone. Unregistered members persist inside the ID storage.
     try:
         owner = sl_props.id_data
     except AttributeError:
         owner = None
+
+    try:
+        if sl_props.is_property_set("use_cycles_settings"):
+            return bool(sl_props.use_cycles_settings)
+    except Exception:
+        pass
+
     for key in ("superluxcore", "luxcore"):
         try:
             stored = owner.get(key) if owner is not None else None
@@ -157,7 +238,9 @@ def use_cycles_compat(sl_props):
 
     if _has_authored_light_world_settings(sl_props, "luxcore"):
         return False
-    return not _has_authored_light_world_settings(sl_props, "superluxcore")
+    if _has_authored_light_world_settings(sl_props, "superluxcore"):
+        return False
+    return not _file_authored_luxcore
 
 
 def material_use_cycles_nodes(mat):

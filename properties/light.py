@@ -45,6 +45,20 @@ class SuperLuxCoreLightProps(LuxCoreLegacyBridge, bpy.types.PropertyGroup):
     is_laser: BoolProperty(name="Laser", default=False, update=update_is_laser,
                             description="Laser light emitting parallel light rays")
 
+    # Interpretation pin: written once at creation (depsgraph handler,
+    # set to the authoring engine) or by the mode-toggle operator.
+    # use_cycles_compat() honors it before falling back to authored-data
+    # detection.
+    use_cycles_settings: BoolProperty(
+        name="Use Cycles Settings",
+        default=True,
+        description=(
+            "Interpret and export this light through the Cycles-compatible "
+            "layer (Blender energy/color/shape), instead of the native "
+            "SuperLuxCore settings"
+        ),
+    )
+
     ##############################################
     # Generic properties shared by all light types
     gain: FloatProperty(name="Gain", default=1, min=0, precision=4, description="Brightness multiplier")

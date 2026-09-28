@@ -23,11 +23,20 @@ def check(name, cond, extra=""):
 try:
     bpy.context.scene.render.engine = "SUPERLUXCORE"
 except TypeError:
-    bpy.ops.preferences.addon_enable(module="superluxcore")
+    _key = next((a.module for a in bpy.context.preferences.addons
+                 if "superluxcore" in a.module.lower()),
+                "bl_ext.user_default.superluxcore")
+    bpy.ops.preferences.addon_enable(module=_key)
 
 bpy.ops.wm.open_mainfile(filepath=FILE)
 
-from superluxcore.utils import misc
+# Import through the enabled addon module so module-level state
+# (misc._file_authored_luxcore etc.) is shared with the live addon.
+import importlib
+_key = next((a.module for a in bpy.context.preferences.addons
+             if "superluxcore" in a.module.lower()),
+            "bl_ext.user_default.superluxcore")
+misc = importlib.import_module(_key + ".utils.misc")
 
 # 1. Node trees restored (no undefined trees among luxcore material trees)
 trees = list(bpy.data.node_groups)
@@ -75,9 +84,14 @@ if w:
           abs(w.superluxcore.gain - 1e-4) < 1e-9, w.superluxcore.gain)
     check("world still resolves native", not misc.use_cycles_compat(w.superluxcore))
 
-# 4. Fresh datablock (no luxcore data) resolves to cycles fallback
-w2 = bpy.data.worlds.new("CyclesWorldProbe")
-check("fresh world resolves cycles", misc.use_cycles_compat(w2.superluxcore))
+# 4. Fresh datablock in a LuxCore-authored file (this file was saved
+#    with a SUPERLUXCORE scene) resolves native. Untouched datablocks
+#    follow the file context; the Cycles fallback only applies to
+#    foreign-authored files/datablocks.
+w2 = bpy.data.worlds.new("NativeWorldProbe")
+misc._known_light_world_uids.add(w2.session_uid)  # keep it unpinned
+check("fresh world in luxcore file resolves native",
+      not misc.use_cycles_compat(w2.superluxcore))
 bpy.data.worlds.remove(w2)
 
 fails = [n for n, ok in results if not ok]

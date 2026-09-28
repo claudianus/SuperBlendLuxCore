@@ -1,5 +1,5 @@
 import bpy
-from ..utils.node import TREE_TYPES, TREE_ICONS
+from ..utils.node import TREE_TYPES, TREE_ICONS, TREE_TYPE_CANONICAL
 from .. import utils
 from .. import icons
 from ..utils.node import show_nodetree
@@ -155,10 +155,12 @@ class SUPERLUXCORE_MT_node_tree:
                      for index, tree in enumerate(source)
                      if tree.bl_idname in TREE_TYPES]
         else:
-            icon = TREE_ICONS[tree_type]
-            trees = [(index, tree, icon)
+            # Legacy luxcore_*_nodes trees count as their canonical type
+            # so trees loaded from upstream files stay selectable.
+            trees = [(index, tree, TREE_ICONS[tree.bl_idname])
                      for index, tree in enumerate(source)
-                     if tree.bl_idname == tree_type]
+                     if TREE_TYPE_CANONICAL.get(tree.bl_idname,
+                                                tree.bl_idname) == tree_type]
 
         row = layout.row()
         col = row.column()

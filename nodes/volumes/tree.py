@@ -1,6 +1,7 @@
 import bpy
 from nodeitems_utils import NodeCategory, NodeItem, NodeItemCustom
 from ... import icons
+from ...utils import node as utils_node
 from ..nodeitems import Separator
 from ..base import SuperLuxCoreNodeTree
 
@@ -14,7 +15,10 @@ class SuperLuxCoreVolumeNodeTree(bpy.types.NodeTree, SuperLuxCoreNodeTree):
 class SuperLuxCoreNodeCategoryVolume(NodeCategory):
     @classmethod
     def poll(cls, context):
-        return context.space_data.tree_type == "superluxcore_volume_nodes"
+        # Also true in legacy luxcore_volume_nodes trees (same content).
+        return utils_node.TREE_TYPE_CANONICAL.get(
+            context.space_data.tree_type,
+            context.space_data.tree_type) == "superluxcore_volume_nodes"
 
 
 # Here we define the menu structure the user sees when he

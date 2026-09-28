@@ -93,6 +93,12 @@ def handler(_):
     # manual SUPERLUXCORE_OT_convert_to_v23 operator still runs them on
     # explicit user request.
 
+    # Recompute which interpretation untouched light/world datablocks
+    # resolve to (LuxCore-authored file -> native, foreign -> Cycles)
+    # and snapshot existing datablocks so the depsgraph tagger only
+    # pins datablocks created after the load.
+    utils.misc.refresh_file_context()
+
     # A loaded file can rewire datablock pointers entirely; persistent
     # render scenes and dirty maps from before the load are invalid.
     persistent_scene.clear_all()

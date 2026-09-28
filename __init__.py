@@ -72,6 +72,11 @@ submodules = (properties, nodes, operators, handlers, engine, ui)
 def register():
     utils.register_module("Main", [], submodules)
 
+    # Snapshot the interpretation context of the file that is already
+    # open (if any) so untouched datablocks resolve correctly and only
+    # datablocks created from now on get pinned by the depsgraph tagger.
+    utils.misc.refresh_file_context()
+
     pysuperluxcore.Init(utils.log.SuperLuxCoreLog.add)
     try:
         plc_version = version('pysuperluxcore')

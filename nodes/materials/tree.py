@@ -64,7 +64,10 @@ class SuperLuxCoreMaterialNodeTree(bpy.types.NodeTree, SuperLuxCoreNodeTree):
 class SuperLuxCoreNodeCategoryMaterial(NodeCategory):
     @classmethod
     def poll(cls, context):
-        return context.space_data.tree_type == "superluxcore_material_nodes"
+        # Also true in legacy luxcore_material_nodes trees (same content).
+        return utils_node.TREE_TYPE_CANONICAL.get(
+            context.space_data.tree_type,
+            context.space_data.tree_type) == "superluxcore_material_nodes"
 
 
 # Here we define the menu structure the user sees when he

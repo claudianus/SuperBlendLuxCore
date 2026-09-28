@@ -51,6 +51,20 @@ class SuperLuxCoreWorldProps(LuxCoreLegacyBridge, bpy.types.PropertyGroup):
     ]
     light: EnumProperty(name="Background", items=lights, default="sky2")
 
+    # Interpretation pin: written once at creation (depsgraph handler,
+    # set to the authoring engine) or by the mode-toggle operator.
+    # use_cycles_compat() honors it before falling back to authored-data
+    # detection.
+    use_cycles_settings: BoolProperty(
+        name="Use Cycles Settings",
+        default=True,
+        description=(
+            "Interpret and export this world through the Cycles-compatible "
+            "layer (Blender color/node background), instead of the native "
+            "SuperLuxCore settings"
+        ),
+    )
+
     # Generic properties shared by all background light types
     gain: FloatProperty(name="Gain", default=1, min=0, precision=4, description="Brightness multiplier")
     exposure: FloatProperty(name="Exposure", default=0, soft_min=-10, soft_max=10, precision=2, description=EXPOSURE_DESCRIPTION )

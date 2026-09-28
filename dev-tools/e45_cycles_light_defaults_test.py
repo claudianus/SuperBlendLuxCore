@@ -1,17 +1,21 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 # E45: regression test — Cycles-authored lights/worlds must export through
-# the Cycles conversion path as an automatic fallback.
+# the Cycles conversion path.
 #
-# "Cycles 100% compatibility" is the project goal: a .blend written for
-# Cycles carries no LuxCore property values. The resolver
-# (utils.misc.use_cycles_compat) exports such datablocks through the
-# Cycles translation layer; authored LuxCore settings (in 'superluxcore'
-# or legacy upstream 'luxcore' storage) always win.
+# Resolution semantics (utils.misc.use_cycles_compat):
+#   1. An explicitly stored use_cycles_settings flag wins. It is written
+#      once per datablock: at creation the depsgraph tagger pins it to
+#      the authoring engine, at save the save_pre handler freezes the
+#      resolved mode, and the UI mode toggle writes it directly.
+#   2. Authored LuxCore settings force the native path.
+#   3. Untouched datablocks follow the file context (LuxCore-authored
+#      file -> native, foreign file -> Cycles fallback).
 #
-# This used to break on the ASiO Cycles scene: the Sun (energy=1000) was
-# exported through the native path where light.energy is ignored and the
-# sun gain became the tiny sun_sky_gain default (~2e-5) -> night render.
+# To simulate a foreign (Cycles-authored) datablock, fixtures are
+# created while scene.render.engine is a foreign engine so the runtime
+# pin lands as use_cycles_settings=True — the same state a real
+# Cycles-authored file produces.
 #
 # Run:
 #   /Applications/Blender.app/Contents/MacOS/Blender --background \
@@ -38,11 +42,18 @@ def check(name, ok, detail=""):
     print(f"[E45-TEST] {'ok' if ok else 'FAIL'}: {name} {detail}", flush=True)
 
 
+def addon_key():
+    for a in bpy.context.preferences.addons:
+        if "superluxcore" in a.module.lower():
+            return a.module
+    return "bl_ext.user_default.superluxcore"
+
+
 def ensure_superluxcore():
     try:
         bpy.context.scene.render.engine = "SUPERLUXCORE"
     except TypeError:
-        bpy.ops.preferences.addon_enable(module="superluxcore")
+        bpy.ops.preferences.addon_enable(module=addon_key())
         bpy.context.scene.render.engine = "SUPERLUXCORE"
 
 
@@ -81,18 +92,55 @@ def get(props, name, idx=0):
         return p.GetString(idx)
 
 
-def new_light(name, light_type, **kwargs):
+def tick():
+    """Force a depsgraph evaluation so depsgraph_update_post runs and
+    pins newly created lights/worlds to the authoring engine."""
+    bpy.context.view_layer.update()
+
+
+def new_light(name, light_type, foreign=False, pinned=True, **kwargs):
+    """Create a light and object. `foreign` pins it via a non-LuxCore
+    authoring engine; `pinned=False` simulates a file-loaded datablock
+    (no runtime pin - the uid is seeded so the tagger skips it)."""
+    scene = bpy.context.scene
+    if foreign:
+        prev = scene.render.engine
+        scene.render.engine = "BLENDER_EEVEE"
     ld = bpy.data.lights.new(name, type=light_type)
     for key, value in kwargs.items():
         setattr(ld, key, value)
     obj = bpy.data.objects.new(name, ld)
     bpy.context.scene.collection.objects.link(obj)
+    if pinned:
+        tick()
+        if foreign:
+            scene.render.engine = prev
+            tick()
+    else:
+        assert not foreign
+        _misc()._known_light_world_uids.add(ld.session_uid)
     return obj, ld
 
 
-def new_world(name):
+def new_world(name, foreign=False, pinned=True):
+    scene = bpy.context.scene
+    if foreign:
+        prev = scene.render.engine
+        scene.render.engine = "BLENDER_EEVEE"
     world = bpy.data.worlds.new(name)
+    if pinned:
+        tick()
+        if foreign:
+            scene.render.engine = prev
+            tick()
+    else:
+        assert not foreign
+        _misc()._known_light_world_uids.add(world.session_uid)
     return world
+
+
+def _misc():
+    return addon_module("utils.misc")
 
 
 def distant_norm_factor(energy, angle):
@@ -106,11 +154,12 @@ def main():
     scene = bpy.context.scene
     misc = addon_module("utils.misc")
 
-    # --- 1) Untouched Cycles sun -> distant light, gain = energy * norm ---
-    sun_obj, sun = new_light("sun_cycles", "SUN")
+    # --- 1) Foreign-authored untouched sun -> distant light, gain =
+    #        energy * normalization ---
+    sun_obj, sun = new_light("sun_cycles", "SUN", foreign=True)
     sun.energy = 1000.0
     sun.angle = 0.00918
-    check("sun_flag_unset_resolves_cycles",
+    check("foreign_sun_resolves_cycles",
           misc.use_cycles_compat(sun.superluxcore) is True)
     props = convert(sun_obj)
     ltype = get(props, "scene.lights.sun_cycles.type")
@@ -121,8 +170,10 @@ def main():
           and abs(gain - expect) / expect < 0.01,
           f"gain={gain} expect={expect:.0f}")
 
-    # --- 2) Stored legacy flag (older files) -> honored, native path ---
-    obj2, sun2 = new_light("sun_native", "SUN")
+    # --- 2) Stored legacy dict flag (older files) -> honored, native
+    #        path. A load-era datablock carries no RNA pin, so the
+    #        stored dict member is the authoritative signal. ---
+    obj2, sun2 = new_light("sun_native", "SUN", pinned=False)
     sun2["superluxcore"] = {"use_cycles_settings": 0}
     check("explicit_false_resolves_native",
           misc.use_cycles_compat(sun2.superluxcore) is False)
@@ -134,7 +185,7 @@ def main():
           f"gain={gain}")
 
     # --- 3) Flag unset but native prop authored -> native path ---
-    obj3, sun3 = new_light("sun_authored", "SUN")
+    obj3, sun3 = new_light("sun_authored", "SUN", pinned=False)
     sun3.superluxcore.turbidity = 7.0
     check("authored_native_resolves_native",
           misc.use_cycles_compat(sun3.superluxcore) is False)
@@ -145,7 +196,7 @@ def main():
     check("authored_native_turbidity", turb == 7.0, f"turbidity={turb}")
 
     # --- 4) Shared prop alone (importance) must NOT pin native ---
-    obj4, pt = new_light("pt_imp", "POINT")
+    obj4, pt = new_light("pt_imp", "POINT", foreign=True)
     pt.energy = 42.0
     pt.superluxcore.importance = 2.0
     check("importance_keeps_cycles",
@@ -157,7 +208,7 @@ def main():
     check("point_cycles_gain", gain == 42.0, f"gain={gain}")
 
     # --- 5) Cycles world with unlinked output -> no world light ---
-    world = new_world("w_unlinked")
+    world = new_world("w_unlinked", foreign=True)
     out5 = world.node_tree.nodes.get("World Output")
     for link in list(out5.inputs["Surface"].links):
         world.node_tree.links.remove(link)
@@ -166,7 +217,7 @@ def main():
           f"props={props}")
 
     # --- 6) Cycles world Background -> constantinfinite w/ strength ---
-    world6 = new_world("w_bg")
+    world6 = new_world("w_bg", foreign=True)
     world6.use_nodes = True
     out = world6.node_tree.nodes.get("World Output")
     bg = world6.node_tree.nodes.new("ShaderNodeBackground")
@@ -181,7 +232,7 @@ def main():
     check("world_cycles_gain", gain == 2.0, f"gain={gain}")
 
     # --- 7) Stored legacy flag on a world -> native sky2 ---
-    world7 = new_world("w_native")
+    world7 = new_world("w_native", pinned=False)
     world7["superluxcore"] = {"use_cycles_settings": 0}
     props = convert(world7, is_world=True)
     ltype = get(props, "scene.lights.__WORLD_BACKGROUND_LIGHT__.type")

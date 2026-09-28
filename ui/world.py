@@ -26,7 +26,21 @@ class SUPERLUXCORE_PT_context_world(WorldButtonsPanel, Panel):
         return context.world and engine == "SUPERLUXCORE"
     
     def draw(self, context):
-        if use_cycles_compat(context.world.superluxcore):
+        layout = self.layout
+        cycles = use_cycles_compat(context.world.superluxcore)
+
+        row = layout.row(align=True)
+        row.label(text="Mode:")
+        op = row.operator("superluxcore.set_light_world_mode",
+                          text="SuperLuxCore", depress=not cycles)
+        op.target = "WORLD"
+        op.use_cycles_settings = False
+        op = row.operator("superluxcore.set_light_world_mode",
+                          text="Cycles", depress=cycles)
+        op.target = "WORLD"
+        op.use_cycles_settings = True
+
+        if cycles:
             self.draw_cycles_settings(context)
         else:
             self.draw_superluxcore_settings(context)

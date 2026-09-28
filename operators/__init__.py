@@ -80,6 +80,7 @@ classes = (
     debug.SUPERLUXCORE_OT_toggle_debug_options,
     debug.SUPERLUXCORE_OT_debug_restart,
     general.SUPERLUXCORE_OT_errorlog_clear,
+    general.SUPERLUXCORE_OT_set_light_world_mode,
     general.SUPERLUXCORE_OT_switch_texture_context,
     general.SUPERLUXCORE_OT_switch_space_data_context,
     general.SUPERLUXCORE_OT_switch_to_camera_settings,

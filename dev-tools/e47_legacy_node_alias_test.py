@@ -8,6 +8,24 @@ nodes.new() and the Add menu then failed for EVERY addon node type
 ("Cannot add node of type ..."). Aliases now inline the flattened class
 surface instead of subclassing (nodes/__init__.py)."""
 import bpy
+import os
+import sys
+
+_EXT_DIR = os.path.expanduser(
+    "~/Library/Application Support/Blender/5.2/extensions/user_default")
+if _EXT_DIR not in sys.path:
+    sys.path.insert(0, _EXT_DIR)
+
+# Ensure the addon is registered (--factory-startup does not enable it)
+try:
+    bpy.data.node_groups.new("_probe", "superluxcore_material_nodes")
+    bpy.data.node_groups.remove(bpy.data.node_groups["_probe"])
+except TypeError:
+    _key = next((a.module for a in bpy.context.preferences.addons
+                 if "superluxcore" in a.module.lower()),
+                "bl_ext.user_default.superluxcore")
+    bpy.ops.preferences.addon_enable(module=_key)
+
 from bl_ext.user_default.superluxcore.export import material as export_material
 
 

@@ -71,24 +71,33 @@ TREE_ICONS = {
 }
 
 
+def _output_types(node_tree):
+    """Output node idnames for a tree - canonical AND legacy spelling.
+    Trees can hold a mix (e.g. a canonical output inside a legacy
+    luxcore_*_nodes tree loaded from an upstream file)."""
+    canonical = TREE_TYPE_CANONICAL.get(node_tree.bl_idname,
+                                      node_tree.bl_idname)
+    return expand_legacy({OUTPUT_MAP[canonical]})
+
+
 def get_active_output(node_tree):
-    output_type = OUTPUT_MAP[node_tree.bl_idname]
+    output_types = _output_types(node_tree)
 
     for node in node_tree.nodes:
         node_type = getattr(node, "bl_idname", None)
 
-        if node_type == output_type and node.active:
+        if node_type in output_types and node.active:
             return node
 
 
 def get_output_nodes(node_tree):
     """ Return a list with all output nodes in a node tree """
-    output_type = OUTPUT_MAP[node_tree.bl_idname]
+    output_types = _output_types(node_tree)
     nodes = []
 
     for node in node_tree.nodes:
         node_type = getattr(node, "bl_idname", None)
-        if node_type == output_type:
+        if node_type in output_types:
             nodes.append(node)
     return nodes
 

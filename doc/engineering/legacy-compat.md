@@ -22,22 +22,40 @@
   need non-empty group via _group_has_authored_leaf) > stored
   `luxcore` value > RNA default. Reads never write.
 - `utils.misc.use_cycles_compat` / `material_use_cycles_nodes` decide
-  light/world/material interpretation purely from stored data: legacy
-  `luxcore` or authored `superluxcore` -> native path; nothing stored
-  -> Cycles translation fallback. A `use_cycles_settings` member stored
-  by old files is still honored (it persists as an unregistered ID-prop
-  member).
+  light/world/material interpretation: explicit `use_cycles_settings`
+  flag (RNA-set pin/toggle, or a `use_cycles_settings` member persisted
+  by old files as unregistered ID-prop storage) > authored `luxcore`/
+  `superluxcore` data -> native > untouched datablocks -> the file
+  context (see cycles-compat.md).
 - Load handlers must not write to datablocks: `compatibility.run()`
   (node/socket rewriting) no longer runs on load — it stays available
   through `SUPERLUXCORE_OT_convert_to_v23`. Cache paths
   (photongi/envlight/dlsc) and `filesaver_path` resolve lazily at
   export; LOL UI resets go through `_setif_changed`.
-- Node aliases: `nodes/__init__.py` registers one subclass per
-  SuperLuxCore node/socket/tree class under the upstream bl_idname;
-  `utils.node` maps both name families (`legacy_idname`,
-  `canonical_idname`, TREE_TYPES includes both).
+- Node aliases: `nodes/__init__.py` registers one flattened sibling
+  class per SuperLuxCore node/socket/tree class under the upstream
+  bl_idname; `utils.node` maps both name families (`legacy_idname`,
+  `TREE_TYPE_CANONICAL`, TREE_TYPES includes both).
+- Alias visibility (2026-10): registered NodeTree types appear in the
+  node editor's tree-type dropdown, so the 3 legacy tree aliases used
+  to show as 3 indistinguishable duplicates. Aliases now get
+  `poll(cls, context)` = "file contains a node group of this legacy
+  type" — hidden in normal files, present (labeled "(Legacy)") when a
+  file actually has legacy trees. Alias nodes get
+  `poll = ntree.bl_idname in legacy tree types` so the Add menu/search
+  stays deduplicated too. Verified: `rna_SpaceNodeEditor_tree_type_itemf`
+  only applies `type->poll` when a real bContext exists — the static
+  `enum_items` accessor and `tree_type` assignment bypass it.
+- Mixed trees: `utils.node.get_active_output/get_output_nodes` accept
+  BOTH spellings of the output type (canonical output inside a legacy
+  `luxcore_*_nodes` tree). NodeCategory polls compare via
+  `TREE_TYPE_CANONICAL` so Shift+A works inside legacy trees;
+  `SUPERLUXCORE_MT_node_tree.custom_draw` lists legacy trees under
+  their canonical type.
 - Regression: `dev-tools/e46_legacy_bridge_test.py` (HALL_BENCH),
-  `dev-tools/e45_cycles_light_defaults_test.py` (Cycles fallback).
+  `dev-tools/e45_cycles_light_defaults_test.py` (Cycles fallback),
+  `dev-tools/e48_datablock_mode_resolution_test.py` (alias polls,
+  mixed-tree outputs).
 
 ## Legacy alias registration — do NOT subclass (Blender 5.2, fixed 2026-09)
 
