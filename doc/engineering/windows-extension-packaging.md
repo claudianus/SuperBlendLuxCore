@@ -10,7 +10,7 @@ One Blender extension zip per platform (`SuperLuxCore-<ver>-windows_x64.zip`,
 `pysuperluxcore` wheel, so install is offline (no pip, no PyPI — the engine
 wheel is **not on PyPI**, so a zip without bundled wheels cannot start).
 
-The Windows and Linux zips additionally bundle `nvidia_cuda_nvrtc_cu12-12.8.93`
+The Windows and Linux zips additionally bundle `nvidia_cuda_nvrtc_cu12-12.9.86`
 (hash-pinned in `cmake/bundled-wheels-win.txt` /
 `cmake/bundled-wheels-linux.txt`):
 

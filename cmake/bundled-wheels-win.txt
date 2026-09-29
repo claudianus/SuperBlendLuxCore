@@ -8,6 +8,6 @@
 # backend is silently disabled (only OpenCL remains on NVIDIA GPUs).
 # 12.8+ is required for Blackwell (sm_120, e.g. RTX 50xx).
 #
-# Hashes: https://pypi.org/pypi/nvidia-cuda-nvrtc-cu12/12.8.93/json
-nvidia-cuda-nvrtc-cu12==12.8.93 \
-    --hash=sha256:7a4b6b2904850fe78e0bd179c4b655c404d4bb799ef03ddc60804247099ae909
+# Hashes: https://pypi.org/pypi/nvidia-cuda-nvrtc-cu12/12.9.86/json
+nvidia-cuda-nvrtc-cu12==12.9.86 \
+    --hash=sha256:72972ebdcf504d69462d3bcd67e7b81edd25d0fb85a2c46d3ea3517666636349
