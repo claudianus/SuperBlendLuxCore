@@ -24,6 +24,16 @@
   or just let sync_dev_install.sh handle it.
 - macOS: any .so placed outside the pip flow needs
   `codesign --force --sign - <so>`.
+- Windows: `dev-tools/sync_dev_install.ps1` is the equivalent flow —
+  copies `pysuperluxcore.pyd` + the runtime DLL set from
+  `SuperLuxCore/out/install/Release` into site-packages as a
+  wheel-shaped package (`pysuperluxcore/` + minimal `.dist-info` so
+  `pip show`/import metadata resolve), syncs the add-on sources, and
+  smoke-imports under Blender's bundled Python 3.13. Because Windows
+  has no rpath, the generated `pysuperluxcore/__init__.py` shim calls
+  `os.add_dll_directory()` on the package's DLL dir before importing
+  the extension — copying just the .pyd without the shim/DLLs will
+  fail to import.
 
 ## External-process render
 
