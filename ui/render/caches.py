@@ -80,7 +80,7 @@ class SUPERLUXCORE_RENDER_PT_caches_photongi(RenderButtonsPanel, Panel):
 
         layout.active = photongi.enabled
 
-        if photongi.enabled and not photongi.indirect_enabled and not photongi.caustic_enabled:
+        if photongi.enabled and not photongi.indirect_enabled and photongi.caustic_mode == "off":
             layout.label(text="All caches disabled", icon=icons.WARNING)
 
         col = layout.column(align=True)
@@ -92,7 +92,7 @@ class SUPERLUXCORE_RENDER_PT_caches_photongi(RenderButtonsPanel, Panel):
         col.prop(photongi, "debug")
         if ((photongi.debug == "showindirect" or photongi.debug == "showindirectpathmix")
                 and not photongi.indirect_enabled) or (
-                photongi.debug == "showcaustic" and not photongi.caustic_enabled):
+                photongi.debug == "showcaustic" and photongi.caustic_mode == "off"):
             col.label(text="Can't show this cache (disabled)", icon=icons.WARNING)
 
 
@@ -151,9 +151,9 @@ class SUPERLUXCORE_RENDER_PT_caches_photongi_caustic(RenderButtonsPanel, Panel):
         return True
 
     def draw_header(self, context):
-        self.layout.active = context.scene.superluxcore.config.photongi.enabled
+        self.layout.active = (context.scene.superluxcore.config.photongi.enabled or
+                              context.scene.superluxcore.config.photongi.caustic_mode == "auto")
         row = self.layout.row(align=True)
-        row.prop(context.scene.superluxcore.config.photongi, "caustic_enabled", text="")
         row.label(text="Caustic Light Cache")
 
     def draw(self, context):
@@ -162,10 +162,11 @@ class SUPERLUXCORE_RENDER_PT_caches_photongi_caustic(RenderButtonsPanel, Panel):
         layout.use_property_split = True
         layout.use_property_decorate = False
 
-        layout.active = photongi.enabled and photongi.caustic_enabled
+        layout.active = photongi.caustic_mode != "off"
 
         col = layout.column(align=True)
-        col.enabled = photongi.caustic_enabled
+        col.enabled = photongi.caustic_mode != "off"
+        col.prop(photongi, "caustic_mode")
         sub = col.column(align=True)
         sub.prop(photongi, "caustic_maxsize_auto")
         sub2 = sub.column(align=True)

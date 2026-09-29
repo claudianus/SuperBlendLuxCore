@@ -14,6 +14,7 @@ from ..utils import get_addon_preferences
 from ..utils.scene_analysis import (
     AUTO_RESTIR_EMITTER_THRESHOLD as AUTO_LIGHT_STRATEGY_EMITTER_THRESHOLD,
     count_emitters as _count_emitters,
+    scene_has_transmissive as _scene_has_transmissive,
 )
 
 
@@ -342,9 +343,26 @@ def convert(exporter, scene, context=None, engine=None):
         ):
             definitions["path.spectral.enable"] = True
 
-        if config.photongi.enabled and not is_viewport_render:
+        # Caustic auto-routing: under mode=auto the cache engages when a
+        # transmissive caster exists, even if the PhotonGI master toggle
+        # is off - refractive scenes get working caustics with zero setup
+        # (Corona-style). The preprocess is bounded and runs on final
+        # renders only, so viewport stays cache-free.
+        caustic_on = False
+        if not is_viewport_render and superluxcore_engine.startswith(
+            ("PATH", "TILEPATH", "RTPATH")
+        ):
+            mode = getattr(config.photongi, "caustic_mode", "auto")
+            if mode == "off":
+                caustic_on = False
+            elif mode == "on" or config.photongi.caustic_enabled:
+                caustic_on = True
+            else:
+                caustic_on = _scene_has_transmissive(scene)
+
+        if (config.photongi.enabled or caustic_on) and not is_viewport_render:
             _convert_photongi_settings(context is not None, scene,
-                                       definitions, config)
+                                       definitions, config, caustic_on)
 
         # Manual clamping wins; otherwise auto-clamp applies the value
         # suggested by a previous unclamped render (see
@@ -938,7 +956,8 @@ def _convert_dlscache_settings(scene, definitions, config, is_viewport_render):
     )
 
 
-def _convert_photongi_settings(is_viewport_render, scene, definitions, config):
+def _convert_photongi_settings(is_viewport_render, scene, definitions, config,
+                               caustic_on=False):
     photongi = config.photongi
 
     if photongi.indirect_lookup_radius_auto:
@@ -979,7 +998,10 @@ def _convert_photongi_settings(is_viewport_render, scene, definitions, config):
             ),
             "path.photongi.photon.maxdepth": photongi.photon_maxdepth,
             "path.photongi.glossinessusagethreshold": photongi.glossinessusagethreshold,
-            "path.photongi.indirect.enabled": photongi.indirect_enabled,
+            # Indirect cache only when the artist enabled PhotonGI itself -
+            # caustic auto-routing must not pull in the heavy indirect pass.
+            "path.photongi.indirect.enabled": photongi.enabled and
+                                              photongi.indirect_enabled,
             "path.photongi.indirect.maxsize": 0,  # Set to 0 to use haltthreshold stop condition
             "path.photongi.indirect.haltthreshold": indirect_haltthreshold,
             "path.photongi.indirect.lookup.radius": indirect_radius,
@@ -987,7 +1009,9 @@ def _convert_photongi_settings(is_viewport_render, scene, definitions, config):
                 photongi.indirect_normalangle
             ),
             "path.photongi.indirect.usagethresholdscale": photongi.indirect_usagethresholdscale,
-            "path.photongi.caustic.enabled": photongi.caustic_enabled,
+            # Resolved by the caller: mode on|off|auto folded with the
+            # legacy caustic_enabled bool (True -> force-on under auto).
+            "path.photongi.caustic.enabled": caustic_on,
             "path.photongi.caustic.maxsize": caustic_maxsize,
             "path.photongi.caustic.lookup.radius": caustic_radius,
             "path.photongi.caustic.lookup.normalangle": degrees(

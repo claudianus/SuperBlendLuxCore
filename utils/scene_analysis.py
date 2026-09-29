@@ -129,6 +129,36 @@ def _scan_nodes(nodes, flags):
                     break
 
 
+def scene_flags(scene):
+    """Aggregate material feature flags over all mesh materials.
+
+    One pass per scene export; used by caustic auto-routing
+    (transmissive casters -> PhotonGI caustics) and any future
+    signature-driven defaults. Cheap: materials are visited once.
+    """
+    flags = {"transmissive": False, "sss": False, "volume": False,
+             "emission": False, "dispersion": False}
+    seen = set()
+    for obj in scene.objects:
+        if obj.type != "MESH" or obj.data is None:
+            continue
+        for mat in getattr(obj.data, "materials", []):
+            if mat is None or mat in seen:
+                continue
+            seen.add(mat)
+            if mat.use_nodes and mat.node_tree is not None:
+                _scan_nodes(mat.node_tree.nodes, flags)
+            lux_nt = getattr(mat.superluxcore, "node_tree", None)
+            if lux_nt is not None:
+                _scan_nodes(lux_nt.nodes, flags)
+    return flags
+
+
+def scene_has_transmissive(scene):
+    """True when any mesh material can transmit light (glass-like)."""
+    return scene_flags(scene)["transmissive"]
+
+
 def material_is_emissive(mat):
     """Does this material emit light? (Cycles + SuperLuxCore trees.)"""
     if mat is None or not mat.use_nodes:

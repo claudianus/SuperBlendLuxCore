@@ -529,6 +529,22 @@ class SuperLuxCoreConfigPhotonGI(PropertyGroup):
                                                  description=PHOTONGI_INDIRECT_USAGETHRESHOLDSCALE_DESC)
 
     # Caustic cache
+    caustic_mode_items = [
+        ("auto", "Auto (recommended)",
+         "Caustic light cache engages automatically when the scene contains "
+         "refractive/transmissive materials - no setup needed", 0),
+        ("on", "Always On",
+         "Caustic light cache always builds (preprocess cost even without "
+         "transmissive materials)", 1),
+        ("off", "Off",
+         "Never build the caustic cache", 2),
+    ]
+    caustic_mode: EnumProperty(name="Caustic Cache", items=caustic_mode_items,
+                               default="auto",
+                               description="When the caustic light cache builds "
+                                           "(final renders only)")
+    # Legacy force-on flag kept for .blend compatibility: a saved True still
+    # enables the cache under mode=auto. The UI shows caustic_mode instead.
     caustic_enabled: BoolProperty(name="Use Caustic Cache", default=False,
                                   description="Accelerates rendering of caustics at the cost of blurring them")
     caustic_maxsize_auto: BoolProperty(name="Automatic Max. Size", default=True,

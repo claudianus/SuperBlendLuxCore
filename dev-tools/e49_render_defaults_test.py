@@ -180,7 +180,8 @@ EXPECTED = [
     ("photongi.indirect_lookup_radius", 0.15),
     ("photongi.indirect_normalangle", math.radians(10)),
     ("photongi.indirect_usagethresholdscale", 8.0),
-    ("photongi.caustic_enabled", False),
+    ("photongi.caustic_mode", "auto"),
+    ("photongi.caustic_enabled", False),  # legacy force-on bool
     ("photongi.caustic_maxsize", 0.1),
     ("photongi.caustic_lookup_radius", 0.075),
     ("photongi.caustic_normalangle", math.radians(10)),
