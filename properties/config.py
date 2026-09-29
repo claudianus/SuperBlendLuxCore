@@ -992,12 +992,12 @@ class SuperLuxCoreConfig(PropertyGroup):
                                   description="Merge up to 2 same-surface-gated neighbour pixels "
                                               "with reconnection shift + visibility test")
 
-    # ReSTIR PT (PT-1 path-suffix reservoir, PATHCPU only)
+    # ReSTIR PT (path-suffix reservoir, PATHCPU + pathoclbase GPU)
     restir_pt_enable: BoolProperty(name="ReSTIR PT", default=False,
                                   description="EXPERIMENTAL: reuse whole measured path suffixes from a "
                                               "per-pixel reservoir (ReSTIR PT). A stored winner contributes "
                                               "its suffix radiance after one reconnection shadow ray instead "
-                                              "of retracing the path. Overrides ReSTIR GI; PATHCPU only")
+                                              "of retracing the path. Overrides ReSTIR GI")
     restir_pt_candidates: IntProperty(name="PT Candidates", default=0, min=0, max=32,
                                   description="Fresh first-bounce candidates per reservoir "
                                               "(0 = engine default of 4)")

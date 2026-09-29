@@ -226,15 +226,20 @@ def convert(exporter, scene, context=None, engine=None):
                     config.restir_gi_candidates
                 )
 
-        # ReSTIR PT (PT-1) is PATHCPU-only for now - the GPU track
-        # (PT-2 arena payload) is not landed, so exporting elsewhere
-        # would be a silent no-op.
-        if config.restir_pt_enable and superluxcore_engine != "PATHCPU":
+        # ReSTIR PT runs on PATHCPU and the pathoclbase GPU engines
+        # (PT-2: MK_PT_BOUNCE/MK_PT_RESOLVE tail-queue states on
+        # PATHOCL/TILEPATHOCL); RTPATHOCL and BIDIR* do not implement
+        # the reservoir machinery.
+        if config.restir_pt_enable and superluxcore_engine not in (
+            "PATHCPU", "PATHOCL", "TILEPATHOCL"
+        ):
             SuperLuxCoreErrorLog.add_warning(
-                f"ReSTIR PT is not supported by {superluxcore_engine} "
-                "(PATHCPU only), the setting is ignored"
+                f"ReSTIR PT is not supported by {superluxcore_engine}, "
+                "the setting is ignored"
             )
-        if config.restir_pt_enable and superluxcore_engine == "PATHCPU":
+        if config.restir_pt_enable and superluxcore_engine in (
+            "PATHCPU", "PATHOCL", "TILEPATHOCL"
+        ):
             definitions["path.restir.pt.enable"] = True
             definitions["path.restir.pt.temporal.enable"] = (
                 config.restir_pt_temporal_enable
