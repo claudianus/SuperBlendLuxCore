@@ -1,0 +1,13 @@
+# Third-party wheels bundled next to pysuperluxcore in the Windows extension
+# zip (fetched by CI with `pip download --require-hashes`, see
+# .github/workflows/build_bundle.yml).
+#
+# Blender's extension installer does NOT resolve wheel dependencies, so the
+# pysuperluxcore `Requires-Dist: nvidia-cuda-nvrtc-cu12 == 12.8.93` must be
+# bundled explicitly - without it cuew cannot load NVRTC and the CUDA/OptiX
+# backend is silently disabled (only OpenCL remains on NVIDIA GPUs).
+# 12.8+ is required for Blackwell (sm_120, e.g. RTX 50xx).
+#
+# Hashes: https://pypi.org/pypi/nvidia-cuda-nvrtc-cu12/12.8.93/json
+nvidia-cuda-nvrtc-cu12==12.8.93 \
+    --hash=sha256:7a4b6b2904850fe78e0bd179c4b655c404d4bb799ef03ddc60804247099ae909

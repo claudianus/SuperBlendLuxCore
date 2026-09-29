@@ -2,21 +2,27 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
+# Builds one Blender extension zip per platform (windows_x64, linux_x64,
+# macos_arm64, macos_x64). Each zip bundles the matching pysuperluxcore wheel
+# (fetched from the engine repo's `wheels-latest` release, or another tag) so
+# it installs and runs offline; the Windows zip also bundles the hash-pinned
+# NVRTC wheel that CUDA/OptiX needs (see cmake/bundled-wheels-win.txt).
+
 name: SuperLuxCore Build Bundle
 
 on:
   pull_request:
+  workflow_call:
     inputs:
       build_type:
         required: false
         type: string
         default: "Latest"
-  workflow_call:
-    inputs:
-      build_type:
-        required: true
+      wheels_tag:
+        description: "Engine release tag to take wheels from"
+        required: false
         type: string
-        default: "Latest"
+        default: "wheels-latest"
     outputs:
       commit:
         description: "The commit that has been checked out"
@@ -33,6 +39,16 @@ on:
         required: true
         type: string
         default: "Release"
+      wheels_tag:
+        description: "Engine release tag to take wheels from"
+        required: false
+        type: string
+        default: "wheels-latest"
+
+env:
+  ENGINE_REPO: claudianus/SuperLuxCore
+  BUILD_TYPE: ${{ inputs.build_type || 'Release' }}
+  WHEELS_TAG: ${{ inputs.wheels_tag || 'wheels-latest' }}
 
 jobs:
   build-bundle:
@@ -41,7 +57,6 @@ jobs:
     outputs:
       commit: ${{ steps.current-commit.outputs.commit }}
       branch: ${{ steps.current-commit.outputs.branch }}
-      version: ${{ steps.output-version.outputs.version }}
 
     steps:
 
@@ -56,26 +71,21 @@ jobs:
           echo "commit=$(git rev-parse HEAD)"
           echo "branch=$(git symbolic-ref HEAD)"
 
-      #- name: Prepare Blender install
-        #uses: gerlero/apt-install@v1
-        #with:
-          #packages: libxxf86vm1 libxfixes3 libxi6 libxkbcommon0 libgl1
-
-      #- name: Prepare Python
-        #run: touch requirements.txt
-
-      #- name: Set up Python
-        #uses: actions/setup-python@v5
-        #with:
-          #python-version: '3.11'
-
-      #- name: Set up Blender
-        #uses: moguri/setup-blender@v1
-        #with:
-          #blender-version: '5.1.1'
-
       - name: Set up cmake
         uses: lukka/get-cmake@latest
+
+      # tomllib (cmake/superluxcore_version.py, cmake/verify_bundle.py) needs >= 3.11
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      # Blender's Linux binary links against these even for headless `--command` runs
+      - name: Install Blender runtime libraries
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y --no-install-recommends \
+            libxi6 libxxf86vm1 libxfixes3 libxkbcommon0 libgl1 libsm6 libxrender1
 
       - name: Download Blender
         shell: bash
@@ -105,22 +115,49 @@ jobs:
 
           echo "BLENDER_ROOT=${INSTALL_DIR}" >> $GITHUB_ENV
 
+      # pysuperluxcore is NOT on PyPI: without bundled wheels the extension
+      # would try (and fail) to `pip download` it at first launch.
+      - name: Fetch engine wheels (cp313)
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p wheels
+          gh release download "${WHEELS_TAG}" -R "${ENGINE_REPO}" \
+            -p 'pysuperluxcore-*-cp313-cp313-*.whl' -D wheels --clobber
+          ls -l wheels
+
+      # Blender does not resolve wheel dependencies; without NVRTC the CUDA
+      # backend fails to initialise on Windows. --require-hashes verifies the
+      # download against the hash committed in the requirements file.
+      - name: Fetch NVRTC wheel (Windows, hash-pinned)
+        shell: bash
+        run: |
+          python -m pip download --require-hashes --no-deps --only-binary=:all: \
+            --platform win_amd64 --python-version 3.13 --implementation cp \
+            -d wheels -r cmake/bundled-wheels-win.txt
+          ls -l wheels
+
       - name: Package bundle
         shell: bash
         run: |
-          apt update -y && apt install xorg -y
           build_dir="${{ github.workspace }}/build"
           mkdir ${build_dir}
           echo "Configure"
           cmake \
             -B ${build_dir} \
             -S . \
-            -DCMAKE_BUILD_TYPE=${{ inputs.build_type }} \
+            -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
+            -DBLC_BUNDLE_WHEELS=ON \
             -DBLENDER_ROOT=${BLENDER_ROOT} \
             -Dblender_ROOT=${BLENDER_ROOT}
 
           echo "Build"
           cmake --build ${build_dir}
+
+      - name: Verify bundles
+        run: python cmake/verify_bundle.py "${{ github.workspace }}/build/out"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -128,8 +165,9 @@ jobs:
         with:
           name: "SuperLuxCore"
           path: "${{ github.workspace }}/build/out/SuperLuxCore-*.zip"
+          if-no-files-found: error
 
-  attest-wheels:
+  attest-bundle:
     needs: [build-bundle]
     runs-on: ubuntu-latest
     permissions:
@@ -142,12 +180,12 @@ jobs:
       - uses: actions/download-artifact@v7
         if: ${{ !env.ACT }}
         with:
+          name: "SuperLuxCore"
           path: ${{ github.workspace }}/dist
-          merge-multiple: false
 
       - name: Generate artifact attestations
         id: attestation-step
         if: ${{ !env.ACT }}
         uses: actions/attest-build-provenance@v3
         with:
-          subject-path: ${{ github.workspace }}/dist/*
+          subject-path: ${{ github.workspace }}/dist/*.zip

@@ -8,6 +8,7 @@ docs live alongside in `doc/`.
 |---|---|
 | [legacy-compat.md](legacy-compat.md) | Legacy upstream file compatibility |
 | [deployment.md](deployment.md) | Deployment: installed extension, wheel chain, external render |
+| [windows-extension-packaging.md](windows-extension-packaging.md) | Windows extension zip: local build, CI auto-release, bundled NVRTC for RTX/CUDA |
 | [render-session.md](render-session.md) | Render session lifecycle: halt, callbacks, viewport restart |
 | [cycles-compat.md](cycles-compat.md) | Cycles compatibility findings |
 | [blender-52-gotchas.md](blender-52-gotchas.md) | Blender 5.2 RNA/API gotchas |

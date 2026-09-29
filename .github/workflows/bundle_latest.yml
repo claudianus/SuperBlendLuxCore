@@ -13,11 +13,17 @@ jobs:
     uses: ./.github/workflows/build_bundle.yml
     with:
       build_type: "Latest"
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
 
   create_release:
     name: Create Latest Release
     runs-on: ubuntu-latest
     needs: build_latest
+    permissions:
+      contents: write
     steps:
 
       - name: Checkout main repository
@@ -54,7 +60,7 @@ jobs:
           echo $TESTRESULT
           if [[ $TESTRESULT = 'true' ]]; then
             echo DELETE
-            gh release delete latest
+            gh release delete latest --yes
           fi
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

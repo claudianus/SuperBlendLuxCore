@@ -42,7 +42,7 @@ if (CMAKE_BUILD_TYPE STREQUAL "Latest")
   set(BLC_VERSION "Latest")
 else()
   execute_process(
-    COMMAND python
+    COMMAND ${Python_EXECUTABLE}
       ${CMAKE_CURRENT_SOURCE_DIR}/cmake/superluxcore_version.py
       ${CMAKE_CURRENT_SOURCE_DIR}/blender_manifest.toml
     OUTPUT_VARIABLE BLC_VERSION
@@ -58,10 +58,34 @@ find_program(
   NO_CACHE REQUIRED
 )
 
-# Clean 'wheels' directory
-MESSAGE(STATUS "Cleaning wheels directory")
+# Bundled-wheel mode (-DBLC_BUNDLE_WHEELS=ON): ship the wheels found in
+# wheels/ inside the extension and build one zip per platform
+# (--split-platforms). The default (OFF) keeps the upstream behaviour:
+# empty wheels/ + `wheels = []`, engine wheel fetched at first launch.
+option(BLC_BUNDLE_WHEELS "Bundle wheels/*.whl and build one zip per platform" OFF)
+
 FILE(GLOB WHEELS "${CMAKE_CURRENT_SOURCE_DIR}/wheels/*.whl")
-file(REMOVE ${WHEELS})
+if(BLC_BUNDLE_WHEELS)
+  if(NOT WHEELS)
+    message(FATAL_ERROR "BLC_BUNDLE_WHEELS=ON but no wheels found in ${CMAKE_CURRENT_SOURCE_DIR}/wheels")
+  endif()
+  list(SORT WHEELS)
+  set(WHEEL_ENTRIES "")
+  foreach(WHEEL IN LISTS WHEELS)
+    get_filename_component(WHEEL_NAME "${WHEEL}" NAME)
+    list(APPEND WHEEL_ENTRIES "\"wheels/${WHEEL_NAME}\"")
+  endforeach()
+  list(JOIN WHEEL_ENTRIES ", " WHEEL_ENTRIES_STR)
+  set(MANIFEST_WHEELS "wheels = [${WHEEL_ENTRIES_STR}]")
+  set(SPLIT_PLATFORMS_ARG --split-platforms)
+  MESSAGE(STATUS "Bundling wheels: ${WHEEL_ENTRIES_STR}")
+else()
+  # Clean 'wheels' directory
+  MESSAGE(STATUS "Cleaning wheels directory")
+  file(REMOVE ${WHEELS})
+  set(MANIFEST_WHEELS "wheels = []")
+  set(SPLIT_PLATFORMS_ARG "")
+endif()
 
 # Clean 'out' directory
 MESSAGE(STATUS "Cleaning wheels directory")
@@ -72,11 +96,11 @@ file(REMOVE ${OUTFILES})
 MESSAGE(STATUS "Cleaning pysuperluxcore_installation_info.txt")
 file(REMOVE "pysuperluxcore_installation_info.txt")
 
-# Clean wheels entry in Blender manifest
+# Set wheels entry in Blender manifest
 # Nota: It would also be possible to use configure_file
-MESSAGE(STATUS "Cleaning wheels entry in blender_manifest.toml")
+MESSAGE(STATUS "Setting wheels entry in blender_manifest.toml")
 file(READ "blender_manifest.toml" CONTENT)
-string(REGEX REPLACE "wheels *= *\\\[[^]]*\\]" "wheels = []" NEW_CONTENT "${CONTENT}")
+string(REGEX REPLACE "wheels *= *\\\[[^]]*\\]" "${MANIFEST_WHEELS}" NEW_CONTENT "${CONTENT}")
 file(WRITE "${CMAKE_CURRENT_SOURCE_DIR}/blender_manifest.toml" "${NEW_CONTENT}")
 
 
@@ -88,6 +112,7 @@ add_custom_target(
     --command extension build
     --source-dir ${CMAKE_CURRENT_SOURCE_DIR}
     --output-filepath ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/SuperLuxCore-${BLC_VERSION}.zip
+    ${SPLIT_PLATFORMS_ARG}
   VERBATIM
 )
 

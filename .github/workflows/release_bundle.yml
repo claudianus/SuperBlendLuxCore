@@ -3,9 +3,20 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+# Automatic release: pushing a `vMAJOR.MINOR.PATCH[-pre]` tag builds the
+# per-platform extension zips (engine wheels bundled) and publishes them as a
+# GitHub release. Manual runs (workflow_dispatch) create a *draft* release.
+#
+#   git tag v2.11.3 && git push origin v2.11.3
+#
+# The tag must match `version` in blender_manifest.toml.
+
 name: SuperLuxCore Create Release
 
 on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+*'
   workflow_dispatch:
     inputs:
       release-version:
@@ -18,23 +29,39 @@ on:
         required: True
         type: boolean
         default: False
+      wheels-tag:
+        description: "Engine release tag to take wheels from"
+        required: False
+        type: string
+        default: "wheels-latest"
 
 jobs:
   check-version:
     name: 'Check version compliance'
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.resolve.outputs.version }}
     steps:
       - name: Checkout main repository
         uses: actions/checkout@v6
-        
-      - name: Check version compliance
-        if: ${{ inputs.release-version != '' }}
+
+      - name: Resolve and check version compliance
+        id: resolve
         shell: python
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          REF_NAME: ${{ github.ref_name }}
+          INPUT_VERSION: ${{ inputs.release-version }}
         run: |
+          import os
           import sys
           import re
           import tomllib
-          version = "${{ inputs.release-version }}"
+
+          if os.environ["EVENT_NAME"] == "push":
+              version = os.environ["REF_NAME"].removeprefix("v")
+          else:
+              version = os.environ["INPUT_VERSION"]
 
           # Check semver compliance
           semver_regex = r"^(?P<major>0|[1-9]\d*)\.(?P<minor>0|[1-9]\d*)\.(?P<patch>0|[1-9]\d*)(?:-(?P<prerelease>(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+(?P<buildmetadata>[0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$"
@@ -45,7 +72,6 @@ jobs:
                   "Version must comply to Semantic Versioning standard:",
                   "\n\tmajor.minor.patch[-pre]\n",
                   "See https://semver.org for more information",
-                  "or leave the field blank for default value\n"
               ]
               print("\n".join(message))
               sys.exit(1)
@@ -66,6 +92,8 @@ jobs:
 
           # Success
           print(f"::notice::Version number OK ('{version}')")
+          with open(os.environ["GITHUB_OUTPUT"], "a") as out:
+              out.write(f"version={version}\n")
 
   call-build-bundle:
     name: 'Build SuperLuxCore Bundle'
@@ -73,40 +101,35 @@ jobs:
     uses: ./.github/workflows/build_bundle.yml
     with:
       build_type: Release
+      wheels_tag: ${{ inputs.wheels-tag || 'wheels-latest' }}
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
 
   create-release:
     name: 'Create release'
-    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
-    needs: [call-build-bundle]
+    needs: [check-version, call-build-bundle]
     permissions:
       id-token: write
       attestations: write
       contents: write
+    env:
+      RELEASE_VERSION: ${{ needs.check-version.outputs.version }}
     steps:
       - run: |
-          _version=${{ inputs.release-version }}
-          echo "Creating release '${_version}'"
-          echo "RELEASE_TAG=v${_version}" >> "$GITHUB_ENV"
+          echo "Creating release '${RELEASE_VERSION}'"
+          echo "RELEASE_TAG=v${RELEASE_VERSION}" >> "$GITHUB_ENV"
       - uses: actions/checkout@v6
       - run: mkdir ${{ github.workspace }}/dist
       - uses: actions/download-artifact@v7
         with:
+          name: "SuperLuxCore"
           path: ${{ github.workspace }}/dist
-          merge-multiple: false
 
       - name: Display structure of downloaded files
         run: ls -Rl ${{ github.workspace }}/dist
-
-      #- name: Re-zip artifacts
-        #working-directory: ${{ github.workspace }}/dist
-        #run: |
-          #mkdir ../artifacts
-          #for d in */ ; do
-              #d2=${d%/}
-              #echo "zip ${d2}"
-              #zip -j ../artifacts/${d2}.zip ${d2}/*
-          #done
 
       - id: make-release
         # Use full length commit SHA, otherwise CodeQL complains...
@@ -114,14 +137,22 @@ jobs:
         with:
           name: "SuperLuxCore ${{ env.RELEASE_TAG }}"
           tag: ${{ env.RELEASE_TAG }}
-          artifacts: ${{ github.workspace }}/dist/*
+          artifacts: ${{ github.workspace }}/dist/*.zip
           removeArtifacts: true
-          allowUpdates: ${{ inputs.allow-updates }}
-          draft: true
+          allowUpdates: ${{ github.event_name == 'push' || inputs.allow-updates }}
+          draft: ${{ github.event_name != 'push' }}
           token: ${{ secrets.GITHUB_TOKEN }}
           updateOnlyUnreleased: true
           body: |
             ## SuperLuxCore
+
+            Install via **Edit > Preferences > Get Extensions > Install from Disk**
+            (pick the zip for your platform). The engine wheel is bundled, so
+            no download or pip is needed. The Windows zip also bundles the
+            NVRTC wheel required by the CUDA/OptiX backend.
+
+            - `windows_x64` - Windows 10/11 x64 (NVIDIA CUDA/OptiX + OpenCL)
+            - `linux_x64`, `macos_arm64`, `macos_x64`
 
             This release was built from the following point in claudianus/SuperBlendLuxCore:
             - Branch: ${{ needs.call-build-bundle.outputs.branch }}
