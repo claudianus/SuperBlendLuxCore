@@ -338,7 +338,7 @@ def convert(exporter, scene, context=None, engine=None):
 
         if config.spectral_enable and superluxcore_engine in (
             "PATHCPU", "PATHOCL", "TILEPATHCPU", "TILEPATHOCL",
-            "RTPATHCPU", "RTPATHOCL",
+            "RTPATHCPU", "RTPATHOCL", "BIDIRCPU",
         ):
             definitions["path.spectral.enable"] = True
 
