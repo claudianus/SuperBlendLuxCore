@@ -115,15 +115,17 @@ Write-Host "== patched $INIT (add_dll_directory shim)"
 Write-Host "== site-packages <- $PKG (+ pysuperluxcore.libs)"
 
 # ---------------------------------------------------------------------------
-# 2) dist-info so importlib.metadata.version('pysuperluxcore') == '2.11.2'
-#    (luxloader's bundled-wheel fast path skips the whole fetch ceremony)
+# 2) dist-info so importlib.metadata.version('pysuperluxcore') matches the
+#    engine's DefaultVersion (luxloader's bundled-wheel fast path skips the
+#    whole fetch ceremony)
 # ---------------------------------------------------------------------------
-$version = "2.11.2"
 $buildSettings = Get-Content (Join-Path $SUPERLUXCORE_REPO "build-system\build-settings.json") -Raw | ConvertFrom-Json
-if ($buildSettings.DefaultVersion) {
-    $v = $buildSettings.DefaultVersion
-    $version = "$($v.major).$($v.minor).$($v.patch)"
+$v = $buildSettings.DefaultVersion
+if (-not $v) {
+    Write-Error "ERROR: no DefaultVersion in $SUPERLUXCORE_REPO\build-system\build-settings.json"
+    exit 1
 }
+$version = "$($v.major).$($v.minor).$($v.patch)"
 $DIST_INFO = Join-Path $SITE_PKG "pysuperluxcore-$version.dist-info"
 Remove-Item $DIST_INFO -Recurse -Force -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Force $DIST_INFO | Out-Null

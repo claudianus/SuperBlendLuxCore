@@ -5,8 +5,9 @@
 # Builds one Blender extension zip per platform (windows_x64, linux_x64,
 # macos_arm64, macos_x64). Each zip bundles the matching pysuperluxcore wheel
 # (fetched from the engine repo's `wheels-latest` release, or another tag) so
-# it installs and runs offline; the Windows zip also bundles the hash-pinned
-# NVRTC wheel that CUDA/OptiX needs (see cmake/bundled-wheels-win.txt).
+# it installs and runs offline; the Windows and Linux zips also bundle the
+# hash-pinned NVRTC wheel that CUDA/OptiX needs (see
+# cmake/bundled-wheels-{win,linux}.txt).
 
 name: SuperLuxCore Build Bundle
 
@@ -129,14 +130,22 @@ jobs:
           ls -l wheels
 
       # Blender does not resolve wheel dependencies; without NVRTC the CUDA
-      # backend fails to initialise on Windows. --require-hashes verifies the
-      # download against the hash committed in the requirements file.
+      # backend fails to initialise. --require-hashes verifies the download
+      # against the hash committed in the requirements file.
       - name: Fetch NVRTC wheel (Windows, hash-pinned)
         shell: bash
         run: |
           python -m pip download --require-hashes --no-deps --only-binary=:all: \
             --platform win_amd64 --python-version 3.13 --implementation cp \
             -d wheels -r cmake/bundled-wheels-win.txt
+          ls -l wheels
+
+      - name: Fetch NVRTC wheel (Linux, hash-pinned)
+        shell: bash
+        run: |
+          python -m pip download --require-hashes --no-deps --only-binary=:all: \
+            --platform manylinux2014_x86_64 --python-version 3.13 --implementation cp \
+            -d wheels -r cmake/bundled-wheels-linux.txt
           ls -l wheels
 
       - name: Package bundle

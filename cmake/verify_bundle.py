@@ -4,8 +4,9 @@
 
 Every zip must contain exactly one pysuperluxcore wheel whose version matches
 blender_manifest.toml, every declared wheel must exist in the archive, and the
-Windows zip must also carry the nvrtc wheel (CUDA/OptiX would be silently
-disabled without it).
+Windows and Linux zips must also carry exactly one platform-matched nvrtc
+wheel (CUDA/OptiX would be silently disabled without it) while the macOS zips
+must carry none.
 
 Usage: verify_bundle.py DIR [--platforms windows_x64,linux_x64,...]
 """
@@ -54,10 +55,21 @@ def check(zip_path, platform):
             if "cp313" not in engine[0]:
                 errors.append(f"engine wheel is not cp313 (Blender 5.x Python): {engine[0]}")
 
-        if platform == "windows_x64":
-            nvrtc = [w for w in wheels if "nvidia_cuda_nvrtc" in Path(w).name]
+        nvrtc = [w for w in wheels if "nvidia_cuda_nvrtc" in Path(w).name]
+        nvrtc_tags = {
+            "windows_x64": ("win_amd64",),
+            "linux_x64": ("manylinux", "x86_64"),
+        }.get(platform)
+        if nvrtc_tags:
             if len(nvrtc) != 1:
-                errors.append(f"windows zip must bundle the nvrtc wheel, found {nvrtc}")
+                errors.append(f"{platform} zip must bundle one nvrtc wheel, found {nvrtc}")
+            elif not all(t in nvrtc[0] for t in nvrtc_tags):
+                errors.append(
+                    f"{platform} nvrtc wheel has wrong platform tag "
+                    f"(need {nvrtc_tags}): {nvrtc[0]}"
+                )
+        elif platform.startswith("macos") and nvrtc:
+            errors.append(f"{platform} zip must not bundle nvrtc wheels, found {nvrtc}")
     return errors
 
 

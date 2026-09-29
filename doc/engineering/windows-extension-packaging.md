@@ -10,8 +10,9 @@ One Blender extension zip per platform (`SuperLuxCore-<ver>-windows_x64.zip`,
 `pysuperluxcore` wheel, so install is offline (no pip, no PyPI — the engine
 wheel is **not on PyPI**, so a zip without bundled wheels cannot start).
 
-The Windows zip additionally bundles `nvidia_cuda_nvrtc_cu12-12.8.93`
-(hash-pinned in `cmake/bundled-wheels-win.txt`):
+The Windows and Linux zips additionally bundle `nvidia_cuda_nvrtc_cu12-12.8.93`
+(hash-pinned in `cmake/bundled-wheels-win.txt` /
+`cmake/bundled-wheels-linux.txt`):
 
 - `pysuperluxcore` declares `Requires-Dist: nvidia-cuda-nvrtc-cu12`, but
   Blender's extension installer does **not** resolve wheel dependencies.
@@ -46,10 +47,11 @@ the same CMake/`verify_bundle.py` flow as CI. Output defaults to
    *draft* instead. `bundle_latest.yml` (manual) refreshes the `latest`
    prerelease.
 3. `build_bundle.yml`: `gh release download <wheels_tag>` → pinned NVRTC via
-   `pip download --require-hashes` → `cmake -DBLC_BUNDLE_WHEELS=ON` →
-   `blender --command extension build --split-platforms` →
-   `cmake/verify_bundle.py` (exactly one cp313 engine wheel per zip, version ==
-   manifest, NVRTC in the Windows zip).
+   `pip download --require-hashes` (`cmake/bundled-wheels-{win,linux}.txt`) →
+   `cmake -DBLC_BUNDLE_WHEELS=ON` → `blender --command extension build
+   --split-platforms` → `cmake/verify_bundle.py` (exactly one cp313 engine
+   wheel per zip, version == manifest, platform-matched NVRTC in the Windows
+   and Linux zips, none in the macOS zips).
 
     git tag v2.11.3 && git push origin v2.11.3
 
@@ -90,9 +92,9 @@ the same CMake/`verify_bundle.py` flow as CI. Output defaults to
 - Engine → addon is not chained automatically (a cross-repo dispatch needs a
   PAT secret). Sequence: engine `wheels-latest` refresh, then tag the addon.
 - The engine `push:` trigger of `wheel-builder.yml` has never produced a run
-  in this fork (only `workflow_dispatch` runs exist); dispatch it manually
-  until that is understood.
-- `wheel-releaser.yml` / `wheel-publisher.yml` / `sample-releaser.yml` still
-  point at upstream `LuxCoreRender/LuxCore`; not touched here.
-- Linux zip has the same latent NVRTC gap (no NVRTC wheel bundled); only
-  Windows is handled.
+  in this fork (only `workflow_dispatch` runs exist; Actions is enabled and no
+  `github-actions` check suite is created for pushes); dispatch it manually:
+  `gh workflow run wheel-builder.yml -R claudianus/SuperLuxCore --ref main`.
+- Engine `wheel-releaser.yml` / `wheel-publisher.yml` / `sample-releaser.yml`
+  now target `${{ github.repository }}` (were upstream `LuxCoreRender/LuxCore`,
+  engine `62d76e587`).

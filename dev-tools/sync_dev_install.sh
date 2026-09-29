@@ -100,7 +100,8 @@ echo "== site-packages <- $DEST_SO (dylibs + rpath rewrite done)"
 # in the SuperLuxCore build tree instead.
 DEV_WHEEL_DIR="$SUPERLUXCORE_REPO/out/install/Release/wheel"
 mkdir -p "$DEV_WHEEL_DIR"
-DEV_WHEEL="$DEV_WHEEL_DIR/pysuperluxcore-2.11.2-cp313-cp313-macosx_14_0_arm64.whl"
+ENGINE_VER="$(python3 -c 'import json, sys; v = json.load(open(sys.argv[1]))["DefaultVersion"]; print(".".join((v["major"], v["minor"], v["patch"])))' "$SUPERLUXCORE_REPO/build-system/build-settings.json")"
+DEV_WHEEL="$DEV_WHEEL_DIR/pysuperluxcore-${ENGINE_VER}-cp313-cp313-macosx_14_0_arm64.whl"
 BASE_WHEEL="$(ls "$WHEELS_DIR"/pysuperluxcore-*.whl 2>/dev/null | head -1 || true)"
 [ -z "$BASE_WHEEL" ] && BASE_WHEEL="$DEV_WHEEL"
 if [ -f "$BASE_WHEEL" ]; then

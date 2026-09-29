@@ -13,7 +13,7 @@ type = "add-on"  # Supported types: "add-on", "theme"
 # I.e. MAJOR.MINOR.PATCH
 # E.g.: "2.9.4": major: 2; minor: 9; patch: 3.
 # or for pre-release versions: "2.9.4-alpha.1": major: 2; minor: 9; patch: 3; pre-release: alpha.1
-version = "2.11.2"
+version = "2.11.3"
 
 # Optional: link to documentation, support, source files, etc
 website = "https://claudianus.github.io/SuperLuxCore/"
@@ -46,7 +46,7 @@ platforms = ["windows-x64", "macos-arm64", "linux-x64", "macos-x64"]
 #
 # DO NOT ALTER following line, it will be replaced by actual wheel list at runtime
 # For developers: If you intend to use BLC in Editable Mode, please run 'debug_helpers/setup-wheels-filter.sh' beforehands
-wheels = ["wheels/pysuperluxcore-2.11.2-cp313-cp313-macosx_11_0_x86_64.whl", "wheels/pysuperluxcore-2.11.2-cp313-cp313-macosx_14_0_arm64.whl", "wheels/pysuperluxcore-2.11.2-cp313-cp313-manylinux_2_28_x86_64.whl", "wheels/pysuperluxcore-2.11.2-cp313-cp313-win_amd64.whl"]
+wheels = ["wheels/pysuperluxcore-2.11.3-cp313-cp313-macosx_11_0_x86_64.whl", "wheels/pysuperluxcore-2.11.3-cp313-cp313-macosx_14_0_arm64.whl", "wheels/pysuperluxcore-2.11.3-cp313-cp313-manylinux_2_28_x86_64.whl", "wheels/pysuperluxcore-2.11.3-cp313-cp313-win_amd64.whl"]
 
 # # Optional: add-ons can list which resources they will require:
 # # * files (for access of any filesystem operations)
