@@ -52,14 +52,19 @@ NOISE_LEVEL_DESC = (
 
 # Attached to view layer and scene
 class SuperLuxCoreHaltConditions(bpy.types.PropertyGroup):
-    enable: BoolProperty(name="Enable", default=False)
+    # On by default: a final render should finish by itself
+    # (Corona-style fire-and-forget) instead of running until Esc.
+    enable: BoolProperty(name="Enable", default=True)
 
     use_time: BoolProperty(name="Use Time", default=False)
     time: IntProperty(name="Time (s)", default=600, min=1)
 
     use_samples: BoolProperty(name="Use Samples", default=True,
                                description=USE_SAMPLES_DESC)
-    samples: IntProperty(name="Samples", default=32, min=2, soft_max=16384,
+    # Backstop only - the noise-level stop (3%) normally fires far
+    # earlier; this just guarantees termination on scenes that can not
+    # reach the target.
+    samples: IntProperty(name="Samples", default=2048, min=2, soft_max=16384,
                           description=SAMPLES_DESC)
 
     use_light_samples: BoolProperty(name="Use Light Path Samples", default=False,
@@ -78,7 +83,7 @@ class SuperLuxCoreHaltConditions(bpy.types.PropertyGroup):
                                     description=NOISE_THRESH_STEP_DESC)
 
     # Statistical noise level target (adaptive error, E5)
-    use_noise_level: BoolProperty(name="Use Noise Level", default=False,
+    use_noise_level: BoolProperty(name="Use Noise Level", default=True,
                                    description=USE_NOISE_LEVEL_DESC)
     noise_level: FloatProperty(name="Noise Level (%)", default=3.0,
                                 min=0.05, soft_min=1.0, soft_max=25.0, max=100.0,

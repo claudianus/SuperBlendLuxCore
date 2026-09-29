@@ -130,8 +130,9 @@ EXPECTED = [
     ("restir_gi_candidates", 0),
     ("restir_gi_temporal_enable", True),
     ("restir_gi_spatial_enable", True),
-    # MNEE
-    ("mnee_enable", False),
+    # MNEE (default on: caustics resolve out of the box, ~zero cost
+    # without delta occluders)
+    ("mnee_enable", True),
     ("mnee_maxspecular", 2),
     ("mnee_maxiterations", 64),
     ("mnee_seedcache", True),
@@ -186,11 +187,12 @@ EXPECTED = [
     ("photongi.caustic_periodic_update", True),
     ("photongi.caustic_updatespp", 16),
     ("photongi.caustic_updatespp_radiusreduction", 90.0),
-    ("photongi.caustic_updatespp_minradius", 0.003),
+    ("photongi.caustic_updatespp_minradius", 0.0),  # 0 = automatic
     ("photongi.debug", "off"),
     ("photongi.save_or_overwrite", False),
-    # env light cache
-    ("envlight_cache.enabled", False),
+    # env light cache (default on: learned env visibility, final renders
+    # only - V-Ray Adaptive Dome parity)
+    ("envlight_cache.enabled", True),
     ("envlight_cache.quality", 0.5),
     ("envlight_cache.save_or_overwrite", False),
     # image resize policy
@@ -221,6 +223,23 @@ EXPECTED = [
 ]
 
 
+# Defaults outside scene.superluxcore.config: the fire-and-forget stop
+# and denoiser policy (Corona-parity round: renders auto-finish at 3%
+# noise, samples value is only a safety backstop, and every render
+# carries a DENOISED pass).
+EXTRA_EXPECTED = [
+    ("halt.enable", True),
+    ("halt.use_samples", True),
+    ("halt.samples", 2048),
+    ("halt.use_noise_level", True),
+    ("halt.noise_level", 3.0),
+    ("denoiser.enabled", True),
+    ("denoiser.type", "OIDN"),
+    ("denoiser.oidn_mode", "COMPONENTS"),
+    ("denoiser.periodic_refresh", True),
+]
+
+
 def main():
     ensure_superluxcore()
     scene = bpy.context.scene
@@ -228,6 +247,12 @@ def main():
 
     for dotted, expected in EXPECTED:
         obj = config
+        for part in dotted.split("."):
+            obj = getattr(obj, part)
+        check(dotted, obj, expected)
+
+    for dotted, expected in EXTRA_EXPECTED:
+        obj = scene.superluxcore
         for part in dotted.split("."):
             obj = getattr(obj, part)
         check(dotted, obj, expected)

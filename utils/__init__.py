@@ -13,6 +13,7 @@
 import pathlib
 import math
 import re
+import tempfile
 import hashlib
 import os
 import itertools

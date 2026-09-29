@@ -579,7 +579,10 @@ class SuperLuxCoreConfigPhotonGI(PropertyGroup):
 
 
 class SuperLuxCoreConfigEnvLightCache(PropertyGroup):
-    enabled: BoolProperty(name="", default=False, description=ENVLIGHT_CACHE_DESC)
+    # On by default: learned env-light visibility removes the largest
+    # interior noise source without manual light portals (V-Ray ADL
+    # parity). Only applies to env-type lights/worlds and final renders.
+    enabled: BoolProperty(name="", default=True, description=ENVLIGHT_CACHE_DESC)
     # TODO description
     quality: FloatProperty(name="Quality", default=0.5, min=0, max=1)
 
@@ -1009,8 +1012,8 @@ class SuperLuxCoreConfig(PropertyGroup):
                                               "with reconnection shift + visibility test")
 
     # MNEE (specular chain direct light sampling)
-    mnee_enable: BoolProperty(name="MNEE Specular Caustics", default=False,
-                                  description="Direct light through delta specular surfaces (mirrors, glass) via manifold next event estimation. Fix dark caustics from point/spot lights behind mirrors or glass")
+    mnee_enable: BoolProperty(name="MNEE Specular Caustics", default=True,
+                                  description="Direct light through delta specular surfaces (mirrors, glass) via manifold next event estimation. Fix dark caustics from point/spot lights behind mirrors or glass. Near-zero cost in scenes without delta occluders, so it is on by default")
     mnee_maxspecular: IntProperty(name="Max Specular Vertices", default=2, min=1, max=4,
                                   description="Chain length for multi-specular transport (closed glass slabs need 2+). "
                                               "Higher values resolve thicker refractive stacks at extra cost")
