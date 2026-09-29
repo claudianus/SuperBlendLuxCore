@@ -263,6 +263,14 @@ def convert(exporter, scene, context=None, engine=None):
             if not config.ssp_enable:
                 definitions["path.ssp.enable"] = False
 
+        # PSR (path.regularization.*): biased-but-consistent rough-lobe
+        # blur at secondary bounces. Emit only when enabled so default
+        # exports stay bit-identical.
+        if config.psr_sigma > 0.:
+            definitions["path.regularization.sigma"] = config.psr_sigma
+            if config.psr_mindepth != 1:
+                definitions["path.regularization.mindepth"] = config.psr_mindepth
+
         if config.guiding_enable and superluxcore_engine in (
             "PATHCPU", "PATHOCL", "TILEPATHCPU", "TILEPATHOCL",
         ):

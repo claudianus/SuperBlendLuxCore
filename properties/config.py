@@ -1029,6 +1029,19 @@ class SuperLuxCoreConfig(PropertyGroup):
                                               "is blocked by the same glass/mirror object. Faster and "
                                               "better-seeded than rediscovering the chain - still unbiased")
 
+    # Path-space regularization (PSR, path.regularization.*): biased-but-
+    # consistent blur of rough glossy/transmission lobes at secondary
+    # bounces (Cycles "Filter Glossy" equivalent). Recovers caustic-chain
+    # energy BSDF sampling cannot reach; blurs the material response.
+    psr_sigma: FloatProperty(name="Filter Glossy Sigma", default=0.0, min=0.0, max=0.5,
+                                  description="Microfacet-alpha blur applied to secondary-bounce "
+                                              "rough lobes (glossy2/metal2/roughglass). 0 = off. "
+                                              "Recovers caustic paths the eye side cannot sample; "
+                                              "biased: specular response softens with sigma")
+    psr_mindepth: IntProperty(name="Filter Glossy Min Depth", default=1, min=0, max=16,
+                                  description="First bounce depth the blur applies to - 1 keeps the "
+                                              "camera-visible response exact")
+
     # Path guiding (P1-3): learned incident-radiance field steers glossy bounces
     guiding_enable: BoolProperty(name="Path Guiding", default=True,
                                  description="Learn where the light comes from while rendering and steer "

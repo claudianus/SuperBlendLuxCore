@@ -254,6 +254,11 @@ class SUPERLUXCORE_RENDER_PT_sampling_advanced(RenderButtonsPanel, Panel):
             col.prop(config, "mnee_seedcache")
             col.prop(config, "ssp_enable")
 
+        # PSR: biased-but-consistent rough-lobe blur (Filter Glossy)
+        col.prop(config, "psr_sigma")
+        if config.psr_sigma > 0.:
+            col.prop(config, "psr_mindepth")
+
         col.prop(config, "guiding_enable")
         if config.guiding_enable:
             # Optional warm-start table; empty trains inline (GPU engines
