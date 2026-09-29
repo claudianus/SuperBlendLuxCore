@@ -27,7 +27,7 @@ from .. import utils
 # that will be downloaded from PyPi during the standard installation of
 # SuperLuxCore. Please update this variable ONLY AFTER the targeted version of
 # pysuperluxcore has been released on PyPi.
-PYSUPERLUXCORE_VERSION = "2.11.4"
+PYSUPERLUXCORE_VERSION = "2.11.5"
 
 # Module folders
 ROOT_FOLDER = utils.get_module_path()  # The root dir of the package
@@ -507,8 +507,7 @@ def ensure_pysuperluxcore():
 
     # Bundled-wheel fast path: when the extension ships real wheels in
     # wheels/, Blender already installed the platform-matched one at
-    # extension-install time. Skip the whole fetch/install ceremony —
-    # in particular the (offline-fatal) pip download attempt. Only skip
+    # extension-install time. Skip the whole fetch/install ceremony ??    # in particular the (offline-fatal) pip download attempt. Only skip
     # when the version matches, so a stale module still gets refreshed.
     try:
         import pysuperluxcore  # noqa: F401
