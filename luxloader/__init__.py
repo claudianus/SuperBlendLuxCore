@@ -27,7 +27,7 @@ from .. import utils
 # that will be downloaded from PyPi during the standard installation of
 # SuperLuxCore. Please update this variable ONLY AFTER the targeted version of
 # pysuperluxcore has been released on PyPi.
-PYSUPERLUXCORE_VERSION = "2.11.3"
+PYSUPERLUXCORE_VERSION = "2.11.4"
 
 # Module folders
 ROOT_FOLDER = utils.get_module_path()  # The root dir of the package

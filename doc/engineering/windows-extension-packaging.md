@@ -84,17 +84,29 @@ the same CMake/`verify_bundle.py` flow as CI. Output defaults to
 - Same CI-style zip built from the *v2.11.2 CI wheel* + pinned NVRTC also
   enumerates CUDA; the untouched v2.11.2 release zip (no NVRTC) throws
   `CUDA_ERROR_NOT_INITIALIZED` during enumeration.
-- Workflows pass `actionlint` 1.7.12. **Not verified on GitHub runners**
-  (Linux Blender libs step, `gh release` steps, attestation).
+- Workflows pass `actionlint` 1.7.12.
+- GitHub runners (2026-09-29): engine wheel-builder run 36583842150 (20/20
+  wheels + `publish-latest` → `wheels-latest` = 2.11.3 @ `62d76e587`), addon
+  release run 36588418708 (4 zips, `verify_bundle.py` OK, attestation OK) →
+  release `v2.11.3`. The CI windows_x64 zip was then re-validated on the
+  RTX 5060: bundled-wheel fast path, CUDA + NVRTC 12.8, CUDA PATHOCL render
+  9.15M samples/s (cold NVRTC kernel compile ~21 min on first render).
 
 ## Known limits
 
 - Engine → addon is not chained automatically (a cross-repo dispatch needs a
   PAT secret). Sequence: engine `wheels-latest` refresh, then tag the addon.
-- The engine `push:` trigger of `wheel-builder.yml` has never produced a run
-  in this fork (only `workflow_dispatch` runs exist; Actions is enabled and no
-  `github-actions` check suite is created for pushes); dispatch it manually:
-  `gh workflow run wheel-builder.yml -R claudianus/SuperLuxCore --ref main`.
+- Push events (branch and tag) start no workflow in either fork: Actions is
+  enabled (`actions/permissions`), GitHub records the PushEvent, but no
+  `github-actions` check suite is created — only `workflow_dispatch` runs.
+  Likely the fork-level "enable workflows" gate on the repo's Actions tab
+  (UI only). Until push runs appear, release manually:
+
+      gh workflow run wheel-builder.yml -R claudianus/SuperLuxCore --ref main
+      git tag vX.Y.Z && git push origin vX.Y.Z
+      gh workflow run release_bundle.yml -R claudianus/SuperBlendLuxCore \
+        --ref vX.Y.Z -f release-version=X.Y.Z -f allow-updates=false
+      gh release edit vX.Y.Z -R claudianus/SuperBlendLuxCore --draft=false --latest
 - Engine `wheel-releaser.yml` / `wheel-publisher.yml` / `sample-releaser.yml`
   now target `${{ github.repository }}` (were upstream `LuxCoreRender/LuxCore`,
   engine `62d76e587`).
