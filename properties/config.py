@@ -161,7 +161,10 @@ PHOTONGI_INDIRECT_USAGETHRESHOLDSCALE_DESC = (
 )
 
 HYBRID_BACKFORWARD_DESC = (
-    "Trace rays from lights in addition to rays from the camera. Enable if your scene contains caustics"
+    "Trace rays from lights in addition to rays from the camera. When enabled the engine "
+    "activates the light pass automatically on caustic-capable scenes (specular/glossy "
+    "materials or scattering volumes) and keeps the full camera-ray budget on diffuse-only "
+    "scenes. Disable to force light tracing off entirely"
 )
 HYBRID_BACKFORWARD_LIGHTPART_DESC = (
     "Controls the amount of computed light rays. Higher values assign more computational power "

@@ -263,6 +263,11 @@ def convert(exporter, scene, context=None, engine=None):
                 definitions["path.mnee.seedcache"] = False
             if not config.ssp_enable:
                 definitions["path.ssp.enable"] = False
+        else:
+            # Unchecked = hard off: the engine auto-enables MNEE on
+            # caustic-capable scenes (path.mnee.auto), so an unset flag
+            # would silently reactivate what the artist turned off
+            definitions["path.mnee.enable"] = False
 
         # PSR (path.regularization.*): biased-but-consistent rough-lobe
         # blur at secondary bounces. Emit only when enabled so default
@@ -787,7 +792,14 @@ def _convert_path(
             # directly onto the light-task fraction. The engine
             # automatically enables eye-side caustic suppression, so the
             # estimator stays unbiased without a CPU light pass.
-            definitions["path.lighttracing.enable"] = use_hybridbackforward
+            if use_hybridbackforward and path.lighttracing_only:
+                # Light-only output needs the task population even on
+                # scenes the signature judges non-caustic
+                definitions["path.lighttracing.enable"] = True
+            # Otherwise path.lighttracing.enable is left unset: the
+            # engine auto-enables light tracing on caustic-capable
+            # scenes and keeps the full eye-task budget on
+            # diffuse-only ones.
             definitions["path.lighttracing.taskfraction"] = min(
                 partition_raw / 100, 0.9
             )
@@ -837,7 +849,21 @@ def _convert_path(
         # Note that our partition property is inverted compared to SuperLuxCore's (it is the probability to
         # sample a light path, not the probability to sample a camera path)
         partition = 1 - partition_raw / 100
-        definitions["path.hybridbackforward.enable"] = use_hybridbackforward
+        if not use_hybridbackforward:
+            # Hard off on both flags: wins over the engine's
+            # caustic-scene signature (path.lighttracing.auto) - on the
+            # CPU an exported lighttracing.enable=False is what keeps
+            # auto from re-promoting hybrid behind the artist's back
+            definitions["path.lighttracing.enable"] = False
+            definitions["path.hybridbackforward.enable"] = False
+        elif device != "OCL" and partition_raw == 100:
+            # CPU light-pass-only render (Light Rays = 100%): the split
+            # must exist even on scenes the signature judges
+            # non-caustic, same reason as lighttracing_only on the GPU
+            definitions["path.hybridbackforward.enable"] = True
+        # Otherwise left unset: the engine auto-enables the light pass
+        # on caustic-capable scenes and keeps the full camera-path
+        # budget on diffuse-only ones.
         definitions["path.hybridbackforward.partition"] = partition
         definitions["path.hybridbackforward.glossinessthreshold"] = (
             path.hybridbackforward_glossinessthresh
