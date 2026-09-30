@@ -152,7 +152,7 @@ class SUPERLUXCORE_RENDER_PT_caches_photongi_caustic(RenderButtonsPanel, Panel):
 
     def draw_header(self, context):
         self.layout.active = (context.scene.superluxcore.config.photongi.enabled or
-                              context.scene.superluxcore.config.photongi.caustic_mode == "auto")
+                              context.scene.superluxcore.config.photongi.caustic_mode != "off")
         row = self.layout.row(align=True)
         row.label(text="Caustic Light Cache")
 
@@ -162,11 +162,14 @@ class SUPERLUXCORE_RENDER_PT_caches_photongi_caustic(RenderButtonsPanel, Panel):
         layout.use_property_split = True
         layout.use_property_decorate = False
 
-        layout.active = photongi.caustic_mode != "off"
+        # The mode selector lives outside the disabled column: with
+        # mode="off" an inner prop would grey itself out and could never
+        # be switched back (no header toggle exists anymore).
+        col = layout.column(align=True)
+        col.prop(photongi, "caustic_mode")
 
         col = layout.column(align=True)
         col.enabled = photongi.caustic_mode != "off"
-        col.prop(photongi, "caustic_mode")
         sub = col.column(align=True)
         sub.prop(photongi, "caustic_maxsize_auto")
         sub2 = sub.column(align=True)

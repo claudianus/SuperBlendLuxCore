@@ -150,6 +150,28 @@ sc.superluxcore.config.photongi.caustic_enabled = True
 d = export_defs()
 check("off beats legacy bool", pg + "caustic.enabled" not in d)
 
+# 8. BIDIR + mode=on -> explicit opt-in is engine-agnostic (regression:
+# an engine startswith gate used to swallow on/legacy for non-PATH
+# engines even though BIDIRCPU owns a PhotonGI caustic pass)
+sc = reset_scene()
+add_opaque_scene(sc)
+sc.superluxcore.config.engine = "BIDIR"
+sc.superluxcore.config.photongi.caustic_mode = "on"
+d = export_defs()
+check("bidir: mode=on forces caustic",
+      d.get(pg + "caustic.enabled") == "1", d.get(pg + "caustic.enabled"))
+check("bidir: indirect stays off when master off",
+      d.get(pg + "indirect.enabled") == "0", d.get(pg + "indirect.enabled"))
+
+# 9. BIDIR + auto + glass -> transmissive scene engages the cache too
+# (BIDIRCPU is a PhotonGI consumer)
+sc = reset_scene()
+add_glass_scene(sc)
+sc.superluxcore.config.engine = "BIDIR"
+d = export_defs()
+check("bidir: auto engages for glass",
+      d.get(pg + "caustic.enabled") == "1", d.get(pg + "caustic.enabled"))
+
 fails = [n for n, c, _ in results if not c]
 print(f"\n== e51: {len(results) - len(fails)}/{len(results)} passed" +
       (f" | FAILED: {fails}" if fails else ""), flush=True)

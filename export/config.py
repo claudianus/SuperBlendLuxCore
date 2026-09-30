@@ -348,17 +348,20 @@ def convert(exporter, scene, context=None, engine=None):
         # is off - refractive scenes get working caustics with zero setup
         # (Corona-style). The preprocess is bounded and runs on final
         # renders only, so viewport stays cache-free.
-        caustic_on = False
-        if not is_viewport_render and superluxcore_engine.startswith(
-            ("PATH", "TILEPATH", "RTPATH")
-        ):
-            mode = getattr(config.photongi, "caustic_mode", "auto")
-            if mode == "off":
-                caustic_on = False
-            elif mode == "on" or config.photongi.caustic_enabled:
-                caustic_on = True
-            else:
-                caustic_on = _scene_has_transmissive(scene)
+        mode = getattr(config.photongi, "caustic_mode", "auto")
+        if mode == "off":
+            caustic_on = False
+        elif mode == "on" or config.photongi.caustic_enabled:
+            # Explicit opt-in is engine-agnostic: engines without a
+            # caustic consumer just ignore the flag (BIDIRCPU has one).
+            caustic_on = True
+        else:
+            # Auto pays the scene scan only where a cache can build:
+            # every final engine owns a PhotonGI caustic pass except
+            # RTPATHCPU (RT lattice, and viewport-only anyway).
+            caustic_on = (not is_viewport_render and
+                    superluxcore_engine != "RTPATHCPU" and
+                    _scene_has_transmissive(scene))
 
         if (config.photongi.enabled or caustic_on) and not is_viewport_render:
             _convert_photongi_settings(context is not None, scene,
