@@ -255,7 +255,9 @@ class SUPERLUXCORE_RENDER_PT_sampling_advanced(RenderButtonsPanel, Panel):
             col.prop(config, "ssp_enable")
 
         # PSR: biased-but-consistent rough-lobe blur (Filter Glossy)
-        col.prop(config, "psr_sigma")
+        row = col.row(align=True)
+        row.prop(config, "psr_sigma")
+        row.prop(config, "psr_auto", text="")
         if config.psr_sigma > 0.:
             col.prop(config, "psr_mindepth")
             col.prop(config, "psr_halflife")

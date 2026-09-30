@@ -1055,9 +1055,16 @@ class SuperLuxCoreConfig(PropertyGroup):
     # consistent blur of rough glossy/transmission lobes at secondary
     # bounces (Cycles "Filter Glossy" equivalent). Recovers caustic-chain
     # energy BSDF sampling cannot reach; blurs the material response.
+    psr_auto: BoolProperty(name="Auto", default=True,
+                                  description="Let the engine seed a conservative sigma + halflife on "
+                                              "caustic-capable scenes (glass/mirror/glossy present) so "
+                                              "progressive frames resolve caustic energy early - the blur "
+                                              "decays to zero and the image converges unbiased. "
+                                              "Ignored once sigma or half-life is set explicitly")
     psr_sigma: FloatProperty(name="Filter Glossy Sigma", default=0.0, min=0.0, max=0.5,
                                   description="Microfacet-alpha blur applied to secondary-bounce "
-                                              "rough lobes (glossy2/metal2/roughglass). 0 = off. "
+                                              "rough lobes (glossy2/metal2/roughglass). 0 = engine "
+                                              "decides (Auto) or off (Auto unchecked). "
                                               "Recovers caustic paths the eye side cannot sample; "
                                               "biased: specular response softens with sigma")
     psr_mindepth: IntProperty(name="Filter Glossy Min Depth", default=1, min=0, max=16,

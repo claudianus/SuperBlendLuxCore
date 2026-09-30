@@ -270,8 +270,11 @@ def convert(exporter, scene, context=None, engine=None):
             definitions["path.mnee.enable"] = False
 
         # PSR (path.regularization.*): biased-but-consistent rough-lobe
-        # blur at secondary bounces. Emit only when enabled so default
-        # exports stay bit-identical.
+        # blur at secondary bounces (Cycles "Filter Glossy" equivalent).
+        # Auto = engine seeds sigma+halflife on caustic-capable scenes;
+        # an explicit sigma always overrides the auto seed.
+        if not config.psr_auto:
+            definitions["path.regularization.auto"] = False
         if config.psr_sigma > 0.:
             definitions["path.regularization.sigma"] = config.psr_sigma
             if config.psr_mindepth != 1:
