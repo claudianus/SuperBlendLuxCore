@@ -1063,6 +1063,10 @@ class SuperLuxCoreConfig(PropertyGroup):
     psr_mindepth: IntProperty(name="Filter Glossy Min Depth", default=1, min=0, max=16,
                                   description="First bounce depth the blur applies to - 1 keeps the "
                                               "camera-visible response exact")
+    psr_halflife: FloatProperty(name="Filter Glossy Half-life", default=0.0, min=0.0, soft_max=512.0,
+                                  description="Sigma halves every this many samples per pixel "
+                                              "(Kaplanyan decay - the blur fades out and the render "
+                                              "converges unbiased in the limit). 0 = static blur")
 
     # Path guiding (P1-3): learned incident-radiance field steers glossy bounces
     guiding_enable: BoolProperty(name="Path Guiding", default=True,

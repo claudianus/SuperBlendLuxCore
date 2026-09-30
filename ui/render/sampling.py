@@ -258,6 +258,7 @@ class SUPERLUXCORE_RENDER_PT_sampling_advanced(RenderButtonsPanel, Panel):
         col.prop(config, "psr_sigma")
         if config.psr_sigma > 0.:
             col.prop(config, "psr_mindepth")
+            col.prop(config, "psr_halflife")
 
         col.prop(config, "guiding_enable")
         if config.guiding_enable:
