@@ -23,16 +23,33 @@ from _bpy_internal.extensions import wheel_manager
 
 from .. import utils
 
-# The variable PYSUPERLUXCORE_VERSION specifies the release version of pysuperluxcore
-# that will be downloaded from PyPi during the standard installation of
-# SuperLuxCore. Please update this variable ONLY AFTER the targeted version of
-# pysuperluxcore has been released on PyPi.
-PYSUPERLUXCORE_VERSION = "2.11.5"
 
 # Module folders
 ROOT_FOLDER = utils.get_module_path()  # The root dir of the package
 WHEEL_DL_FOLDER = ROOT_FOLDER / "wheels"
 WHEEL_BACKUP_FOLDER = ROOT_FOLDER / "wheels_backup"
+
+# Release version, read from blender_manifest.toml. That file is the
+# single source of truth: the release CI gates the bundled engine wheel
+# version against it (cmake/verify_bundle.py), so anything derived from
+# it cannot drift. A hand-kept PYSUPERLUXCORE_VERSION constant desynced
+# on every release bump and pushed fresh installs into a PyPI download
+# for a package that is not published there.
+def _read_addon_version():
+    try:
+        import tomllib
+
+        with open(ROOT_FOLDER / "blender_manifest.toml", "rb") as manifest:
+            return tomllib.load(manifest)["version"]
+    except Exception as err:
+        print(
+            f"[BLC] Warning: cannot read the add-on version from "
+            f"blender_manifest.toml ({err})"
+        )
+        return None
+
+
+ADDON_VERSION = _read_addon_version()
 
 # Extension folder
 EXTENSIONS_FOLDER = pathlib.Path(bpy.utils.user_resource("EXTENSIONS"))
@@ -420,7 +437,7 @@ def _fetch_wheels():
     # Case #1 (standard case): Get wheel from PyPI
     if wheel_source == WheelSource.PYPI:
         # Compute required version
-        pysuperluxcore_version = settings.get("wheel_version") or PYSUPERLUXCORE_VERSION
+        pysuperluxcore_version = settings.get("wheel_version") or ADDON_VERSION
 
         wheels = [f"pysuperluxcore=={pysuperluxcore_version}"]
 
@@ -514,27 +531,20 @@ def ensure_pysuperluxcore():
     # extension-install time. Skip the whole fetch/install ceremony — in
     # particular the (offline-fatal) pip download attempt.
     #
-    # The expected version is read from blender_manifest.toml, which is the
-    # single source of truth: the release CI gates the bundled wheel
-    # version == manifest version (cmake/verify_bundle.py). A hand-kept
-    # PYSUPERLUXCORE_VERSION constant desynced on every release bump and
-    # pushed every fresh install into a doomed PyPI download.
+    # The expected version is ADDON_VERSION, read once at import from
+    # blender_manifest.toml.
     #
     # LOCAL/LOCALDEPS sources are excluded on purpose: there the fetch path
     # is the content-hash check that reinstalls a rebuilt local wheel even
     # when its version string did not change.
-    if _get_settings().get("wheel_source", 0) == WheelSource.PYPI:
+    if ADDON_VERSION and _get_settings().get("wheel_source", 0) == WheelSource.PYPI:
         try:
             import pysuperluxcore  # noqa: F401
-            import tomllib
             from importlib.metadata import version as _pkg_version
 
-            with open(ROOT_FOLDER / "blender_manifest.toml", "rb") as f:
-                expected = tomllib.load(f)["version"]
-
-            if _pkg_version("pysuperluxcore") == expected:
+            if _pkg_version("pysuperluxcore") == ADDON_VERSION:
                 print(
-                    f"[BLC] pysuperluxcore {expected} already installed "
+                    f"[BLC] pysuperluxcore {ADDON_VERSION} already installed "
                     "(bundled wheel) - skipping download"
                 )
                 return

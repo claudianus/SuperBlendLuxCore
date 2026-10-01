@@ -8,6 +8,23 @@
 - `extensions/user_default/superluxcore` — this repo's add-on, synced via
   `dev-tools/sync_dev_install.sh` (default `EXT_ID=superluxcore`).
 
+## Installing a released zip (end user / unattended)
+
+The release artifacts are one zip per platform
+(`SuperLuxCore-<version>-{windows_x64,linux_x64,macos_arm64,macos_x64}.zip`),
+each bundling the matching `pysuperluxcore` wheel so no download or pip is
+needed. Install with the platform zip:
+
+    blender --command extension install-file -r user_default -e \
+        SuperLuxCore-<version>-<platform>.zip
+
+`-e` (`--enable`) is required: without it Blender only unpacks the zip and
+leaves the add-on disabled, so the engine never registers. From the GUI,
+*Edit > Preferences > Get Extensions > Install from Disk* enables it.
+The engine resolves its Metal kernel translator (`cl2msl.py`) from inside
+the installed package, so a released install renders on the GPU with no
+source tree, no environment variable and no network access.
+
 ## pysuperluxcore wheel install chain (verified 2026-09)
 
 - The add-on's wheel manager runs at startup: it copies the wheel from

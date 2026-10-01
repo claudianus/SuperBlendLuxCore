@@ -95,6 +95,51 @@ jobs:
           with open(os.environ["GITHUB_OUTPUT"], "a") as out:
               out.write(f"version={version}\n")
 
+      - name: Check add-on/engine version lockstep
+        shell: python
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ENGINE_REPO: claudianus/SuperLuxCore
+          ADDON_VERSION: ${{ steps.resolve.outputs.version }}
+        run: |
+          import base64, json, os, subprocess, sys, tempfile
+          from pathlib import Path
+
+          # The bundle gate (cmake/verify_bundle.py) catches an engine wheel
+          # whose version disagrees with the add-on, but only after the whole
+          # bundle is built. Fetch the engine settings and fail here instead.
+          raw = subprocess.run(
+              [
+                  "gh", "api",
+                  f"repos/{os.environ['ENGINE_REPO']}/contents/"
+                  "build-system/build-settings.json",
+                  "--jq", ".content",
+              ],
+              check=True, capture_output=True, text=True,
+              env={**os.environ, "GH_TOKEN": os.environ["GH_TOKEN"]},
+          ).stdout
+
+          with tempfile.TemporaryDirectory() as tmp:
+              engine = Path(tmp) / "engine"
+              (engine / "build-system").mkdir(parents=True)
+              (engine / "build-system" / "build-settings.json").write_bytes(
+                  base64.b64decode(raw)
+              )
+              result = subprocess.run(
+                  [
+                      sys.executable,
+                      "dev-tools/check_version_lockstep.py",
+                      "--engine", str(engine),
+                  ]
+              )
+          if result.returncode != 0:
+              print(
+                  f"::error::engine version on {os.environ['ENGINE_REPO']} does "
+                  f"not match add-on {os.environ['ADDON_VERSION']} - bump both "
+                  "with dev-tools/check_version_lockstep.py --set <version>"
+              )
+          sys.exit(result.returncode)
+
   call-build-bundle:
     name: 'Build SuperLuxCore Bundle'
     needs: [check-version]
@@ -150,6 +195,12 @@ jobs:
             (pick the zip for your platform). The engine wheel is bundled, so
             no download or pip is needed. The Windows zip also bundles the
             NVRTC wheel required by the CUDA/OptiX backend.
+
+            Headless / unattended install (the `-e` flag is what enables
+            the extension; without it Blender only unpacks the zip):
+
+                blender --command extension install-file \
+                    -r user_default -e SuperLuxCore-<version>-<platform>.zip
 
             - `windows_x64` - Windows 10/11 x64 (NVIDIA CUDA/OptiX + OpenCL)
             - `linux_x64`, `macos_arm64`, `macos_x64`
