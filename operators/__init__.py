@@ -18,6 +18,7 @@ from . import (
     lol,
     aovs,
     camera,
+    cycles_settings,
     debug,
     general,
     imagepipeline,
@@ -44,6 +45,7 @@ if _needs_reload:
     import importlib
     modules = (
         aovs,
+        cycles_settings,
         camera,
         debug,
         general,
@@ -134,6 +136,7 @@ classes = (
     render.SUPERLUXCORE_OT_toggle_pause,
     render.SUPERLUXCORE_OT_stop_render,
     render_settings_helper.SUPERLUXCORE_OT_render_settings_helper,
+    cycles_settings.SUPERLUXCORE_OT_import_cycles_settings,
     texture.SUPERLUXCORE_OT_texture_show_nodetree,
     texture.SUPERLUXCORE_OT_tex_nodetree_new,
     texture.SUPERLUXCORE_OT_texture_unlink,

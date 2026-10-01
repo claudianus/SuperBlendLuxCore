@@ -57,6 +57,13 @@ def superluxcore_render_draw(panel, context):
         "superluxcore.render_settings_helper",
         icon_value=icon_manager.get_icon_id("help"),
     )
+    # One-shot import of the scene's Cycles settings (samples, bounce
+    # depths, denoise flag) so switching engines doesn't require
+    # re-entering them manually.
+    row.operator(
+        "superluxcore.import_cycles_settings",
+        icon="IMPORT",
+    )
 
 
 class SUPERLUXCORE_RENDER_PT_lightpaths(RenderButtonsPanel, Panel):
