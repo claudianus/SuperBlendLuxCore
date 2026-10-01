@@ -297,11 +297,15 @@ def _update_manifest(wheel_list):
         content,
         flags=re.MULTILINE
     )
-    if number_of_replacements != 1:
+    # A split-platform package carries two `wheels` statements: the
+    # top-level declared list and the platform-filtered one under
+    # [build.generated], which is the list Blender actually installs from.
+    # Both have to track the installed wheel set, so only "none found"
+    # means the manifest lost its statement.
+    if number_of_replacements == 0:
         print(
-            "[BLC] WARNING: inconsistent number of replacements when updating"
-            "`wheels` statement in blender_manifest.toml "
-            f"({number_of_replacements}) - see file '{pkg_manifest_filepath}'"
+            "[BLC] WARNING: no `wheels` statement found in "
+            f"blender_manifest.toml - see file '{pkg_manifest_filepath}'"
         )
 
     # Write back to file
@@ -507,19 +511,35 @@ def ensure_pysuperluxcore():
 
     # Bundled-wheel fast path: when the extension ships real wheels in
     # wheels/, Blender already installed the platform-matched one at
-    # extension-install time. Skip the whole fetch/install ceremony ??    # in particular the (offline-fatal) pip download attempt. Only skip
-    # when the version matches, so a stale module still gets refreshed.
-    try:
-        import pysuperluxcore  # noqa: F401
-        from importlib.metadata import version as _pkg_version
-        if _pkg_version("pysuperluxcore") == PYSUPERLUXCORE_VERSION:
-            print(
-                f"[BLC] pysuperluxcore {PYSUPERLUXCORE_VERSION} already "
-                "installed (bundled wheel) - skipping download"
-            )
-            return
-    except Exception:
-        pass
+    # extension-install time. Skip the whole fetch/install ceremony — in
+    # particular the (offline-fatal) pip download attempt.
+    #
+    # The expected version is read from blender_manifest.toml, which is the
+    # single source of truth: the release CI gates the bundled wheel
+    # version == manifest version (cmake/verify_bundle.py). A hand-kept
+    # PYSUPERLUXCORE_VERSION constant desynced on every release bump and
+    # pushed every fresh install into a doomed PyPI download.
+    #
+    # LOCAL/LOCALDEPS sources are excluded on purpose: there the fetch path
+    # is the content-hash check that reinstalls a rebuilt local wheel even
+    # when its version string did not change.
+    if _get_settings().get("wheel_source", 0) == WheelSource.PYPI:
+        try:
+            import pysuperluxcore  # noqa: F401
+            import tomllib
+            from importlib.metadata import version as _pkg_version
+
+            with open(ROOT_FOLDER / "blender_manifest.toml", "rb") as f:
+                expected = tomllib.load(f)["version"]
+
+            if _pkg_version("pysuperluxcore") == expected:
+                print(
+                    f"[BLC] pysuperluxcore {expected} already installed "
+                    "(bundled wheel) - skipping download"
+                )
+                return
+        except Exception:
+            pass
 
     # Fetch wheels (download or copy from local source, depending on settings)
     # and install them
