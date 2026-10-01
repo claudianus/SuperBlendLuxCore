@@ -105,24 +105,55 @@ DEV_WHEEL="$DEV_WHEEL_DIR/pysuperluxcore-${ENGINE_VER}-cp313-cp313-macosx_14_0_a
 BASE_WHEEL="$(ls "$WHEELS_DIR"/pysuperluxcore-*.whl 2>/dev/null | head -1 || true)"
 [ -z "$BASE_WHEEL" ] && BASE_WHEEL="$DEV_WHEEL"
 if [ -f "$BASE_WHEEL" ]; then
-    python3 - "$BASE_WHEEL" "$DEV_WHEEL" "$DEST_SO" "$SITE_PKG/pysuperluxcore/.dylibs" <<'PYEOF'
-import os, sys, zipfile
-wheel, dev_wheel, so, dylibs = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
+    python3 - "$BASE_WHEEL" "$DEV_WHEEL" "$ENGINE_VER" "$DEST_SO" "$SITE_PKG/pysuperluxcore/.dylibs" <<'PYEOF'
+import os, re, sys, zipfile
+wheel, dev_wheel, version, so, dylibs = sys.argv[1:6]
 tmp = dev_wheel + ".tmp"
 soname = os.path.basename(so)
+
+# The base wheel can be an older build, so its dist-info (directory name
+# and METADATA Version) has to follow the version we publish the repack
+# under: importlib.metadata reports the METADATA one, and the add-on
+# compares it against blender_manifest.toml to decide whether the
+# bundled wheel is already installed.
+def retag_dist_info(name):
+    parts = name.split("/")
+    if len(parts) < 2 or not parts[0].endswith(".dist-info"):
+        return name, False
+    parts[0] = f"pysuperluxcore-{version}.dist-info"
+    return "/".join(parts), True
+
 with zipfile.ZipFile(wheel) as zin, \
      zipfile.ZipFile(tmp, "w", zipfile.ZIP_DEFLATED) as zout:
-    names = set()
     for item in zin.infolist():
         if item.filename == f"pysuperluxcore/{soname}" or \
                 item.filename.startswith("pysuperluxcore/.dylibs/"):
             continue  # replaced below
-        zout.writestr(item, zin.read(item.filename))
+        new_name, is_dist_info = retag_dist_info(item.filename)
+        data = zin.read(item.filename)
+        if is_dist_info and item.filename.endswith("/METADATA"):
+            data = re.sub(
+                rb"(?m)^Version:.*$", f"Version: {version}".encode(), data
+            )
+        zout.writestr(new_name, data)
     zout.write(so, f"pysuperluxcore/{soname}")
     for f in sorted(os.listdir(dylibs)):
         src = os.path.join(dylibs, f)
         if os.path.isfile(src):
             zout.write(src, f"pysuperluxcore/.dylibs/{f}")
+
+# The repacked wheel must be self-consistent: a filename that disagrees
+# with its own metadata is what produced broken dev installs.
+with zipfile.ZipFile(tmp) as z:
+    meta = [n for n in z.namelist() if n.endswith(".dist-info/METADATA")]
+    if len(meta) != 1:
+        raise SystemExit(f"repacked wheel has {len(meta)} dist-info METADATA entries")
+    m = re.search(rb"(?m)^Version:\s*(\S+)", z.read(meta[0]))
+    got = m.group(1).decode() if m else None
+    if got != version:
+        raise SystemExit(f"repacked wheel metadata version {got} != {version}")
+    print(f"== dev wheel dist-info OK (pysuperluxcore-{version})")
+
 os.replace(tmp, dev_wheel)
 print(f"== dev wheel updated: {dev_wheel}")
 PYEOF
