@@ -12,6 +12,7 @@ Usage: verify_bundle.py DIR [--platforms windows_x64,linux_x64,...]
 """
 
 import argparse
+import io
 import re
 import sys
 import tomllib
@@ -54,6 +55,34 @@ def check(zip_path, platform):
                 )
             if "cp313" not in engine[0]:
                 errors.append(f"engine wheel is not cp313 (Blender 5.x Python): {engine[0]}")
+
+            # Runtime payload of the engine wheel. The Metal backend runs
+            # src/slg/utils/cl2msl.py to translate kernels; when it is not
+            # packaged, every install renders nothing on the GPU.
+            with zipfile.ZipFile(io.BytesIO(z.read(engine[0]))) as ew:
+                inner = ew.namelist()
+                if "pysuperluxcore/cl2msl.py" not in inner:
+                    errors.append(
+                        "engine wheel does not bundle pysuperluxcore/cl2msl.py "
+                        "(Metal kernel translation would fail at runtime)"
+                    )
+                # The dist-info is what importlib.metadata reports, so a
+                # filename/metadata mismatch ships a wheel that the add-on
+                # refuses to recognise as the bundled one.
+                meta = [n for n in inner if n.endswith(".dist-info/METADATA")]
+                if len(meta) != 1:
+                    errors.append(f"engine wheel has {len(meta)} dist-info METADATA entries")
+                else:
+                    m = re.search(
+                        r"^Version:\s*(\S+)",
+                        ew.read(meta[0]).decode(),
+                        flags=re.MULTILINE,
+                    )
+                    if not m or m.group(1) != ver:
+                        errors.append(
+                            f"engine wheel metadata version {m.group(1) if m else None} "
+                            f"!= filename version {ver}"
+                        )
 
         nvrtc = [w for w in wheels if "nvidia_cuda_nvrtc" in Path(w).name]
         nvrtc_tags = {
