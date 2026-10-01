@@ -25,6 +25,30 @@ The engine resolves its Metal kernel translator (`cl2msl.py`) from inside
 the installed package, so a released install renders on the GPU with no
 source tree, no environment variable and no network access.
 
+## Vulkan HWRT on a released install
+
+The Vulkan backend compiles kernels with an external toolchain
+(`clspv`, `opt`, `llvm-dis`, `glslangValidator`, plus `libMoltenVK.dylib`
+on macOS - about 168 MB). It is **not** in the default wheels: the Metal
+backend is native and HWRT-capable, so the Vulkan path stays opt-in
+rather than tripling every wheel's download.
+
+The engine searches, in order: `LUXRAYS_CLSPV`/`LUXRAYS_OPT`/
+`LUXRAYS_GLSLANG`/`LUXRAYS_MOLTENVK`, then `~/.luxcore/vktools`, then
+`vktools/` **next to the installed module**, then PATH. So either:
+
+- run `dev-tools/vulkan-tools-install.sh` with `LUX_VKTOOLS` pointed at
+  the package directory (`<site-packages>/pysuperluxcore/vktools`) to add
+  it to an existing install, or
+- build a wheel that carries it:
+  `cmake -DPYSUPERLUXCORE_BUNDLE_VKTOOLS=ON -DVKTOOLS_DIR=<toolchain>`.
+
+When none is found, compiling a kernel fails immediately with the
+searched roots and the install command instead of a bare clspv error.
+Note that the toolchain sources are **not** vendored in this repository:
+the install script expects clspv/glslang/MoltenVK build trees (or
+`LUXRAYS_CLSPV` and friends) to be provided by the developer or CI.
+
 ## pysuperluxcore wheel install chain (verified 2026-09)
 
 - The add-on's wheel manager runs at startup: it copies the wheel from
