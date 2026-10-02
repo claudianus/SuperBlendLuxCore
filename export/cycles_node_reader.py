@@ -1415,6 +1415,23 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
                 "mapping.uvdelta": [0, 1],
             }
 
+            # Cycles' projection=SPHERE samples the image by the hit
+            # direction (equirect on the surface-normal frame is wrong -
+            # the eye-ray direction is the correct proxy for a surface-
+            # attached projection, matching Cycles' sampling of a linked
+            # Vector over a sphere).
+            if getattr(node, "projection", "FLAT") == "SPHERE":
+                definitions["mapping.type"] = "dirmapping2d"
+                del definitions["mapping.uvscale"]
+                del definitions["mapping.rotation"]
+                del definitions["mapping.uvdelta"]
+            elif getattr(node, "projection", "FLAT") not in ("FLAT",):
+                SuperLuxCoreErrorLog.add_warning(
+                    f'Image Texture node "{node.name}": projection '
+                    f'"{node.projection}" is approximated by UV mapping '
+                    "(only SPHERE is remapped to the direction projection)",
+                    obj_name=obj_name)
+
             # A linked Vector input (e.g. a Mapping node) overrides the default
             # UV flip mapping
             vector_input = node.inputs.get("Vector")
