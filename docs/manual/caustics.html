@@ -49,6 +49,17 @@ distant emitters — the only lever available.</td></tr>
 <tr><td>LMNEE</td><td>Manifold next-event estimation connects light
 subpaths through specular chains.</td></tr>
 </table>
+<h2>Early-frame caustics: PSR</h2>
+<p>Path-space regularization (PSR) blurs delta specular lobes into a
+small GGX lobe for the first passes so SDS energy shows up fast, then
+decays the blur to zero (Kaplanyan halflife) so the converged image is
+exact. On caustic-capable scenes it seeds itself automatically with
+zero configuration (<code>path.regularization.auto</code>, default on):
+<code>sigma=0.03</code>, <code>halflife=64</code>spp, gated to
+<code>path.regularization.mindepth</code>=1 so first-bounce shading
+stays unbiased. Pin <code>path.regularization.sigma</code> /
+<code>halflife</code> / <code>mindepth</code> to tune, or set
+<code>path.regularization.auto = 0</code> to disable.</p>
 
 <h2>Related controls</h2>
 <ul>
