@@ -2322,18 +2322,18 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
     elif node.bl_idname == "ShaderNodeBsdfVelvet":
         prefix = "scene.materials."
 
-        # Approximation: SuperLuxCore's velvet has no sigma input; sigma is folded
-        # into the thickness parameter
+        # Cycles' Velvet BSDF is a sheen lobe (Charlie distribution), so
+        # S7's charlie model is the physical match, not legacy velvet.
+        # Sigma plays the roughness role -> sheenroughness.
         sigma = _socket(node.inputs["Sigma"], props, material, obj_name, group_node_stack)
         if sigma == ERROR_VALUE:
             sigma = 0.5
-        thickness = sigma * 0.2 if not _is_textured(sigma) else \
-            _tex_binary("scale", sigma, 0.2, superluxcore_name + "_thickness", props)
 
         definitions = {
             "type": "velvet",
+            "model": "charlie",
             "kd": _socket(node.inputs["Color"], props, material, obj_name, group_node_stack),
-            "thickness": thickness,
+            "sheenroughness": sigma,
         }
         if node.inputs.get("Normal") is not None:
             definitions["bumptex"] = _socket(node.inputs["Normal"], props, material,

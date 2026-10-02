@@ -31,7 +31,7 @@ with no SuperLuxCore equivalent additionally carry a specific reason via
 | ShaderNodeBsdfRefraction | mapped | |
 | ShaderNodeBsdfTransparent | mapped | transparent |
 | ShaderNodeBsdfTranslucent | mapped | mattetranslucent |
-| ShaderNodeBsdfVelvet | approx | |
+| ShaderNodeBsdfVelvet | mapped | Charlie sheen (velvet `model=charlie`) - Color→kd, Sigma→sheenroughness; Normal→bumptex (node removed in Blender 5.2, still resolves for legacy .blend files) |
 | ShaderNodeBsdfSheen | mapped | Charlie sheen (velvet `model=charlie`) - Color→kd, Roughness→sheenroughness; Normal→bumptex |
 | ShaderNodeBsdfToon | approx | |
 | ShaderNodeBsdfHairPrincipled | mapped | hairmat: CHIANG→beta_m/beta_n, HUANG→model=huang + roughness/aspectratio; melanin/color/absorption parametrizations; textured melanin → const approx |
