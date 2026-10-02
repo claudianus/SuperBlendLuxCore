@@ -2427,11 +2427,22 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
                 "ior": 1.45,
             }
         else:
-            # "Facing": no per-ray falloff information is available to SuperLuxCore
-            # textures, so use a constant mid value
-            return _warn_unsupported(
-                node, "'Facing' output is not supported (no angular falloff "
-                "texture); using 0.5", FALLBACK_FLOAT, obj_name)
+            # "Facing": pow(1-|cosi|, blend) - the facing texture evaluates
+            # it exactly. Cycles' Blend input carries the exponent.
+            blend_socket = node.inputs.get("Blend")
+            blend = _socket(blend_socket, props, material, obj_name,
+                            group_node_stack) if blend_socket is not None else 0.0
+            if blend == ERROR_VALUE or blend is None or _is_textured(blend):
+                blend = 0.0
+                if blend_socket is not None and blend_socket.is_linked:
+                    SuperLuxCoreErrorLog.add_warning(
+                        f'Layer Weight node "{node.name}": textured Blend is '
+                        "not supported on the Facing output (facing.blend is "
+                        "scalar); using 0.0", obj_name=obj_name)
+            definitions = {
+                "type": "facing",
+                "blend": float(blend),
+            }
     elif node.bl_idname == "ShaderNodeLightPath":
         # The SuperLuxCore "rayinfo" texture exposes the context of the ray that
         # generated the current hit point (stored in HitPoint by
