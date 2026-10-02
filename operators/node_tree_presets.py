@@ -228,15 +228,22 @@ class SUPERLUXCORE_OT_preset_material(bpy.types.Operator):
         n,k table, with the modern microfacet path on (GGX + multibounce) so
         the reflectance is energy-conserving, not just colour-matched."""
         metal = new_node("SuperLuxCoreNodeMatMetal", node_tree, output)
-        metal.input_type = "fresnel"
         metal.distribution = "ggx"
         metal.multibounce = True
-
-        fresnel = node_tree.nodes.new("SuperLuxCoreNodeTexFresnel")
-        fresnel.location = (metal.location.x - 320, metal.location.y)
-        fresnel.input_type = "preset"
-        fresnel.preset = nk_name
-        node_tree.links.new(fresnel.outputs[0], metal.inputs["Fresnel"])
+        # Setting input_type -> "fresnel" auto-creates and auto-links a
+        # Fresnel texture node (see SuperLuxCoreNodeMatMetal.change_input_type);
+        # reuse it instead of adding a second node, then set the n,k preset.
+        metal.input_type = "fresnel"
+        fresnel = None
+        for link in node_tree.links:
+            # bpy RNA wrappers are re-instantiated per access - compare the
+            # data block with ==, never `is`.
+            if link.to_node == metal and link.from_node.bl_idname == "SuperLuxCoreNodeTexFresnel":
+                fresnel = link.from_node
+                break
+        if fresnel is not None:
+            fresnel.input_type = "preset"
+            fresnel.preset = nk_name
         return metal
 
     def _preset_carpaint(self, obj, node_tree, output, preset_name):
