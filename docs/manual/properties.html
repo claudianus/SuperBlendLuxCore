@@ -72,6 +72,16 @@ th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);verti
 <tr><td><code>path.lighttracing.only</code></td><td>off</td>
 <td>GPU light pass replaces eye pass</td></tr>
 </table>
+
+<h2>Spot light (Cycles-compat)</h2>
+<table>
+<tr><th>Property</th><th>Default</th><th>Meaning</th></tr>
+<tr><td><code>scene.lights.&lt;name&gt;.falloff</code></td><td><code>power4</code></td>
+<td>Penumbra curve inside <code>conedeltaangle</code>.
+<code>power4</code> is the legacy LuxCore curve;
+<code>smoothstep</code> matches Cycles' cos-space falloff and is what the
+Blender exporter emits.</td></tr>
+ </table>
 </div>
 </body>
 </html>
