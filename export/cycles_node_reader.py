@@ -2245,6 +2245,13 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
         elif output_socket.name == "Random":
             # Per-particle random in [0, 1) derived from the instance id.
             definitions["type"] = "objectidnormalized"
+        elif output_socket.name == "Location":
+            # The particle's world position is the per-instance transform's
+            # translation - each particle instance exports as its own
+            # SceneObject, so hitPoint.p coincides with the particle origin
+            # at the hit point. hitpoint.worldpos exposes it directly.
+            definitions["type"] = "hitpoint"
+            definitions["channel"] = "worldpos"
         else:
             # Age/Lifetime/Location/Size/Velocity/Angular Velocity require
             # particle simulation state that is not exported to SuperLuxCore.
