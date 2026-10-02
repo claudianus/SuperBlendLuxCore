@@ -2388,16 +2388,14 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
         if ior == ERROR_VALUE:
             ior = 1.45
 
-        # SuperLuxCore has no texture evaluating the angular Fresnel term (the
-        # fresnel* texture types only carry conductor n/k data for materials).
-        # Approximation: the Schlick F0 normal-incidence reflectance
-        # ((ior - 1) / (ior + 1))^2, exact for rays perpendicular to the surface.
-        _warn_unsupported(
-            node, "no angular Fresnel texture in SuperLuxCore; using the "
-            "normal-incidence reflectance (Schlick F0)", None, obj_name)
-
         if _is_textured(ior):
-            # Build F0 = ((ior - 1) / (ior + 1))^2 as a helper texture chain
+            # fresnelior's eta is a scalar property - a textured IOR has no
+            # angular term to feed. Keep the Schlick F0 chain approximation
+            # for that rare case.
+            _warn_unsupported(
+                node, "textured IOR has no angular Fresnel texture path; "
+                "using the Schlick F0 normal-incidence reflectance",
+                None, obj_name)
             n_minus_1 = _tex_helper(props, superluxcore_name + "_f0sub", {
                 "type": "subtract", "texture1": ior, "texture2": 1})
             n_plus_1 = _tex_helper(props, superluxcore_name + "_f0add", {
@@ -2406,7 +2404,12 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
                 "type": "divide", "texture1": n_minus_1, "texture2": n_plus_1})
             definitions = {"type": "power", "base": ratio, "exponent": 2}
         else:
-            return ((ior - 1) / (ior + 1)) ** 2
+            # Exact dielectric Fresnel evaluated at the incident angle -
+            # the fresnelior texture reads cosi from HitPoint.fixedDir/shadeN.
+            definitions = {
+                "type": "fresnelior",
+                "ior": float(ior),
+            }
     elif node.bl_idname == "ShaderNodeLayerWeight":
         prefix = "scene.textures."
 
@@ -2416,11 +2419,13 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
                 obj_name=obj_name)
 
         if output_socket.name == "Fresnel":
-            # Approximation: no angular falloff texture in SuperLuxCore; use the
-            # normal-incidence dielectric reflectance of Cycles' fixed IOR 1.45
-            return _warn_unsupported(
-                node, "'Fresnel' output approximated by normal-incidence "
-                "reflectance (IOR 1.45)", 0.0334, obj_name)
+            # Cycles' Fresnel output is the dielectric reflectance at the
+            # fixed IOR 1.45 - the fresnelior texture evaluates it exactly
+            # at the hit-point incident angle.
+            definitions = {
+                "type": "fresnelior",
+                "ior": 1.45,
+            }
         else:
             # "Facing": no per-ray falloff information is available to SuperLuxCore
             # textures, so use a constant mid value
