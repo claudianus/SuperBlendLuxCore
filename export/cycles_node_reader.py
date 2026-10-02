@@ -2221,6 +2221,11 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
             definitions["value"] = material.pass_index
         elif output_socket.name == "Random":
             definitions["type"] = "objectidnormalized"
+        elif output_socket.name == "Location":
+            # The hit object's world-space origin is the translation column
+            # of hitPoint.localToWorld (per-instance for dupli/particles).
+            definitions["type"] = "hitpoint"
+            definitions["channel"] = "objectorigin"
         else:
             SuperLuxCoreErrorLog.add_warning(f"Unsupported Object Info output socket: {output_socket.name}", obj_name=obj_name)
             return ERROR_VALUE
