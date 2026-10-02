@@ -2733,14 +2733,6 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
                 return _warn_unsupported(
                     node, f"vector math operation '{operation}' is not supported, "
                     "passing through the first input", vector1, obj_name)
-            return _warn_unsupported(
-                node, f"vector math operation '{operation}' is not supported, "
-                "passing through the luminance of the first input",
-                _convert_to_float(vector1, props), obj_name)
-    elif node.bl_idname == "ShaderNodeTexCoord":
-        prefix = "scene.textures."
-        coord = output_socket.name
-
         if coord == "UV":
             definitions = {"type": "uv"}
         elif coord == "Normal":
@@ -2751,16 +2743,18 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
                     f'Texture Coordinate node "{node.name}": coordinates relative to '
                     "another object are not supported, using own object space",
                     obj_name=obj_name)
-            # "position" evaluates the hit point in object space, which matches
-            # Cycles' Object output (for the shading object)
-            definitions = {"type": "position"}
+            # object-space hit point - Cycles' Object output
+            definitions = {
+                "type": "hitpoint",
+                "channel": "objectspace",
+            }
         elif coord == "Generated":
-            # Approximation: no bounding-box normalized coordinates in SuperLuxCore;
-            # UV coordinates are the closest match for typical 2D usage (z = 0)
-            _warn_unsupported(
-                node, "'Generated' coordinates are approximated by the UV map "
-                "(no bounding-box normalization)", None, obj_name)
-            definitions = {"type": "uv"}
+            # Exact: object-space hit point normalized into the mesh's local
+            # bbox [0,1]^3 - Cycles' Generated coordinate.
+            definitions = {
+                "type": "hitpoint",
+                "channel": "generated",
+            }
         elif coord == "Reflection":
             # Exact: reflect(-fixedDir, shadeN) evaluated at the hit point
             definitions = {
