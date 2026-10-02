@@ -167,8 +167,44 @@ def _convert_cycles_light(exporter, obj, depsgraph, superluxcore_scene, transfor
             definitions["theta"] = half_angle
             gain *= _get_distant_light_normalization_factor(half_angle)
     elif light.type == "SPOT":
+        cone_half_deg = math.degrees(light.spot_size) / 2
+
         if light.shadow_soft_size > 0:
-            SuperLuxCoreErrorLog.add_warning("Size (soft shadows) not supported by SuperLuxCore spotlights", obj.name)
+            # Cycles gives a sized spot a finite emitter (soft shadows).
+            # SuperLuxCore's `spot` is a point source, so emit a small
+            # disk meshlight instead: the disk radius gives the shadow
+            # penumbra width, and emission.theta caps the cone at the
+            # spot half-angle. The result is a hard-edged cosine cone -
+            # spot_blend's smoothstep penumbra has no analog here, so it
+            # is intentionally not applied on this path.
+            mat_name = superluxcore_name + "_SPOT_MAT"
+            mat_prefix = "scene.materials." + mat_name + "."
+            # Disk scale: shadow_soft_size is the emitter radius.
+            spot_scale = Matrix.Scale(light.shadow_soft_size, 4)
+            spot_transform = transform.copy()
+            spot_transform @= spot_scale
+            mat_definitions = {
+                "type": "matte",
+                "kd": [0, 0, 0],
+                "emission": color,
+                # Normalize emitted power to the disk's projected solid
+                # angle so brightness tracks the point-spot gain. The
+                # 0.06504 factor is the meshlight Cycles-match constant
+                # (same one the AREA path uses) - not the point-spot 0.07.
+                "emission.gain": [gain * 0.06504 / (light.shadow_soft_size ** 2)] * 3,
+                "emission.power": 0.0,
+                "emission.efficency": 0.0,
+                "emission.theta": cone_half_deg,
+                "emission.importance": light.superluxcore.importance,
+                "transparency.shadow": [1, 1, 1],
+            }
+            props = utils.luxutils.create_props(mat_prefix, mat_definitions)
+            use_instancing = utils.use_instancing(obj, scene, is_viewport_render)
+            obj_props, exported_obj = _create_superluxcore_disklight(
+                    obj, spot_transform, use_instancing, superluxcore_name,
+                    superluxcore_scene, mat_name, visible_to_camera=False)
+            props.Set(obj_props)
+            return props, exported_obj
 
         definitions["type"] = "spot"
         # Cycles' spot falloff runs in cos-space: penumbra = smoothstep
@@ -176,7 +212,6 @@ def _convert_cycles_light(exporter, obj, depsgraph, superluxcore_scene, transfor
         # LuxCore's coneDeltaAngle is an *angle* subtracted from coneAngle
         # -> convert the Cycles cos-space start to that angular width, and
         # switch the falloff curve to smoothstep so the whole band matches.
-        cone_half_deg = math.degrees(light.spot_size) / 2
         definitions["coneangle"] = cone_half_deg
 
         cos_half = math.cos(light.spot_size / 2)
@@ -746,6 +781,66 @@ def _get_area_obj_name(superluxcore_name):
     return superluxcore_name + str(fake_material_index)
 
 
+def _disk_light_mesh(segments=32):
+    """32-segment N-gon fan with -Z emission (matches Cycles' local axis
+    and the quad's winding). A unit disk in local space - the caller's
+    transform carries the size/size_y scaling."""
+    vertices = []
+    uvs = []
+    for k in range(segments):
+        a = 2.0 * math.pi * k / segments
+        c, s = math.cos(a), math.sin(a)
+        vertices.append((c, s, 0))
+        uvs.append((0.5 + 0.5 * c, 0.5 + 0.5 * s))
+    # Ring order is CCW seen from +Z; (center, k+1, k) winds the
+    # opposite way so the geometric + declared normal is -Z.
+    faces = [(segments, (k + 1) % segments, k) for k in range(segments)]
+    vertices.append((0, 0, 0))   # fan center at index == segments
+    uvs.append((0.5, 0.5))
+    normals = [(0, 0, -1)] * len(vertices)
+    return vertices, faces, normals, uvs
+
+
+def _create_superluxcore_disklight(obj, transform, use_instancing, superluxcore_name,
+                                   superluxcore_scene, mat_name, visible_to_camera):
+    """Unit disk meshlight under `transform`. Used for sized spotlights
+    (emitter radius = shadow penumbra width) and sized point lights whose
+    shape isn't a plain sphere."""
+    if transform.determinant() == 0:
+        raise Exception("Light has size 0 (can not be exported)")
+
+    transform_list = utils.luxutils.matrix_to_list(transform)
+    if use_instancing:
+        obj_transform = transform_list
+        mesh_transform = None
+    else:
+        obj_transform = None
+        mesh_transform = transform_list
+
+    shape_name = superluxcore_name + "_disk"
+    if not superluxcore_scene.IsMeshDefined(shape_name):
+        vertices, faces, normals, uvs = _disk_light_mesh()
+        superluxcore_scene.DefineMesh(shape_name, vertices, faces, normals, uvs,
+                                      None, None, mesh_transform)
+
+    fake_material_index = 0
+    obj_prefix = "scene.objects." + _get_area_obj_name(superluxcore_name) + "."
+    obj_definitions = {
+        "material": mat_name,
+        "shape": shape_name,
+        "camerainvisible": not visible_to_camera,
+    }
+    if obj_transform:
+        obj_definitions["transformation"] = obj_transform
+
+    obj_props = utils.luxutils.create_props(obj_prefix, obj_definitions)
+    mesh_definition = [superluxcore_name + "_disk", fake_material_index]
+    exported_obj = ExportedObject(superluxcore_name, [mesh_definition], ["fake_mat_name"],
+                                  visible_to_camera=visible_to_camera,
+                                  link_groups=obj.data.superluxcore.link_groups)
+    return obj_props, exported_obj
+
+
 def _create_superluxcore_meshlight(obj, transform, use_instancing, superluxcore_name, superluxcore_scene,
                               mat_name, visible_to_camera):
     light = obj.data
@@ -779,21 +874,7 @@ def _create_superluxcore_meshlight(obj, transform, use_instancing, superluxcore_
             # (and any reflection in glossy surfaces) is circular.
             # 32 segments is visually indistinguishable at emission
             # scales; transform already carries the size/size_y scaling.
-            _N = 32
-            vertices = []
-            uvs = []
-            for k in range(_N):
-                a = 2.0 * math.pi * k / _N
-                c, s = math.cos(a), math.sin(a)
-                vertices.append((c, s, 0))
-                uvs.append((0.5 + 0.5 * c, 0.5 + 0.5 * s))
-            # Ring order is CCW seen from +Z; (center, k+1, k) winds the
-            # opposite way so the geometric + declared normal is -Z,
-            # matching the quad and Cycles' downward emission axis.
-            faces = [(_N, (k + 1) % _N, k) for k in range(_N)]
-            vertices.append((0, 0, 0))   # fan center at index _N
-            uvs.append((0.5, 0.5))
-            normals = [(0, 0, -1)] * (len(vertices))
+            vertices, faces, normals, uvs = _disk_light_mesh()
         else:
             vertices = [
                 (1, 1, 0),
