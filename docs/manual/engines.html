@@ -50,6 +50,22 @@ it clean during lookdev.</td></tr>
 <td>Writes the scene to .cfg/.scn without rendering (export for
 luxcoreconsole / luxcoreui).</td></tr>
 </table>
+<h2>How the addon maps them</h2>
+<p>The Blender UI exposes two lighting integrators -
+<code>Pathtracing</code> and <code>Bidirectional</code> - plus a
+<em>Device</em> selector and a <em>Use Tiled Path</em> toggle. The
+concrete engine is derived:</p>
+<table>
+<tr><th>UI choice</th><th>Engine emitted</th></tr>
+<tr><td>Pathtracing + CPU + tiled off</td><td><code>PATHCPU</code></td></tr>
+<tr><td>Pathtracing + GPU + tiled off</td><td><code>PATHOCL</code></td></tr>
+<tr><td>Pathtracing + tiled on</td><td><code>TILEPATH*</code> (CPU or OCL)</td></tr>
+<tr><td>Pathtracing in the viewport</td><td><code>RTPATH*</code></td></tr>
+<tr><td>Bidirectional</td><td><code>BIDIRCPU</code></td></tr>
+</table>
+<p><code>FILESAVER</code> is reached via the <em>Use FileSaver</em>
+option rather than the integrator enum.</p>
+
 
 <h2>GPU vs CPU</h2>
 <p>Pick <em>Device</em> in the render settings:</p>
