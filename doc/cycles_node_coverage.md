@@ -32,7 +32,7 @@ with no SuperLuxCore equivalent additionally carry a specific reason via
 | ShaderNodeBsdfTransparent | mapped | transparent |
 | ShaderNodeBsdfTranslucent | mapped | mattetranslucent |
 | ShaderNodeBsdfVelvet | approx | |
-| ShaderNodeBsdfSheen | approx | |
+| ShaderNodeBsdfSheen | mapped | Charlie sheen (velvet `model=charlie`) - Color→kd, Roughness→sheenroughness; Normal→bumptex |
 | ShaderNodeBsdfToon | approx | |
 | ShaderNodeBsdfHairPrincipled | approx | Marschner `hairmat`; melanin/color/absorption parametrizations; textured melanin → const approx |
 | ShaderNodeBsdfHair | approx | legacy hair → hairmat; Reflection/Transmission lobe split not separable |

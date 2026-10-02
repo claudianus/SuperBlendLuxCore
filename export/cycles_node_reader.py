@@ -2341,12 +2341,10 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
     elif node.bl_idname == "ShaderNodeBsdfSheen":
         prefix = "scene.materials."
 
-        # Approximation: Disney sheen is a diffuse-like retro-reflective lobe;
-        # it cannot reproduce a standalone sheen closure exactly
-        SuperLuxCoreErrorLog.add_warning(
-            f'Sheen node "{node.name}" is approximated by a Disney material',
-            obj_name=obj_name)
-
+        # S7's Charlie sheen (Estevez-Kulla'17) in the velvet material is
+        # the direct physical model for Cycles' standalone Sheen lobe:
+        # Color -> kd, Roughness -> sheenroughness. Roughness enters
+        # linear like the other BSDF sockets do on this path.
         roughness_socket = node.inputs.get("Roughness")
         roughness = _socket(roughness_socket, props, material, obj_name,
                             group_node_stack) if roughness_socket else 0.5
@@ -2354,10 +2352,10 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
             roughness = 0.5
 
         definitions = {
-            "type": "disney",
-            "basecolor": _socket(node.inputs["Color"], props, material, obj_name, group_node_stack),
-            "sheen": 1.0,
-            "roughness": roughness,
+            "type": "velvet",
+            "model": "charlie",
+            "kd": _socket(node.inputs["Color"], props, material, obj_name, group_node_stack),
+            "sheenroughness": roughness,
         }
         if node.inputs.get("Normal") is not None:
             definitions["bumptex"] = _socket(node.inputs["Normal"], props, material,
