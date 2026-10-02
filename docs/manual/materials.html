@@ -97,6 +97,11 @@ TexCoord (Reflection/Object/Generated), CameraData (View&nbsp;Vector
 compiles the same eval for both targets (the <code>fixedDir</code>/
 <code>shadeN</code> incident cosine is expanded component-wise where a
 native <code>dot()</code> overload is unavailable).</p>
+<p>Environment Texture (and Image Texture with
+<code>projection=SPHERE</code>) samples the image by the incoming ray's
+direction via <code>dirmapping2d</code> — a real equirect panorama in
+reflections and refractions. A linked Vector input falls back to UV
+with a warning.</p>
 <h2>Examples</h2>
 <p>Left: the <code>diffraction</code> material on a CD — real 1D grating
 response, not a rainbow ramp. Right: a classroom lit through a window,
