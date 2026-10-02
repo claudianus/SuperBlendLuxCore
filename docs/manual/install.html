@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Install — SuperLuxCore Manual</title>
+<style>
+:root{--bg:#0b0d10;--panel:#12161b;--line:#20262e;--txt:#e8edf2;
+--dim:#97a4b1;--acc:#5fd3a5;--acc2:#7aa7ff;
+--mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--txt);
+font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;line-height:1.6}
+a{color:var(--acc2)} .wrap{max-width:860px;margin:0 auto;padding:36px 24px}
+nav{border-bottom:1px solid var(--line);padding:14px 24px;background:var(--panel)}
+nav a{color:var(--dim);margin-right:18px;font-size:14px}
+h1{font-size:30px;margin:0 0 8px} h2{font-size:20px;margin:32px 0 10px}
+p,li{color:var(--dim)}
+code{font-family:var(--mono);background:#0e1216;padding:1px 6px;border-radius:5px;font-size:.92em}
+pre{background:#0e1216;border:1px solid var(--line);border-radius:8px;padding:14px;overflow-x:auto}
+pre code{background:none;padding:0}
+table{width:100%;border-collapse:collapse;font-size:14px;margin:12px 0}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+</style>
+</head>
+<body>
+<nav><a href="index.html">&larr; Manual</a></nav>
+<div class="wrap">
+<h1>Installation</h1>
+
+<h2>Requirements</h2>
+<table>
+<tr><th>Component</th><th>Minimum</th></tr>
+<tr><td>Blender</td><td>5.2.x LTS (Python 3.13)</td></tr>
+<tr><td>macOS</td><td>14+ on Apple silicon (Metal GPU backend)</td></tr>
+<tr><td>Windows / Linux</td><td>OpenCL-capable GPU or CPU</td></tr>
+</table>
+
+<h2>Install the release ZIP</h2>
+<ol>
+<li>Download the latest <code>superluxcore-addon-*.zip</code> from the
+<a href="https://github.com/claudianus/SuperBlendLuxCore/releases">releases page</a>.
+The ZIP bundles the engine wheel (pysuperluxcore) and the addon.</li>
+<li>In Blender: <em>Edit &rarr; Preferences &rarr; Add-ons &rarr;
+Install from Disk</em> &rarr; pick the ZIP.</li>
+<li>Enable <b>Render: SuperLuxCore</b>.</li>
+<li>Switch the active render engine to <b>SuperLuxCore</b>.</li>
+</ol>
+
+<h2>Verify</h2>
+<pre><code># Blender scripting console / Text Editor
+import bpy
+bpy.context.scene.render.engine = "SUPERLUXCORE"
+print(bpy.context.scene.superluxcore.config.engine)</code></pre>
+
+<h2>GPU backends</h2>
+<p>Metal is used automatically on Apple silicon (device type
+<code>METAL_GPU</code>). Vulkan requires a bundled toolchain — see
+<a href="troubleshooting.html">Troubleshooting &rarr; Vulkan</a>.
+CPU is always available and is the reference implementation.</p>
+</div>
+</body>
+</html>

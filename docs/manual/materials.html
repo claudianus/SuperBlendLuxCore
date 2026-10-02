@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Materials — SuperLuxCore Manual</title>
+<style>
+:root{--bg:#0b0d10;--panel:#12161b;--line:#20262e;--txt:#e8edf2;
+--dim:#97a4b1;--acc:#5fd3a5;--acc2:#7aa7ff;
+--mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+body{margin:0;background:var(--bg);color:var(--txt);
+font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;line-height:1.6}
+a{color:var(--acc2)} .wrap{max-width:900px;margin:0 auto;padding:36px 24px}
+nav{border-bottom:1px solid var(--line);padding:14px 24px;background:var(--panel)}
+nav a{color:var(--dim);margin-right:18px;font-size:14px}
+h1{font-size:30px;margin:0 0 8px} h2{font-size:20px;margin:32px 0 10px}
+p,li{color:var(--dim)}
+code{font-family:var(--mono);background:#0e1216;padding:1px 6px;border-radius:5px;font-size:.92em}
+table{width:100%;border-collapse:collapse;font-size:14px;margin:12px 0}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+</style>
+</head>
+<body>
+<nav><a href="index.html">&larr; Manual</a></nav>
+<div class="wrap">
+<h1>Materials</h1>
+
+<h2>Principled BSDF</h2>
+<p>A Blender Principled BSDF maps onto SuperLuxCore's
+<code>openpbr</code> material by default. All sockets are covered:</p>
+<table>
+<tr><th>Principled input</th><th>SuperLuxCore mapping</th></tr>
+<tr><td>Base Color</td><td><code>basecolor</code></td></tr>
+<tr><td>Metallic</td><td><code>basemetalness</code></td></tr>
+<tr><td>Roughness</td><td><code>specularroughness</code></td></tr>
+<tr><td>IOR</td><td><code>specularior</code></td></tr>
+<tr><td>Anisotropic / Rotation</td><td><code>specularanisotropy</code> /
+<code>specularrotation</code></td></tr>
+<tr><td>Subsurface Weight / Radius / Scale / IOR / Anisotropy</td>
+<td><code>subsurfaceweight</code>, <code>subsurfaceradiusscale</code>,
+<code>subsurfaceradius</code>, <code>subsurfaceior</code>,
+<code>subsurfaceanisotropy</code></td></tr>
+<tr><td>Coat Weight / Roughness / IOR / Tint / Normal</td>
+<td><code>coatweight</code>, <code>coatroughness</code>, <code>coatior</code>,
+<code>coatcolor</code>, <code>coatnormal</code></td></tr>
+<tr><td>Sheen Weight / Roughness / Tint</td>
+<td><code>fuzzweight</code>, <code>fuzzroughness</code>, <code>fuzzcolor</code></td></tr>
+<tr><td>Thin Film thickness / IOR</td><td><code>filmthickness</code>,
+<code>filmior</code></td></tr>
+<tr><td>Thin Wall + full sharp transmission</td><td><code>archglass</code></td></tr>
+</table>
+
+<h2>Specialised materials</h2>
+<table>
+<tr><th>Blender node</th><th>SuperLuxCore</th><th>Coverage</th></tr>
+<tr><td>Glass</td><td><code>glass / roughglass</code></td><td>full</td></tr>
+<tr><td>Principled Hair</td><td><code>hairmat</code> (Marschner)</td>
+<td>melanin / color / absorption; textured melanin approximates</td></tr>
+<tr><td>Subsurface Scattering</td><td>OpenPBR SSS lobe</td><td>full via Principled</td></tr>
+<tr><td>Emission</td><td>emission node / light material</td><td>full</td></tr>
+<tr><td>Velvet / Sheen / Toon / Hair BSDF</td><td>approx</td><td>closest lobe; a warning is logged</td></tr>
+</table>
+
+<h2>Textures</h2>
+<p>Noise / Voronoi / Brick / Checker / Gradient / Magic / Wave /
+White Noise / Gabor / IES all map natively; feature subsets warn in the
+export log. Image textures support UV / Generated / Object coordinates
+and the Mapping node.</p>
+</div>
+</body>
+</html>

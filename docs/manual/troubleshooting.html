@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Troubleshooting — SuperLuxCore Manual</title>
+<style>
+:root{--bg:#0b0d10;--panel:#12161b;--line:#20262e;--txt:#e8edf2;
+--dim:#97a4b1;--acc:#5fd3a5;--acc2:#7aa7ff;
+--mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+body{margin:0;background:var(--bg);color:var(--txt);
+font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;line-height:1.6}
+a{color:var(--acc2)} .wrap{max-width:900px;margin:0 auto;padding:36px 24px}
+nav{border-bottom:1px solid var(--line);padding:14px 24px;background:var(--panel)}
+nav a{color:var(--dim);margin-right:18px;font-size:14px}
+h1{font-size:30px;margin:0 0 8px} h2{font-size:20px;margin:32px 0 10px}
+p,li{color:var(--dim)}
+code{font-family:var(--mono);background:#0e1216;padding:1px 6px;border-radius:5px;font-size:.92em}
+pre{background:#0e1216;border:1px solid var(--line);border-radius:8px;padding:14px;overflow-x:auto}
+pre code{background:none;padding:0}
+table{width:100%;border-collapse:collapse;font-size:14px;margin:12px 0}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+</style>
+</head>
+<body>
+<nav><a href="index.html">&larr; Manual</a></nav>
+<div class="wrap">
+<h1>Troubleshooting</h1>
+
+<h2>Render never finishes</h2>
+<p>The adaptive-error halt is the intended stopping rule. If a scene
+looks done but the render keeps going, check:</p>
+<ul>
+<li><code>halt.use_noise_level</code> on, target 3&percnt;</li>
+<li>Light-traced caustics are intentionally excluded from the pixel
+convergence test — they need <code>use_light_samples</code> or a time
+cap for a guaranteed stop.</li>
+</ul>
+
+<h2>GPU not used</h2>
+<ul>
+<li>Metal: requires a <code>METAL_GPU</code> device listed in
+<em>Addon Preferences &rarr; Devices</em>. Integrated Apple GPUs qualify.</li>
+<li>On low-VRAM GPUs the engine drops to the out-of-core profile
+automatically.</li>
+</ul>
+
+<h2>Vulkan</h2>
+<p>The Vulkan backend needs a shader toolchain (<code>clspv</code>) in
+<code>~/.luxcore</code> or on <code>PATH</code>. The released wheel
+bundles it for macOS (MoltenVK); on Linux/Windows install it manually or
+use the OpenCL/Metal backend.</p>
+
+<h2>Caustics look wrong / missing</h2>
+<ul>
+<li>Confirm <em>Add Light Tracing</em> is on (default).</li>
+<li>On GPU, wavefront queues must be <code>off</code> (default); the
+queue path is a measured regression on Metal.</li>
+<li>Check the denoiser is not hiding real caustic energy —
+<code>denoiser.enabled</code> toggles it.</li>
+</ul>
+
+<h2>Viewport lags during render</h2>
+<p>Runtime resolution reduction is enabled by default
+(<code>SetRuntimeResolutionReduction</code>); the preview downsamples so
+interaction stays responsive. Disable under
+<em>Viewport &rarr; Runtime Resolution Reduction</em>.</p>
+</div>
+</body>
+</html>

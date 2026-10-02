@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Denoising — SuperLuxCore Manual</title>
+<style>
+:root{--bg:#0b0d10;--panel:#12161b;--line:#20262e;--txt:#e8edf2;
+--dim:#97a4b1;--acc:#5fd3a5;--acc2:#7aa7ff;
+--mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+body{margin:0;background:var(--bg);color:var(--txt);
+font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;line-height:1.6}
+a{color:var(--acc2)} .wrap{max-width:900px;margin:0 auto;padding:36px 24px}
+nav{border-bottom:1px solid var(--line);padding:14px 24px;background:var(--panel)}
+nav a{color:var(--dim);margin-right:18px;font-size:14px}
+h1{font-size:30px;margin:0 0 8px} h2{font-size:20px;margin:32px 0 10px}
+p,li{color:var(--dim)}
+code{font-family:var(--mono);background:#0e1216;padding:1px 6px;border-radius:5px;font-size:.92em}
+table{width:100%;border-collapse:collapse;font-size:14px;margin:12px 0}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+</style>
+</head>
+<body>
+<nav><a href="index.html">&larr; Manual</a></nav>
+<div class="wrap">
+<h1>Denoising</h1>
+
+<h2>OIDN 2.x</h2>
+<p>Intel Open Image Denoise is the default denoiser. On Apple silicon the
+<code>device_metal</code> OIDN backend runs on the GPU — ~3.8 ms at 512&sup2;
+vs ~66 ms on CPU (17&times;). The Metal device ships inside the release
+wheel; nothing extra to install.</p>
+
+<h2>Components mode</h2>
+<p><em>Denoise Emission</em> plus the component-decomposed path denoise
+each radiance channel separately, preserving material boundaries. Enable
+it under <em>Denoiser &rarr; Components</em>.</p>
+
+<h2>Interactive tick</h2>
+<p>During a render the viewport refreshes the denoised frame roughly once
+per second (<code>denoise_interactive</code>, on by default). The worker
+computes OIDN off the UI thread; the main thread only uploads the
+finished image.</p>
+
+<h2>Halt criteria</h2>
+<p>Combine denoise with the adaptive-error halt
+(<code>film.adaptiveerror.*</code>) to stop on a statistical noise level
+instead of a fixed sample count — the Corona-style "just renders until
+it's clean" behaviour.</p>
+</div>
+</body>
+</html>

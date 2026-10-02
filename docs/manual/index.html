@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SuperLuxCore Manual</title>
+<style>
+:root{--bg:#0b0d10;--panel:#12161b;--line:#20262e;--txt:#e8edf2;
+--dim:#97a4b1;--acc:#5fd3a5;--acc2:#7aa7ff;
+--mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--txt);
+font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;line-height:1.6}
+a{color:var(--acc2)} a:hover{text-decoration:underline}
+.wrap{max-width:860px;margin:0 auto;padding:36px 24px}
+nav{border-bottom:1px solid var(--line);padding:14px 24px;background:var(--panel)}
+nav a{color:var(--dim);margin-right:18px;font-size:14px}
+h1{font-size:30px;margin:0 0 8px} h2{font-size:20px;margin:32px 0 10px}
+p,li{color:var(--dim)}
+code{font-family:var(--mono);background:#0e1216;padding:1px 6px;border-radius:5px;font-size:.92em}
+pre{background:#0e1216;border:1px solid var(--line);border-radius:8px;padding:14px;overflow-x:auto}
+pre code{background:none;padding:0}
+table{width:100%;border-collapse:collapse;font-size:14px;margin:12px 0}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--txt);font-weight:600}
+ul{line-height:1.9}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:18px;margin:14px 0}
+</style>
+</head>
+<body>
+<nav><a href="../index.html">&larr; SuperLuxCore</a>
+<a href="install.html">Install</a><a href="quickstart.html">Quickstart</a>
+<a href="engines.html">Engines</a><a href="materials.html">Materials</a>
+<a href="denoise.html">Denoising</a><a href="caustics.html">Caustics</a>
+<a href="cycles-import.html">Cycles Import</a><a href="troubleshooting.html">Troubleshooting</a></nav>
+<div class="wrap">
+<h1>SuperLuxCore Manual</h1>
+<p>Physically-based render engine for Blender 5.2 LTS — Metal, Vulkan, OpenCL and CPU.</p>
+
+<h2>Getting started</h2>
+<ul>
+<li><a href="install.html">Installation</a> — release ZIP, bundled wheel, platform notes</li>
+<li><a href="quickstart.html">Quickstart</a> — first render in under two minutes</li>
+<li><a href="cycles-import.html">Importing a Cycles scene</a> — material/settings mapping</li>
+</ul>
+
+<h2>Core concepts</h2>
+<ul>
+<li><a href="engines.html">Render engines</a> — PATH/BIDIR/RTPATHOCL, CPU vs GPU, wavefront</li>
+<li><a href="materials.html">Materials</a> — Principled, OpenPBR, metal, glass, SSS, hair</li>
+<li><a href="caustics.html">Caustics &amp; light tracing</a> — GPU light-path subpass, focus/MGE</li>
+<li><a href="denoise.html">Denoising</a> — OIDN (Metal GPU), components mode, interactive tick</li>
+</ul>
+
+<h2>Reference</h2>
+<ul>
+<li><a href="properties.html">Render properties</a> — engine/sampler/halt knobs</li>
+<li><a href="troubleshooting.html">Troubleshooting</a> — common issues and fixes</li>
+</ul>
+</div>
+</body>
+</html>

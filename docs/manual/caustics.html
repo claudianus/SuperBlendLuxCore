@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Caustics &amp; light tracing — SuperLuxCore Manual</title>
+<style>
+:root{--bg:#0b0d10;--panel:#12161b;--line:#20262e;--txt:#e8edf2;
+--dim:#97a4b1;--acc:#5fd3a5;--acc2:#7aa7ff;
+--mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+body{margin:0;background:var(--bg);color:var(--txt);
+font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;line-height:1.6}
+a{color:var(--acc2)} .wrap{max-width:900px;margin:0 auto;padding:36px 24px}
+nav{border-bottom:1px solid var(--line);padding:14px 24px;background:var(--panel)}
+nav a{color:var(--dim);margin-right:18px;font-size:14px}
+h1{font-size:30px;margin:0 0 8px} h2{font-size:20px;margin:32px 0 10px}
+p,li{color:var(--dim)}
+code{font-family:var(--mono);background:#0e1216;padding:1px 6px;border-radius:5px;font-size:.92em}
+table{width:100%;border-collapse:collapse;font-size:14px;margin:12px 0}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+</style>
+</head>
+<body>
+<nav><a href="index.html">&larr; Manual</a></nav>
+<div class="wrap">
+<h1>Caustics &amp; light tracing</h1>
+
+<h2>Why caustics are hard</h2>
+<p>A specular-diffuse-specular (SDS) path — light through glass onto a
+diffuse receiver — is nearly unreachable by pure eye-path tracing.
+SuperLuxCore runs a dedicated <b>light-path subpass</b>: rays emitted
+from the lights, steered toward surfaces that historically produced
+caustic energy.</p>
+
+<h2>Enable it</h2>
+<p><em>Render Properties &rarr; Light Paths &rarr; Add Light Tracing</em>
+is on by default for the PATH engine. On the GPU backend a fraction of
+the task population runs light subpaths; the eye pass consumes them as
+normal samples.</p>
+
+<h2>How it focuses</h2>
+<table>
+<tr><th>Mechanism</th><th>What it does</th></tr>
+<tr><td>Light focus table</td><td>Per-light ring buffer of points that
+produced caustic contributions; emitters re-aim a share of rays at them.</td></tr>
+<tr><td>MGE (manifold-guided emit)</td><td>Steers emission directions
+toward delta-specular casters.</td></tr>
+<tr><td>Distant-light focus</td><td>Origin (not direction) is focused for
+distant emitters — the only lever available.</td></tr>
+<tr><td>LMNEE</td><td>Manifold next-event estimation connects light
+subpaths through specular chains.</td></tr>
+</table>
+
+<h2>Related controls</h2>
+<ul>
+<li><code>path.lighttracing.only</code> — GPU light paths replace the eye
+pass entirely (debug / caustic isolation).</li>
+<li><code>path.hybridbackforward.*</code> — fraction of GPU tasks assigned
+to light work and the caustic classification thresholds.</li>
+<li><code>film.outputs.*.type = LIGHT</code> — separate light-pass output.</li>
+</ul>
+</div>
+</body>
+</html>

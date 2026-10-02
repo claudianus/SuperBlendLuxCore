@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Cycles import — SuperLuxCore Manual</title>
+<style>
+:root{--bg:#0b0d10;--panel:#12161b;--line:#20262e;--txt:#e8edf2;
+--dim:#97a4b1;--acc:#5fd3a5;--acc2:#7aa7ff;
+--mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+body{margin:0;background:var(--bg);color:var(--txt);
+font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;line-height:1.6}
+a{color:var(--acc2)} .wrap{max-width:900px;margin:0 auto;padding:36px 24px}
+nav{border-bottom:1px solid var(--line);padding:14px 24px;background:var(--panel)}
+nav a{color:var(--dim);margin-right:18px;font-size:14px}
+h1{font-size:30px;margin:0 0 8px} h2{font-size:20px;margin:32px 0 10px}
+p,li{color:var(--dim)}
+code{font-family:var(--mono);background:#0e1216;padding:1px 6px;border-radius:5px;font-size:.92em}
+table{width:100%;border-collapse:collapse;font-size:14px;margin:12px 0}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+</style>
+</head>
+<body>
+<nav><a href="index.html">&larr; Manual</a></nav>
+<div class="wrap">
+<h1>Importing a Cycles scene</h1>
+
+<h2>One-click settings</h2>
+<p>Open a .blend authored for Cycles, switch <em>Render Engine</em> to
+<b>SuperLuxCore</b>, then click <b>Import Cycles Settings</b> in
+<em>Render Properties</em>. The operator copies:</p>
+<table>
+<tr><th>Cycles</th><th>SuperLuxCore</th></tr>
+<tr><td><code>samples</code></td><td><code>halt.samples</code> (hard cap; the
+noise-level stop still ends early on easy scenes)</td></tr>
+<tr><td><code>max_bounces</code></td><td><code>path.depth_total</code></td></tr>
+<tr><td><code>diffuse_bounces</code></td><td><code>path.depth_diffuse</code></td></tr>
+<tr><td><code>glossy_bounces</code></td><td><code>path.depth_glossy</code></td></tr>
+<tr><td><code>transparent_bounces</code></td><td><code>path.depth_specular</code></td></tr>
+<tr><td><code>transmission_bounces</code></td><td><code>path.depth_specular</code>
+(min of the two)</td></tr>
+<tr><td><code>film_transparent</code></td><td>first image-pipeline
+<code>transparent_film</code></td></tr>
+<tr><td><code>use_denoising</code></td><td><code>denoiser.enabled</code></td></tr>
+<tr><td>view-layer <code>samples</code></td><td>per-layer halt override</td></tr>
+</table>
+
+<h2>Materials</h2>
+<p>Principled BSDF exports as OpenPBR (see
+<a href="materials.html">Materials</a>) — no SSS radius / sheen / aniso
+approximation needed. Nodes that have no physical counterpart
+(<code>ShaderNodeShaderToRGB</code>, Eevee specular) log a warning during
+export.</p>
+
+<h2>Objects &amp; lights</h2>
+<p>Portals (<code>light.cycles.is_portal</code>) and per-object ray
+visibility carry over. Motion blur uses <code>use_motion_blur</code> and
+<code>motion_steps</code>; deformation blur uses <code>use_deform_motion</code>.</p>
+</div>
+</body>
+</html>
