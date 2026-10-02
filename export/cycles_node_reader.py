@@ -22,7 +22,8 @@ _UNSUPPORTED_NODE_NOTES = {
     "ShaderNodeOutputLineStyle": "Freestyle line-style output has no SuperLuxCore equivalent",
     "ShaderNodeLightFalloff": "light falloff is configured on SuperLuxCore light definitions",
     "ShaderNodeRaycast": "scene raycast queries are not available to SuperLuxCore textures",
-    "ShaderNodeRadialTiling": "no polar/radial tiling texture in SuperLuxCore",
+    "ShaderNodeRadialTiling": "radial-tiling segment decomposition is a "
+        "piecewise-transform too complex for the texture stack",
     "ShaderNodeTexIES": "IES profiles live on SuperLuxCore light definitions, not material textures",
     "ShaderNodeTexSky": "sky models exist as SuperLuxCore lights (sky2/sun), not material textures",
     "ShaderNodeSqueeze": "Freestyle squeeze value has no shading meaning",
@@ -1363,10 +1364,18 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
                     "are not supported - only the base tile is used",
                     obj_name=obj_name)
             prefix = "scene.textures."
+            if node.extension == "MIRROR":
+                # No mirrored-repeat wrap in the imagemap sampler; "repeat"
+                # produces a visible tiling seam but not a broken render.
+                SuperLuxCoreErrorLog.add_warning(
+                    f'Image texture node "{node.name}": MIRROR extension is '
+                    "approximated by REPEAT (no mirrored sampling)",
+                    obj_name=obj_name)
             extension_map = {
                 "REPEAT": "repeat",
                 "EXTEND": "clamp",
                 "CLIP": "black",
+                "MIRROR": "repeat",
             }
 
             try:
