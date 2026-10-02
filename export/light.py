@@ -409,6 +409,72 @@ def _convert_superluxcore_light(exporter, obj, depsgraph, superluxcore_scene, tr
         coneangle = math.degrees(light.spot_size) / 2
         conedeltaangle = math.degrees(light.spot_size / 2 * light.spot_blend)
 
+        if light.shadow_soft_size > 0:
+            # Soft-shadow spot: emit a disk meshlight capped by
+            # emission.theta = coneangle. The disk radius carries the
+            # penumbra width; spot_blend's smoothstep penumbra has no
+            # analog on the emission cone (uniform-in-solid-angle), so
+            # it is intentionally dropped on this path.
+            mat_name = superluxcore_name + "_SPOT_MAT"
+            mat_prefix = "scene.materials." + mat_name + "."
+
+            spot_scale = Matrix.Scale(light.shadow_soft_size, 4)
+            spot_transform = transform.copy()
+            spot_transform @= spot_scale
+
+            mat_definitions = {
+                "type": "matte",
+                "kd": [0, 0, 0],
+                "emission": [1, 1, 1],
+                "emission.power": 0.0,
+                "emission.efficency": 0.0,
+                "emission.normalizebycolor": False,
+                "emission.theta": coneangle,
+                "emission.id": scene.superluxcore.lightgroups.get_id_by_name(light.superluxcore.lightgroup),
+                "emission.importance": importance,
+                "transparency.shadow": [0, 0, 0] if light.superluxcore.visible else [1, 1, 1],
+            }
+
+            # Color + brightness via the same emission model the native
+            # area path uses (power/efficacy or raw gain), with the cone
+            # solid angle substituting for spread_angle.
+            if light.superluxcore.color_mode == "rgb":
+                mat_definitions["emission"] = list(light.superluxcore.rgb_gain)
+            elif light.superluxcore.color_mode == "temperature":
+                mat_definitions["emission"] = [1, 1, 1]
+                mat_definitions["emission.temperature"] = light.superluxcore.temperature
+                mat_definitions["emission.temperature.normalize"] = True
+
+            cone_solid_angle = 2 * math.pi * (1 - math.cos(light.spot_size / 2))
+            if light.superluxcore.light_unit == "power":
+                mat_definitions["emission.power"] = light.superluxcore.power / max(cone_solid_angle, 1e-9)
+                mat_definitions["emission.efficency"] = light.superluxcore.efficacy
+                mat_definitions["emission.normalizebycolor"] = light.superluxcore.normalizebycolor
+                if light.superluxcore.efficacy == 0 or light.superluxcore.power == 0:
+                    mat_definitions["emission.gain"] = [0, 0, 0]
+                else:
+                    mat_definitions["emission.gain"] = apply_exposure([1, 1, 1], light.superluxcore.exposure)
+            elif light.superluxcore.light_unit == "lumen":
+                mat_definitions["emission.power"] = light.superluxcore.lumen / max(cone_solid_angle, 1e-9)
+                mat_definitions["emission.efficency"] = 1.0
+                mat_definitions["emission.normalizebycolor"] = light.superluxcore.normalizebycolor
+                if light.superluxcore.lumen == 0:
+                    mat_definitions["emission.gain"] = [0, 0, 0]
+                else:
+                    mat_definitions["emission.gain"] = apply_exposure([1, 1, 1], light.superluxcore.exposure)
+            else:
+                # candela / artistic / gain path
+                mat_definitions["emission.gain"] = apply_exposure(gain, light.superluxcore.exposure)
+
+            props = utils.luxutils.create_props(mat_prefix, mat_definitions)
+            use_instancing = utils.use_instancing(obj, scene, is_viewport_render)
+            obj_props, exported_obj = _create_superluxcore_disklight(
+                    obj, spot_transform, use_instancing, superluxcore_name,
+                    superluxcore_scene, mat_name,
+                    visible_to_camera=obj.superluxcore.visible_to_camera and light.superluxcore.visible)
+            props.Set(obj_props)
+            return props, exported_obj
+
         if light.superluxcore.image:
             # projection
             try:
@@ -440,7 +506,6 @@ def _convert_superluxcore_light(exporter, obj, depsgraph, superluxcore_scene, tr
 
         spot_fix = Matrix.Rotation(math.radians(-90.0), 4, "Z")
         definitions["transformation"] = utils.luxutils.matrix_to_list(transform @ spot_fix)
-
     elif light.type == "AREA":
         if light.superluxcore.is_laser:
             # laser
