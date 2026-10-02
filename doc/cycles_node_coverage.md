@@ -77,7 +77,7 @@ with no SuperLuxCore equivalent additionally carry a specific reason via
 | ShaderNodeParticleInfo | approx | per-field subset warns |
 | ShaderNodeHairInfo | approx | per-output subset warns |
 | ShaderNodePointInfo | approx | Random→objectidnormalized (per-point instance id); Position→hit position approx; Radius→warn 1.0 |
-| ShaderNodeCameraData | warn | view vector/depth unavailable to SuperLuxCore textures |
+| ShaderNodeCameraData | mapped | View Vector->hitpoint.incoming×-1 (scale), View Distance->rayinfo.raylength; View Z Depth warns (no camera fwd in HitPoint) |
 | ShaderNodeLightPath | mapped | all outputs via `rayinfo` texture (HitPoint ray context): Is Camera/Shadow/Diffuse/Glossy/Singular/Reflection/Transmission/Volume Scatter Ray, Ray Length/Depth, Diffuse/Glossy/Transparent/Transmission Depth |
 | ShaderNodeLayerWeight | mapped | Fresnel→`fresnelior` (dielectric at incident angle, IOR 1.45); Facing→`facing` (pow(1-|cos|,blend), Blend input carried) |
 | ShaderNodeFresnel | mapped | `fresnelior` dielectric at the hit incident angle; textured IOR falls back to Schlick F0 chain (eta is scalar) |

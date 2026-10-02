@@ -21,7 +21,6 @@ _UNSUPPORTED_NODE_NOTES = {
     "ShaderNodeOutputAOV": "custom AOVs are written via SuperLuxCore film outputs, not material nodes",
     "ShaderNodeOutputLineStyle": "Freestyle line-style output has no SuperLuxCore equivalent",
     "ShaderNodeLightFalloff": "light falloff is configured on SuperLuxCore light definitions",
-    "ShaderNodeCameraData": "view vector/depth is not available to SuperLuxCore textures",
     "ShaderNodeRaycast": "scene raycast queries are not available to SuperLuxCore textures",
     "ShaderNodeRadialTiling": "no polar/radial tiling texture in SuperLuxCore",
     "ShaderNodeTexIES": "IES profiles live on SuperLuxCore light definitions, not material textures",
@@ -2229,6 +2228,29 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
                 f"Unsupported Particle Info output socket: {output_socket.name}",
                 obj_name=obj_name)
             return ERROR_VALUE
+    elif node.bl_idname == "ShaderNodeCameraData":
+        prefix = "scene.textures."
+        if output_socket.name == "View Vector":
+            # Cycles' View Vector = -I (ray direction); incoming is
+            # fixedDir (= -rayDir = I). Negate via a scale texture.
+            inv = _tex_helper(props, superluxcore_name + "_inv", {
+                "type": "hitpoint", "channel": "incoming"})
+            definitions = {
+                "type": "scale",
+                "texture1": inv,
+                "texture2": -1.0,
+            }
+        elif output_socket.name == "View Distance":
+            definitions = {
+                "type": "rayinfo",
+                "channel": "raylength",
+            }
+        else:
+            # View Z Depth needs the camera-forward projection of the hit
+            # - no camera access from textures.
+            return _warn_unsupported(
+                node, f"'{output_socket.name}' output is not supported "
+                "(needs camera projection); using 0", 0.0, obj_name)
     elif node.bl_idname == "ShaderNodeVolumeInfo":
         # Reads one of the object's OpenVDB grids (density / color / flame /
         # temperature) as a world-space densitygrid texture — the same
