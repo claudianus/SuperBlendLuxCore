@@ -27,15 +27,28 @@ th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);verti
 <h2>Choosing an engine</h2>
 <table>
 <tr><th>Mode</th><th>Engine</th><th>Backend</th><th>Notes</th></tr>
-<tr><td>Unbiased</td><td><code>PATH</code></td><td>CPU / GPU</td>
-<td>Reference estimator. Same code path on CPU and GPU (visual parity
-guaranteed by the engine's CPU/GPU contract).</td></tr>
-<tr><td>Unbiased</td><td><code>BIDIR</code></td><td>CPU</td>
-<td>Bidirectional path tracing; light subpaths merged on the CPU.</td></tr>
-<tr><td>Biased</td><td><code>PATH</code> + caches</td><td>CPU / GPU</td>
-<td>PhotonGI / DLSC indirect caches; production fast path.</td></tr>
-<tr><td>Realtime</td><td><code>RTPATHOCL</code></td><td>GPU</td>
-<td>Reduced-resolution interactive preview; OIDN tick keeps it clean.</td></tr>
+<tr><td>Unbiased</td><td><code>PATHCPU</code></td><td>CPU</td>
+<td>Reference path tracer. Same shading contract as the GPU path.</td></tr>
+<tr><td>Unbiased</td><td><code>PATHOCL</code></td><td>GPU</td>
+<td>Same estimator on the accelerator; visual parity with PATHCPU is a
+hard gate in CI.</td></tr>
+<tr><td>Unbiased</td><td><code>BIDIRCPU</code></td><td>CPU</td>
+<td>Bidirectional path tracing; light subpaths merged on the CPU.
+Strongest on hard indirect + caustics, slower on simple scenes.</td></tr>
+<tr><td>Unbiased</td><td><code>BIDIRVMCPU</code></td><td>CPU</td>
+<td>Bidirectional + vertex merging (VCM). <em>Bidirectional modes are
+CPU-only.</em></td></tr>
+<tr><td>Biased</td><td><code>TILEPATHCPU</code> /
+<code>TILEPATHOCL</code></td><td>CPU / GPU</td>
+<td>Tiled path tracer with per-tile convergence test; production fast
+path when paired with PhotonGI / DLSC caches.</td></tr>
+<tr><td>Realtime</td><td><code>RTPATHCPU</code> /
+<code>RTPATHOCL</code></td><td>CPU / GPU</td>
+<td>Reduced-resolution interactive preview; the viewport OIDN tick keeps
+it clean during lookdev.</td></tr>
+<tr><td>Utility</td><td><code>FILESAVER</code></td><td>—</td>
+<td>Writes the scene to .cfg/.scn without rendering (export for
+luxcoreconsole / luxcoreui).</td></tr>
 </table>
 
 <h2>GPU vs CPU</h2>
