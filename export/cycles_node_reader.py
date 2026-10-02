@@ -183,6 +183,20 @@ def _scalar_or_warn(socket, fallback, node, obj_name):
     return socket.default_value
 
 
+def _imagemap_filter(node, obj_name):
+    """ Cycles' Image/Environment Texture `interpolation` -> imagemap filter.
+    Cycles offers Closest/Linear/Cubic/Smart; the engine has nearest/linear.
+    Closest -> nearest; everything else -> linear (warn on Cubic/Smart). """
+    interp = getattr(node, "interpolation", "Linear")
+    if interp == "Closest":
+        return "nearest"
+    if interp in ("Cubic", "Smart"):
+        SuperLuxCoreErrorLog.add_warning(
+            f'Node "{node.name}": interpolation "{interp}" is approximated '
+            "by bilinear (the engine has no cubic/lazy-continuous filter)",
+            obj_name=obj_name)
+    return "linear"
+
 def black(superluxcore_name="__BLACK__"):
     props = pysuperluxcore.Properties()
     props.SetFromString("""
@@ -1393,6 +1407,7 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
                 # Crude approximation, not sure if we can do better
                 "gamma": 2.2 if node.image.colorspace_settings.name == "sRGB" else 1,
                 "gain": 1,
+                "filter": _imagemap_filter(node, obj_name),
 
                 "mapping.type": "uvmapping2d",
                 "mapping.uvscale": [1, -1],
@@ -3457,6 +3472,7 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
                 "channel": "rgb",
                 "gamma": 2.2 if node.image.colorspace_settings.name == "sRGB" else 1,
                 "gain": 1,
+                "filter": _imagemap_filter(node, obj_name),
             }
             vector_input = node.inputs.get("Vector")
             if vector_input is not None:
