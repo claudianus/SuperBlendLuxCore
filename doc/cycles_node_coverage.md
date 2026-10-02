@@ -41,7 +41,7 @@ with no SuperLuxCore equivalent additionally carry a specific reason via
 | ShaderNodeEmission | mapped | |
 | ShaderNodeBackground | warn | world shader only; warns inside material trees |
 | ShaderNodeHoldout | approx | |
-| ShaderNodeSubsurfaceScattering | approx | |
+| ShaderNodeSubsurfaceScattering | mapped | openpbr subsurface lobes - Weight/Color/Scale/Radius/IOR/Anisotropy all carried (CB15 profile); Normal→bumptex |
 | ShaderNodeAddShader | mapped | |
 | ShaderNodeMixShader | mapped | |
 | ShaderNodeShaderToRGB | warn | Eevee-only concept |

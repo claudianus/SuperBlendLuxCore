@@ -2269,31 +2269,53 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
     elif node.bl_idname == "ShaderNodeSubsurfaceScattering":
         prefix = "scene.materials."
 
-        # Approximation: SuperLuxCore has no BSSRDF material; the Disney subsurface
-        # parameter gives a plausible diffuse-translucent blend. The mean free
-        # path (Radius), IOR and anisotropy inputs cannot be mapped.
+        # Full-fidelity route: Cycles' standalone SSS node is an OpenPBR
+        # subsurface-only material - weight is always 1.0 and the node's
+        # Color/Scale/Radius/IOR/Anisotropy inputs all map directly onto
+        # openpbr's CB15 subsurface lobes. The old Disney fallback kept the
+        # radius flattened to a scalar; that approximation is gone.
+        color = _socket(node.inputs["Color"], props, material, obj_name, group_node_stack)
         scale = _socket(node.inputs["Scale"], props, material, obj_name, group_node_stack)
         if scale == ERROR_VALUE:
             scale = 1.0
-        subsurface = scale if _is_textured(scale) else max(0.0, min(1.0, scale))
-
+        radius = _socket(node.inputs.get("Radius"), props, material, obj_name,
+                         group_node_stack)
+        if radius == ERROR_VALUE or radius is None:
+            radius = [1.0, 1.0, 1.0]
         roughness_socket = node.inputs.get("Roughness")
         roughness = _socket(roughness_socket, props, material, obj_name,
                             group_node_stack) if roughness_socket else 0.5
         if roughness == ERROR_VALUE:
             roughness = 0.5
 
-        SuperLuxCoreErrorLog.add_warning(
-            f'Subsurface Scattering node "{node.name}" is approximated by the Disney '
-            "subsurface parameter (no radius/anisotropy)", obj_name=obj_name)
+        weight_socket = node.inputs.get("Weight")
+        weight = _socket(weight_socket, props, material, obj_name,
+                         group_node_stack) if weight_socket is not None else 1.0
+        if weight == ERROR_VALUE or weight is None:
+            weight = 1.0
 
         definitions = {
-            "type": "disney",
-            "basecolor": _socket(node.inputs["Color"], props, material, obj_name, group_node_stack),
-            "subsurface": subsurface,
-            "metallic": 0,
-            "roughness": roughness,
+            "type": "openpbr",
+            "basecolor": color,
+            "basemetalness": 0.0,
+            "specularroughness": roughness,
+            "specularior": _socket(node.inputs.get("IOR"), props, material,
+                                   obj_name, group_node_stack) or 1.4,
+            "subsurfaceweight": weight,
+            # Cycles tints SSS by the Color input
+            "subsurfacecolor": color,
+            # Cycles Scale scales the per-channel Radius vector; openpbr
+            # separates the two, so Scale feeds the mean free path and
+            # Radius feeds the chromatic scale
+            "subsurfaceradius": scale,
+            "subsurfaceradiusscale": radius,
         }
+        anisotropy_socket = node.inputs.get("Anisotropy")
+        if anisotropy_socket is not None:
+            anisotropy = _socket(anisotropy_socket, props, material, obj_name,
+                                 group_node_stack)
+            if anisotropy is not None and anisotropy != ERROR_VALUE:
+                definitions["subsurfaceanisotropy"] = anisotropy
         if node.inputs.get("Normal") is not None:
             definitions["bumptex"] = _socket(node.inputs["Normal"], props, material,
                                              obj_name, group_node_stack)
