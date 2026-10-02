@@ -2060,9 +2060,14 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
         # Blender 5.x renamed Combine RGB; only the RGB mode maps to channels
         if node.bl_idname == "ShaderNodeCombineColor" \
                 and getattr(node, "mode", "RGB") != "RGB":
-            return _warn_unsupported(
-                node, f'Combine Color mode "{node.mode}" is not supported '
-                "(only RGB channels can be combined)", FALLBACK_COLOR, obj_name)
+            # Blender 5.x Combine Color modes are input labels: HSV feeds
+            # H/S/V, CMYK feeds C/M/K, YUV feeds Y/U/V. All land on the
+            # same three channels, so makefloat3 is correct; warn once
+            # so the coercion shows in the export log.
+            SuperLuxCoreErrorLog.add_warning(
+                f'Combine Color mode "{node.mode}" passes channels through '
+                "(same positional slots, no color-space conversion)",
+                obj_name=obj_name)
 
         prefix = "scene.textures."
 
