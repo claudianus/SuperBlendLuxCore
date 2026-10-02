@@ -2731,12 +2731,11 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
                 "(no bounding-box normalization)", None, obj_name)
             definitions = {"type": "uv"}
         elif coord == "Reflection":
-            # Approximation: the reflected view direction is not available to
-            # SuperLuxCore textures; the shading normal is the closest varying field
-            _warn_unsupported(
-                node, "'Reflection' direction is approximated by the shading "
-                "normal", None, obj_name)
-            definitions = {"type": "shadingnormal"}
+            # Exact: reflect(-fixedDir, shadeN) evaluated at the hit point
+            definitions = {
+                "type": "hitpoint",
+                "channel": "reflection",
+            }
         elif coord == "Window":
             return _warn_unsupported(
                 node, "'Window' (screen space) coordinates are not supported; "
