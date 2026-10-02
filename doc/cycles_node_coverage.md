@@ -68,7 +68,7 @@ with no SuperLuxCore equivalent additionally carry a specific reason via
 
 | Node | Status | Notes |
 |---|---|---|
-| ShaderNodeTexCoord | mapped | UV->uv, Normal->shadingnormal, Object->position, Reflection->hitpoint.reflection; Generated->uv (no bbox normalize), Window/Camera warn |
+| ShaderNodeTexCoord | mapped | UV->uv, Normal->shadingnormal, Object->hitpoint.objectspace, Generated->hitpoint.generated (bbox [0,1]^3), Reflection->hitpoint.reflection; Window/Camera warn |
 | ShaderNodeNewGeometry | mapped | Position->`position`, Normal->`shadingnormal`, TrueNormal/Backfacing/Incoming/Parametric->`hitpoint` channels; Pointiness unwired (needs vertex-AOV export) |
 | ShaderNodeUVMap | mapped | incl. named-layer index lookup |
 | ShaderNodeAttribute | mapped | color attrs, UV layers (Vector out), generic named attrs — float/int/bool→`hitpointvertexaov`/`hitpointtriangleaov`, vector/float2→extra color layer; edge-domain/string warn |
