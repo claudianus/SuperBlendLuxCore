@@ -585,6 +585,136 @@ def _define_constantinfinite(definitions, color):
     definitions["type"] = "constantinfinite"
     definitions["color"] = color
     return color != [0, 0, 0]
+# Bake script template for non-Hosek sky models (Nishita single/multiple
+# scattering, Preetham). LuxCore's sky2 implements Hosek-Wilkie only; the
+# physically faithful route for the other models is to have Cycles itself
+# evaluate the same node graph once, capturing the world radiance through
+# an ENVIRONMENT bake onto an inward equirect sphere. The result is a real
+# HDR EXR including the sun disc (sun_intensity), altitude and density
+# controls that Hosek cannot express at all.
+_SKY_BAKE_SCRIPT = '''\
+import bpy, json, sys
+
+argv = sys.argv[sys.argv.index("--") + 1:]
+params, out_path = json.loads(argv[0]), argv[1]
+
+scn = bpy.context.scene
+for o in list(bpy.data.objects):
+    bpy.data.objects.remove(o, do_unlink=True)
+
+world = bpy.data.worlds.new("BakeWorld")
+world.use_nodes = True
+wn = world.node_tree
+for n in list(wn.nodes):
+    wn.nodes.remove(n)
+out = wn.nodes.new("ShaderNodeOutputWorld")
+bg = wn.nodes.new("ShaderNodeBackground")
+sky = wn.nodes.new("ShaderNodeTexSky")
+sky.sky_type = params["sky_type"]
+for attr, key in (("sun_disc", "sun_disc"), ("sun_size", "sun_size"),
+                  ("sun_intensity", "sun_intensity"),
+                  ("sun_elevation", "sun_elevation"),
+                  ("sun_rotation", "sun_rotation"), ("altitude", "altitude"),
+                  ("air_density", "air_density"),
+                  ("aerosol_density", "aerosol_density"),
+                  ("ozone_density", "ozone_density"),
+                  ("turbidity", "turbidity"),
+                  ("ground_albedo", "ground_albedo")):
+    if hasattr(sky, attr):
+        try:
+            setattr(sky, attr, params[key])
+        except (AttributeError, TypeError):
+            pass
+wn.links.new(sky.outputs["Color"], bg.inputs["Color"])
+wn.links.new(bg.outputs["Background"], out.inputs["Surface"])
+scn.world = world
+
+scn.render.engine = "CYCLES"
+scn.cycles.samples = 8
+
+bpy.ops.mesh.primitive_uv_sphere_add(segments=96, ring_count=48, radius=100)
+sph = bpy.context.active_object
+img = bpy.data.images.new("skybake", width=1024, height=512, float_buffer=True)
+mat = bpy.data.materials.new("bakemat")
+mat.use_nodes = True
+tex_node = mat.node_tree.nodes.new("ShaderNodeTexImage")
+tex_node.image = img
+sph.data.materials.append(mat)
+mat.node_tree.nodes.active = tex_node
+bpy.context.view_layer.objects.active = sph
+sph.select_set(True)
+
+bpy.ops.object.bake(type="ENVIRONMENT", margin=0)
+img.filepath_raw = out_path
+img.file_format = "OPEN_EXR"
+img.save()
+print("SKYBAKE_DONE")
+'''
+
+
+def _bake_sky_to_exr(sky_node, world_name):
+    """Bake a non-Hosek Cycles sky (Nishita single/multiple scattering,
+    Preetham) to a cached equirect EXR via a Cycles ENVIRONMENT bake in a
+    separate headless Blender process.
+
+    Returns the EXR path, or None when baking is unavailable/failed so the
+    caller can fall back to the sky2 approximation.
+    """
+    import hashlib
+    import json
+    import os
+    import subprocess
+    import tempfile
+
+    params = {
+        "sky_type": sky_node.sky_type,
+        "sun_disc": bool(getattr(sky_node, "sun_disc", True)),
+        "sun_size": float(sky_node.sun_size),
+        "sun_intensity": float(sky_node.sun_intensity),
+        "sun_elevation": float(sky_node.sun_elevation),
+        "sun_rotation": float(sky_node.sun_rotation),
+        "altitude": float(sky_node.altitude),
+        "air_density": float(sky_node.air_density),
+        # Blender <4.x named this dust_density
+        "aerosol_density": float(getattr(sky_node, "aerosol_density",
+                                         getattr(sky_node, "dust_density", 1.0))),
+        "ozone_density": float(sky_node.ozone_density),
+        "turbidity": float(sky_node.turbidity),
+        "ground_albedo": float(sky_node.ground_albedo),
+    }
+
+    key = hashlib.sha1(json.dumps(params, sort_keys=True).encode()).hexdigest()[:16]
+    cache_dir = os.path.join(tempfile.gettempdir(), "superluxcore_skybake")
+    os.makedirs(cache_dir, exist_ok=True)
+    out_path = os.path.join(cache_dir, "sky_%s.exr" % key)
+    if os.path.isfile(out_path):
+        return out_path
+
+    script_path = os.path.join(cache_dir, "bake_%s.py" % key)
+    with open(script_path, "w") as f:
+        f.write(_SKY_BAKE_SCRIPT)
+
+    try:
+        proc = subprocess.run(
+            [bpy.app.binary_path, "--background", "--factory-startup",
+             "--python", script_path, "--", json.dumps(params), out_path],
+            capture_output=True, timeout=600)
+        baked = ("SKYBAKE_DONE" in proc.stdout.decode("utf-8", "replace") and
+                 os.path.isfile(out_path))
+    except Exception as error:
+        baked = False
+        SuperLuxCoreErrorLog.add_warning(
+            "World: sky bake failed to launch: %s" % error, obj_name=world_name)
+
+    if not baked:
+        # Clean partial output so a stale file is never picked up
+        if os.path.isfile(out_path):
+            try:
+                os.remove(out_path)
+            except OSError:
+                pass
+        return None
+    return out_path
 
 def _convert_cycles_world(exporter, scene, world, is_viewport_render):
     definitions = {
@@ -672,16 +802,37 @@ def _convert_cycles_world(exporter, scene, world, is_viewport_render):
                 if image_missing:
                     _define_constantinfinite(definitions, MISSING_IMAGE_COLOR)
             elif color_node.bl_idname == "ShaderNodeTexSky":
+                baked_exr = None
                 if color_node.sky_type != "HOSEK_WILKIE":
-                    SuperLuxCoreErrorLog.add_warning("World: Unsupported sky type: " + color_node.sky_type)
+                    # Nishita (single/multiple scattering) and Preetham have
+                    # no sky2 equivalent. Bake the actual Cycles evaluation
+                    # into an equirect EXR and light it as an infinite light -
+                    # exact model fidelity including sun_disc, altitude and
+                    # density controls Hosek cannot express.
+                    baked_exr = _bake_sky_to_exr(color_node, world.name)
 
-                definitions["type"] = "sky2"
-                definitions["ground.enable"] = False
-                definitions["groundalbedo"] = [color_node.ground_albedo] * 3
-                definitions["turbidity"] = color_node.turbidity
-                definitions["dir"] = list(color_node.sun_direction)
-                # Found by eyeballing, not super precise
-                gain *= 0.000014
+                if baked_exr:
+                    definitions["type"] = "infinite"
+                    definitions["file"] = baked_exr
+                    definitions["gamma"] = 1.0
+                    definitions["cdfdim"] = world.superluxcore.cdfdim
+                    # ENVIRONMENT-baked equirect is in Cycles' direction
+                    # convention - same mirror fix as TexEnvironment.
+                    infinite_fix = Matrix.Scale(1.0, 4)
+                    infinite_fix[0][0] = -1.0
+                    definitions["transformation"] = utils.luxutils.matrix_to_list(infinite_fix)
+                else:
+                    if color_node.sky_type != "HOSEK_WILKIE":
+                        SuperLuxCoreErrorLog.add_warning(
+                            "World: %s sky could not be baked; exporting an "
+                            "approximate sky2 instead" % color_node.sky_type)
+                    definitions["type"] = "sky2"
+                    definitions["ground.enable"] = False
+                    definitions["groundalbedo"] = [color_node.ground_albedo] * 3
+                    definitions["turbidity"] = color_node.turbidity
+                    definitions["dir"] = list(color_node.sun_direction)
+                    # Found by eyeballing, not super precise
+                    gain *= 0.000014
         else:
             # No color node linked
             definitions["type"] = "constantinfinite"
