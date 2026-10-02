@@ -2155,6 +2155,18 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
             definitions["type"] = "position"
         elif output_socket.name == "Normal":
             definitions["type"] = "shadingnormal"
+        elif output_socket.name == "True Normal":
+            definitions["type"] = "hitpoint"
+            definitions["channel"] = "geometrynormal"
+        elif output_socket.name == "Backfacing":
+            definitions["type"] = "hitpoint"
+            definitions["channel"] = "backfacing"
+        elif output_socket.name == "Incoming":
+            definitions["type"] = "hitpoint"
+            definitions["channel"] = "incoming"
+        elif output_socket.name == "Parametric":
+            definitions["type"] = "hitpoint"
+            definitions["channel"] = "parametric"
         else:
             SuperLuxCoreErrorLog.add_warning(f"Unsupported Geometry output socket: {output_socket.name}", obj_name=obj_name)
             return ERROR_VALUE
