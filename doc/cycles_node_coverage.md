@@ -69,7 +69,7 @@ with no SuperLuxCore equivalent additionally carry a specific reason via
 | Node | Status | Notes |
 |---|---|---|
 | ShaderNodeTexCoord | approx | UV/Normal/Object mapped; Generated→UV, Reflection→normal approximations warn; Window/Camera warn |
-| ShaderNodeNewGeometry | approx | per-output support varies; unsupported outputs warn |
+| ShaderNodeNewGeometry | mapped | Position->`position`, Normal->`shadingnormal`, TrueNormal/Backfacing/Incoming/Parametric->`hitpoint` channels; Pointiness unwired (needs vertex-AOV export) |
 | ShaderNodeUVMap | mapped | incl. named-layer index lookup |
 | ShaderNodeAttribute | mapped | color attrs, UV layers (Vector out), generic named attrs — float/int/bool→`hitpointvertexaov`/`hitpointtriangleaov`, vector/float2→extra color layer; edge-domain/string warn |
 | ShaderNodeVertexColor | approx | |
