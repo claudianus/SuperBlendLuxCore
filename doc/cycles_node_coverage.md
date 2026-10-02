@@ -79,8 +79,8 @@ with no SuperLuxCore equivalent additionally carry a specific reason via
 | ShaderNodePointInfo | approx | Random→objectidnormalized (per-point instance id); Position→hit position approx; Radius→warn 1.0 |
 | ShaderNodeCameraData | warn | view vector/depth unavailable to SuperLuxCore textures |
 | ShaderNodeLightPath | mapped | all outputs via `rayinfo` texture (HitPoint ray context): Is Camera/Shadow/Diffuse/Glossy/Singular/Reflection/Transmission/Volume Scatter Ray, Ray Length/Depth, Diffuse/Glossy/Transparent/Transmission Depth |
-| ShaderNodeLayerWeight | approx | Facing→0.5; Fresnel→Schlick F0 |
-| ShaderNodeFresnel | approx | Schlick F0 (no angular Fresnel texture) |
+| ShaderNodeLayerWeight | mapped | Fresnel→`fresnelior` (dielectric at incident angle, IOR 1.45); Facing→0.5 constant (pow(1-cos,blend) isn't Fresnel) |
+| ShaderNodeFresnel | mapped | `fresnelior` dielectric at the hit incident angle; textured IOR falls back to Schlick F0 chain (eta is scalar) |
 | ShaderNodeVolumeInfo | approx | per-output subset warns |
 | ShaderNodeRaycast | warn | no scene-query textures |
 | ShaderNodeTangent | approx | |
