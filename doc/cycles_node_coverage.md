@@ -34,13 +34,13 @@ with no SuperLuxCore equivalent additionally carry a specific reason via
 | ShaderNodeBsdfVelvet | approx | |
 | ShaderNodeBsdfSheen | mapped | Charlie sheen (velvet `model=charlie`) - Color→kd, Roughness→sheenroughness; Normal→bumptex |
 | ShaderNodeBsdfToon | approx | |
-| ShaderNodeBsdfHairPrincipled | approx | Marschner `hairmat`; melanin/color/absorption parametrizations; textured melanin → const approx |
+| ShaderNodeBsdfHairPrincipled | mapped | hairmat: CHIANG→beta_m/beta_n, HUANG→model=huang + roughness/aspectratio; melanin/color/absorption parametrizations; textured melanin → const approx |
 | ShaderNodeBsdfHair | approx | legacy hair → hairmat; Reflection/Transmission lobe split not separable |
 | ShaderNodeBsdfRayPortal | approx | → transparent (rays pass through) |
 | ShaderNodeEeveeSpecular | approx | legacy Eevee specular → glossy2 |
 | ShaderNodeEmission | mapped | |
 | ShaderNodeBackground | warn | world shader only; warns inside material trees |
-| ShaderNodeHoldout | approx | |
+| ShaderNodeHoldout | mapped | matte + holdout.enable |
 | ShaderNodeSubsurfaceScattering | mapped | openpbr subsurface lobes - Weight/Color/Scale/Radius/IOR/Anisotropy all carried (CB15 profile); Normal→bumptex |
 | ShaderNodeAddShader | mapped | |
 | ShaderNodeMixShader | mapped | |
