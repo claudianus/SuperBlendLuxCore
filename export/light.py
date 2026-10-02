@@ -246,7 +246,12 @@ def _convert_cycles_light(exporter, obj, depsgraph, superluxcore_scene, transfor
         # Calculate gain similar to Cycles (scaling with light surface area)
         transform_matrix = calc_area_light_transformation(light, transform)
         scale = transform_matrix.to_scale()
+        # A disk emits pi*sx*sy; the box-normalization below assumes the
+        # quad's full area. Scale up by 4/pi so disk/ellipse flux matches
+        # the quad path at equal size.
         area_gain = gain / (scale.x * scale.y)
+        if light.shape in {"DISK", "ELLIPSE"}:
+            area_gain *= 4.0 / math.pi
         # Multiplier to reach similar brightness as Cycles.
         # Found through render comparisons, not super precise.
         area_gain *= 0.06504
