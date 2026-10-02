@@ -202,7 +202,8 @@ def _convert_cycles_light(exporter, obj, depsgraph, superluxcore_scene, transfor
             # export/config.py (cycles_compat.cycles_portal_rects).
             return pysuperluxcore.Properties(), None
 
-        if light.shape not in {"SQUARE", "RECTANGLE"}:
+        if light.shape not in {"SQUARE", "RECTANGLE", "DISK", "ELLIPSE"}:
+            # Quad fallback for any shape Blender may add later
             SuperLuxCoreErrorLog.add_warning("Unsupported area light shape: " + light.shape.title(), obj.name)
 
         props = pysuperluxcore.Properties()
@@ -749,7 +750,8 @@ def _create_superluxcore_meshlight(obj, transform, use_instancing, superluxcore_
                               mat_name, visible_to_camera):
     light = obj.data
     transform_matrix = calc_area_light_transformation(light, transform)
-    if light.shape not in {"SQUARE", "RECTANGLE"}:
+    if light.shape not in {"SQUARE", "RECTANGLE", "DISK", "ELLIPSE"}:
+        # Quad fallback for any shape Blender may add later
         SuperLuxCoreErrorLog.add_warning("Unsupported area light shape: " + light.shape.title(), obj_name=obj.name)
 
     if transform_matrix.determinant() == 0:
@@ -771,28 +773,50 @@ def _create_superluxcore_meshlight(obj, transform, use_instancing, superluxcore_
 
     shape_name = superluxcore_name
     if not superluxcore_scene.IsMeshDefined(shape_name):
-        vertices = [
-            (1, 1, 0),
-            (1, -1, 0),
-            (-1, -1, 0),
-            (-1, 1, 0),
-        ]
-        faces = [
-            (0, 1, 2),
-            (2, 3, 0),
-        ]
-        normals = [
-            (0, 0, -1),
-            (0, 0, -1),
-            (0, 0, -1),
-            (0, 0, -1),
-        ]
-        uvs = [
-            (1, 1),
-            (1, 0),
-            (0, 0),
-            (0, 1),
-        ]
+        if light.shape in {"DISK", "ELLIPSE"}:
+            # Cycles DISK/ELLIPSE area lights are round emitters - emit
+            # an N-gon fan instead of the quad so the emitter silhouette
+            # (and any reflection in glossy surfaces) is circular.
+            # 32 segments is visually indistinguishable at emission
+            # scales; transform already carries the size/size_y scaling.
+            _N = 32
+            vertices = []
+            uvs = []
+            for k in range(_N):
+                a = 2.0 * math.pi * k / _N
+                c, s = math.cos(a), math.sin(a)
+                vertices.append((c, s, 0))
+                uvs.append((0.5 + 0.5 * c, 0.5 + 0.5 * s))
+            # Ring order is CCW seen from +Z; (center, k+1, k) winds the
+            # opposite way so the geometric + declared normal is -Z,
+            # matching the quad and Cycles' downward emission axis.
+            faces = [(_N, (k + 1) % _N, k) for k in range(_N)]
+            vertices.append((0, 0, 0))   # fan center at index _N
+            uvs.append((0.5, 0.5))
+            normals = [(0, 0, -1)] * (len(vertices))
+        else:
+            vertices = [
+                (1, 1, 0),
+                (1, -1, 0),
+                (-1, -1, 0),
+                (-1, 1, 0),
+            ]
+            faces = [
+                (0, 1, 2),
+                (2, 3, 0),
+            ]
+            normals = [
+                (0, 0, -1),
+                (0, 0, -1),
+                (0, 0, -1),
+                (0, 0, -1),
+            ]
+            uvs = [
+                (1, 1),
+                (1, 0),
+                (0, 0),
+                (0, 1),
+            ]
         superluxcore_scene.DefineMesh(shape_name, vertices, faces, normals, uvs, None, None, mesh_transform)
 
     fake_material_index = 0
