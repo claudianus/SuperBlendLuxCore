@@ -171,9 +171,20 @@ def _convert_cycles_light(exporter, obj, depsgraph, superluxcore_scene, transfor
             SuperLuxCoreErrorLog.add_warning("Size (soft shadows) not supported by SuperLuxCore spotlights", obj.name)
 
         definitions["type"] = "spot"
-        # TODO Cycles has a different falloff, probably needs to be implemented in SuperLuxCore
-        definitions["coneangle"] = math.degrees(light.spot_size) / 2
-        definitions["conedeltaangle"] = math.degrees(light.spot_size / 2 * light.spot_blend)
+        # Cycles' spot falloff runs in cos-space: penumbra = smoothstep
+        # between cos(angle/2) and cos(angle/2) + blend*(1-cos(angle/2)).
+        # LuxCore's coneDeltaAngle is an *angle* subtracted from coneAngle
+        # -> convert the Cycles cos-space start to that angular width, and
+        # switch the falloff curve to smoothstep so the whole band matches.
+        cone_half_deg = math.degrees(light.spot_size) / 2
+        definitions["coneangle"] = cone_half_deg
+
+        cos_half = math.cos(light.spot_size / 2)
+        blend = min(max(light.spot_blend, 0.0), 1.0)
+        cos_start = min(1.0, cos_half + blend * (1.0 - cos_half))
+        falloff_start_deg = math.degrees(math.acos(max(-1.0, cos_start)))
+        definitions["conedeltaangle"] = max(0.0, cone_half_deg - falloff_start_deg)
+        definitions["falloff"] = "smoothstep"
 
         # Position and direction are set by transformation property
         definitions["position"] = [0, 0, 0]
