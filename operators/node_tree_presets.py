@@ -34,6 +34,43 @@ class SUPERLUXCORE_OT_preset_material(bpy.types.Operator):
     ])
 
     preset: StringProperty()
+
+    # Measured n/k metal presets, rendered as a Metal node wired to a
+    # Fresnel preset texture - the engine ships the measured spectral n,k
+    # curves for all of these, so the reflectance is physically accurate
+    # by construction rather than colour-matched.
+    measured_metals = OrderedDict([
+        ("Aluminium", "aluminium"),
+        ("Chromium", "chromium"),
+        ("Cobalt", "cobalt"),
+        ("Copper", "copper"),
+        ("Gold", "gold"),
+        ("Iron", "iron"),
+        ("Lead", "lead"),
+        ("Molybdenum", "molybdenum"),
+        ("Nickel", "nickel"),
+        ("Palladium", "palladium"),
+        ("Platinum", "platinum"),
+        ("Silver", "silver"),
+        ("Tantalum", "tantalum"),
+        ("Titanium", "titanium"),
+        ("Tungsten", "tungsten"),
+        ("Vanadium", "vanadium"),
+        ("Zinc", "zinc"),
+    ])
+
+    # Carpaint engine presets - measured multi-layer flake paint stacks.
+    carpaints = OrderedDict([
+        ("Carpaint 2k Acrylack", "2k_acrylack"),
+        ("Carpaint BMW 339", "bmw339"),
+        ("Carpaint Ford F8", "ford_f8"),
+        ("Carpaint Opel Titan", "opel_titan"),
+        ("Carpaint Polaris Silber", "polaris_silber"),
+        ("Carpaint Blue", "blue"),
+        ("Carpaint Blue Matte", "blue_matte"),
+        ("Carpaint White", "white"),
+    ])
+
     categories = OrderedDict([
         ("Basic", list(basic_mapping.keys())),
         ("Advanced", [
@@ -43,6 +80,8 @@ class SUPERLUXCORE_OT_preset_material(bpy.types.Operator):
             "Colored Glass",
             "Hybrid Glass",
         ]),
+        ("Physically Measured",
+         list(measured_metals.keys()) + list(carpaints.keys())),
     ])
 
     @classmethod
@@ -70,6 +109,14 @@ class SUPERLUXCORE_OT_preset_material(bpy.types.Operator):
                     'allow direct light through the glass while keeping refraction visible '
                     'to camera rays (which is not the case when using the "Architectural" '
                     'setting on a glass node)')
+        # Category: Physically Measured
+        elif preset in cls.measured_metals:
+            return ("Add a " + preset.lower() + " node setup using the engine's "
+                    "measured spectral n,k data - physically accurate reflectance "
+                    "by construction (GGX + multibounce)")
+        elif preset in cls.carpaints:
+            return ("Add the engine's measured carpaint preset '" +
+                    cls.carpaints[preset] + "' (multi-layer flake paint)")
         else:
             raise Exception("Unknown preset: " + preset)
 
@@ -165,9 +212,39 @@ class SUPERLUXCORE_OT_preset_material(bpy.types.Operator):
             self._preset_colored_glass(obj, node_tree, output)
         elif self.preset == "Hybrid Glass":
             self._preset_hybrid_glass(obj, node_tree, output)
+        # Category: Physically Measured
+        elif self.preset in self.measured_metals:
+            self._preset_measured_metal(obj, node_tree, output,
+                                        self.measured_metals[self.preset])
+        elif self.preset in self.carpaints:
+            self._preset_carpaint(obj, node_tree, output,
+                                  self.carpaints[self.preset])
 
         show_nodetree(context, node_tree)
         return {"FINISHED"}
+
+    def _preset_measured_metal(self, obj, node_tree, output, nk_name):
+        """Metal node + Fresnel preset texture wired to the engine's measured
+        n,k table, with the modern microfacet path on (GGX + multibounce) so
+        the reflectance is energy-conserving, not just colour-matched."""
+        metal = new_node("SuperLuxCoreNodeMatMetal", node_tree, output)
+        metal.input_type = "fresnel"
+        metal.distribution = "ggx"
+        metal.multibounce = True
+
+        fresnel = node_tree.nodes.new("SuperLuxCoreNodeTexFresnel")
+        fresnel.location = (metal.location.x - 320, metal.location.y)
+        fresnel.input_type = "preset"
+        fresnel.preset = nk_name
+        node_tree.links.new(fresnel.outputs[0], metal.inputs["Fresnel"])
+        return metal
+
+    def _preset_carpaint(self, obj, node_tree, output, preset_name):
+        """One-click engine carpaint preset - measured multi-layer flake paint."""
+        carpaint = new_node("SuperLuxCoreNodeMatCarpaint", node_tree, output)
+        carpaint.preset = preset_name
+        carpaint.distribution = "ggx"
+        return carpaint
 
     def _preset_smoke(self, obj, node_tree, output):
         # If it is not a smoke domain, create the material anyway, but warn the user

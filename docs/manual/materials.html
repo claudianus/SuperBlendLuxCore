@@ -60,6 +60,16 @@ th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);verti
 <tr><td>Velvet / Sheen / Toon / Hair BSDF</td><td>approx</td><td>closest lobe; a warning is logged</td></tr>
 </table>
 
+<h2>Preset library</h2>
+<p><em>Material &rarr; Presets</em> menu in the material editor inserts a
+ready-made node tree. The <strong>Physically Measured</strong> category
+builds each of the 17 measured spectral n/k metals (Aluminium through Zinc)
+as a Metal node wired to a Fresnel preset texture - the engine ships the
+measured curves, so the reflectance is physically accurate by construction
+(GGX + multibounce enabled). The eight measured carpaint stacks (2k
+Acrylack, BMW 339, Ford F8, Opel Titan, Polaris Silber, Blue, Blue Matte,
+White) expose the multi-layer flake paint model in one click.</p>
+
 <h2>Textures</h2>
 <p>Noise / Voronoi / Brick / Checker / Gradient / Magic / Wave /
 White Noise / Gabor / IES all map natively; feature subsets warn in the
