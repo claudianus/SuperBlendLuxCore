@@ -3464,13 +3464,20 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
                 SuperLuxCoreErrorLog.add_warning(error, obj_name=obj_name)
                 return MISSING_IMAGE_COLOR
 
-            # Approximation: SuperLuxCore imagemaps have no equirectangular or
-            # mirror-ball projection, so the environment image is sampled
-            # through the regular UV mapping (works for Generated/UV coords)
-            SuperLuxCoreErrorLog.add_warning(
-                f'Environment Texture node "{node.name}": '
-                f'"{getattr(node, "projection", "EQUIRECTANGULAR")}" projection '
-                "is approximated by the UV mapping", obj_name=obj_name)
+            # Equirectangular / mirror-ball projection via the engine's
+            # direction-based mapping: the hit's incoming direction is
+            # turned into env UVs, not the surface UV. The texture's
+            # Vector input (if linked) still routes through _vector_mapping_defs
+            # for local transforms; the fallback for the default socket
+            # is the direction mapping.
+            proj = getattr(node, "projection", "EQUIRECTANGULAR")
+            if proj == "EQUIRECTANGULAR":
+                pass  # dirmapping2d covers the standard case
+            elif proj == "MIRROR_BALL":
+                SuperLuxCoreErrorLog.add_warning(
+                    f'Environment Texture node "{node.name}": MIRROR_BALL '
+                    "projection approximated by equirectangular",
+                    obj_name=obj_name)
 
             definitions = {
                 "type": "imagemap",
@@ -3482,7 +3489,15 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
                 "filter": _imagemap_filter(node, obj_name),
             }
             vector_input = node.inputs.get("Vector")
-            if vector_input is not None:
+            if vector_input is not None and not vector_input.is_linked:
+                # Unlinked Vector: the hit's incoming direction is the
+                # equirect coordinate (Cycles samples by view direction).
+                definitions["mapping.type"] = "dirmapping2d"
+            elif vector_input is not None and vector_input.is_linked:
+                SuperLuxCoreErrorLog.add_warning(
+                    f'Environment Texture node "{node.name}": a linked '
+                    "Vector input can't feed the direction projection - "
+                    "falls back to surface UV", obj_name=obj_name)
                 definitions.update(_vector_mapping_defs(
                     vector_input, True, False, props, material, obj_name,
                     group_node_stack))
