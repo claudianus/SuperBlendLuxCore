@@ -75,6 +75,28 @@ White) expose the multi-layer flake paint model in one click.</p>
 White Noise / Gabor / IES all map natively; feature subsets warn in the
 export log. Image textures support UV / Generated / Object coordinates
 and the Mapping node.</p>
+<p>Beyond image-driven textures, the engine evaluates several
+<strong>angle- and hit-context textures</strong> used to fill Cycles'
+shading-graph outputs that have no SuperLuxCore direct type:</p>
+<table>
+<tr><th>Texture type</th><th>Purpose</th><th>Drives</th></tr>
+<tr><td><code>fresnelior</code></td><td>dielectric Fresnel at the incident
+angle (<code>ior</code> scalar)</td><td>Fresnel node Fac,
+Layer&nbsp;Weight&nbsp;Fresnel</td></tr>
+<tr><td><code>facing</code></td><td>view-angle falloff
+<code>pow(1−|cos·|, blend)</code></td><td>Layer&nbsp;Weight&nbsp;Facing</td></tr>
+<tr><td><code>hitpoint</code></td><td>raw HitPoint field per
+<code>channel</code>: <code>geometrynormal</code>, <code>backfacing</code>,
+<code>incoming</code>, <code>parametric</code>, <code>reflection</code>,
+<code>radial</code>, <code>objectspace</code>, <code>generated</code></td>
+<td>Geometry (True&nbsp;Normal/Backfacing/Incoming/Parametric),
+TexCoord (Reflection/Object/Generated), CameraData (View&nbsp;Vector
+/Distance)</td></tr>
+</table>
+<p>All three evaluate identically on CPU and GPU/Metal — the renderer
+compiles the same eval for both targets (the <code>fixedDir</code>/
+<code>shadeN</code> incident cosine is expanded component-wise where a
+native <code>dot()</code> overload is unavailable).</p>
 <h2>Examples</h2>
 <p>Left: the <code>diffraction</code> material on a CD — real 1D grating
 response, not a rainbow ramp. Right: a classroom lit through a window,
