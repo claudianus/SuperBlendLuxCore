@@ -836,7 +836,7 @@ def _create_superluxcore_disklight(obj, transform, use_instancing, superluxcore_
     obj_props = utils.luxutils.create_props(obj_prefix, obj_definitions)
     mesh_definition = [superluxcore_name + "_disk", fake_material_index]
     exported_obj = ExportedObject(superluxcore_name, [mesh_definition], ["fake_mat_name"],
-                                  visible_to_camera=visible_to_camera,
+                                  transform.copy(), visible_to_camera,
                                   link_groups=obj.data.superluxcore.link_groups)
     return obj_props, exported_obj
 
