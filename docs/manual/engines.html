@@ -46,6 +46,11 @@ path when paired with PhotonGI / DLSC caches.</td></tr>
 <code>RTPATHOCL</code></td><td>CPU / GPU</td>
 <td>Reduced-resolution interactive preview; the viewport OIDN tick keeps
 it clean during lookdev.</td></tr>
+<tr><td>Halt behaviour</td><td colspan="2"><code>batch.halttime</code>,
+<code>batch.haltspp</code> and adaptive noise all stop
+<code>RTPATH*</code> correctly since 2.11.7 — earlier the threads ran
+on <code>stop_token</code> only and ignored the film's convergence
+flag.</td></tr>
 <tr><td>Utility</td><td><code>FILESAVER</code></td><td>—</td>
 <td>Writes the scene to .cfg/.scn without rendering (export for
 luxcoreconsole / luxcoreui).</td></tr>
