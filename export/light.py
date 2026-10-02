@@ -749,7 +749,21 @@ def _convert_cycles_world(exporter, scene, world, is_viewport_render):
         return None
 
     if surface_node.bl_idname == "ShaderNodeBackground":
-        gain = surface_node.inputs["Strength"].default_value
+        strength_socket = surface_node.inputs["Strength"]
+        gain = strength_socket.default_value
+        if strength_socket.is_linked:
+            # A linked Strength reads the *unlinked* default - stale under
+            # drivers and silent when a Value node feeds it. Resolve the
+            # common Value/driver source; arbitrary node chains can't be
+            # baked (gain is a constant on LuxCore lights) so warn once.
+            src = utils_node.get_linked_node(strength_socket)
+            if src is not None and src.bl_idname == "ShaderNodeValue":
+                gain = src.outputs["Value"].default_value
+            elif src is not None:
+                SuperLuxCoreErrorLog.add_warning(
+                    'World: Background Strength is driven by "%s" - '
+                    "LuxCore light gain is constant; using the socket "
+                    "default %.3f" % (src.bl_idname, gain), obj_name=world.name)
 
         color_socket = surface_node.inputs["Color"]
         color_node = utils_node.get_linked_node(color_socket)
