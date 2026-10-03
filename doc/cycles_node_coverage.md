@@ -68,7 +68,7 @@ with no SuperLuxCore equivalent additionally carry a specific reason via
 
 | Node | Status | Notes |
 |---|---|---|
-| ShaderNodeTexCoord | mapped | UV->uv, Normal->shadingnormal, Object->hitpoint.objectspace, Generated->hitpoint.generated (bbox [0,1]^3), Reflection->hitpoint.reflection; Window/Camera warn |
+| ShaderNodeTexCoord | approx | UV->uv, Normal->shadingnormal, Object->hitpoint.objectspace, Generated->hitpoint.generated (transformed base-mesh bbox; flat axes 0.5), Reflection->hitpoint.reflection; full undeformed ORCO/custom texspace/material-submesh bounds are not mapped; Window/Camera warn |
 | ShaderNodeNewGeometry | mapped | Position->`position`, Normal->`shadingnormal`, TrueNormal/Backfacing/Incoming/Parametric->`hitpoint` channels; Pointiness unwired (needs vertex-AOV export) |
 | ShaderNodeUVMap | mapped | incl. named-layer index lookup |
 | ShaderNodeAttribute | mapped | color attrs, UV layers (Vector out), generic named attrs — float/int/bool→`hitpointvertexaov`/`hitpointtriangleaov`, vector/float2→extra color layer; edge-domain/string warn |
@@ -344,8 +344,9 @@ Notes:
 - These linked boundary fixtures also exposed SDL precision loss:
   Python double properties serialized 16777216 as 16777200, while the
   native float formatter could round it to 16777220. The engine's
-  float/double formatting now preserves shortest round-trip values
-  using `std::to_chars`; no identity textures or input special cases.
+  float/double formatting preserves shortest round-trip values using
+  compile-time fmt in a stack buffer; no identity textures or input
+  special cases. This also preserves the macOS 11 Intel deployment target.
 - With two linked operands and constant epsilon, Compare keeps three
   operation textures. Linked epsilon adds one native maximum operation
   to enforce its minimum. No native texture/layout changes; no measured
@@ -384,3 +385,24 @@ Notes:
   70 installed-package checks also passed. All graphs go through SDL
   round-trip, with radiance tolerance `0.05` and no native CPU workers
   enabled on the Metal gate.
+
+## Transformed Generated coordinates
+
+- Generated previously mixed inverse-transformed hit positions with baked
+  mesh bounds. An actual translated-plane Min/Max render lost its ramps.
+  CPU/GPU now use a cached baked-to-normalized authoring map; no per-hit
+  geometry scan, per-vertex coordinate array or new texture layout.
+- Translation and rotation/nonuniform scale are covered for direct meshes
+  and instances. Flat axes use Blender's 0.5 texture-space center.
+  Blender 5.2 mesh texspace independently supplies reference vertex colours;
+  Generated minus the interpolated reference is amplified 1000× before
+  checking every pixel in the original 4×4 region. Radiance tolerance
+  remains 0.05, not a claim of bitwise parity.
+- The full Blender export → SDL round-trip → CPU/isolated Metal corpus
+  passed 308 checks. The installed extension's actual 384×192 RGB emission
+  render is `docs/assets/ex_vector_extrema.png`: raw EXR pixels verified
+  upper/lower clipping plateaus and distinct blue components.
+- Generated remains a base-mesh bbox approximation. Full undeformed ORCO,
+  custom texspace and whole-object bounds shared across material submeshes
+  are not established by these transform checks.
+

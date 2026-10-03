@@ -264,7 +264,38 @@ def build_cases():
         expected = [1., -2., 0.] if operation == "SNAP" else [2.75, -.25, .5]
         cases.append(export_case(node, material, "vector-" + operation.lower(), expected))
     node = tree.nodes.new("ShaderNodeTexCoord")
-    cases.append(export_case(node, material, "generated-coordinates", [.5, .5, 0.], "Generated"))
+    # Blender's texture space is the oracle, including the flat Z axis.
+    probe_mesh = bpy.data.meshes.new("GeneratedReference")
+    probe_mesh.from_pydata([(-4., -4., 0.), (4., -4., 0.), (4., 4., 0.), (-4., 4., 0.)],
+                          [], [(0, 1, 2), (0, 2, 3)])
+    probe_mesh.update()
+    sample = (1., -1., 0.)
+    reference_colours = [
+        tuple((.5 * (p - loc) / size + .5) if size else .5
+              for p, loc, size in zip(vertex.co, probe_mesh.texspace_location,
+                                      probe_mesh.texspace_size))
+        for vertex in probe_mesh.vertices
+    ]
+    from mathutils import Matrix, Vector
+    transforms = [
+        ("translate", Matrix.Translation((.8, -.3, 0.))),
+        ("rotate-scale", Matrix.Translation((.8, -.3, 0.)) @
+         Matrix.Rotation(.7, 4, "Z") @ Matrix.Diagonal((2., .5, 1., 1.))),
+    ]
+    for label, baked in transforms:
+        for instanced in (False, True):
+            wrapper = Matrix.Translation((-.6, .4, 0.)) @ Matrix.Rotation(-.4, 4, "Z")
+            total = wrapper @ baked if instanced else baked
+            case = export_case(node, material,
+                               f"generated-{label}-instance-{int(instanced)}",
+                               [0., 0., 0.], "Generated")
+            case["reference_colours"] = reference_colours
+            case["mesh_transform"] = [baked[row][col] for col in range(4) for row in range(4)]
+            case["target"] = list(total @ Vector(sample))
+            if instanced:
+                case["object_transform"] = [wrapper[row][col] for col in range(4) for row in range(4)]
+            cases.append(case)
+    bpy.data.meshes.remove(probe_mesh)
     scaled = tree.nodes.new("ShaderNodeVectorMath")
     scaled.operation = "SCALE"
     scaled.inputs["Scale"].default_value = 2.

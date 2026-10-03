@@ -93,7 +93,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          BLENDER_VERSION="5.1"
+          BLENDER_VERSION="5.2"
           BLENDER_VERSION_PATCH=".1"
           BLENDER_URL="https://download.blender.org/release/Blender${BLENDER_VERSION}/blender-${BLENDER_VERSION}${BLENDER_VERSION_PATCH}-linux-x64.tar.xz"
           INSTALL_DIR="$HOME/.local/opt/blender-${BLENDER_VERSION}"

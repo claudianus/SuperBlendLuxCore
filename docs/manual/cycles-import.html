@@ -53,6 +53,11 @@ Math node's Clamp option are supported on CPU and GPU.</p>
 <p>Texture Coordinate UV, Normal, Generated, Object and Reflection outputs
 are routed separately from Vector Math. Window and Camera outputs still
 report their documented unsupported-coordinate warnings.</p>
+<p>Generated now keeps baked mesh coordinates and their bounds in the same
+authoring frame, including translation, rotation, nonuniform scale and
+instances. Flat axes return <code>0.5</code>. This remains a base-mesh
+bounding-box approximation: full undeformed ORCO, custom texspace and
+whole-object bounds across material submeshes are not mapped.</p>
 
 <h2>Math output Clamp</h2>
 <p>The scalar Math node's <b>Clamp</b> checkbox limits the completed
@@ -134,12 +139,22 @@ avoids that intermediate subtraction. With two linked inputs, explicit
 texture nodes decrease from six to three; arithmetic operations decrease
 from four to one. This is a measured graph reduction, not a measured
 render-speedup claim.</p>
-<p>The CPU/isolated Metal regression corpus passed 302 actual render
+<p>The CPU/isolated Metal regression corpus passed 308 actual render
 checks, including linked/folded extrema, full-range input normalization
 and tiny-input quotients. Another 70 checks passed using the installed
 extension and native package. This requires the current engine build;
 an older cached wheel does not gain native operations from an add-on
 source update alone.</p>
+<p><img src="../assets/ex_vector_extrema.png"
+alt="Actual SuperLuxCore render of componentwise Vector Minimum on the left and Maximum on the right"
+style="max-width:100%;width:512px;border:1px solid var(--line);border-radius:8px"></p>
+<p>This actual Blender 5.2 SUPERLUXCORE RGB emission render uses two translated
+planes: <code>Generated → Multiply(1,1,0) → Add(0,0,0.25) →
+Minimum/Maximum(0.35,0.65,0.35) → Emission</code>. Minimum is on the left;
+Maximum is on the right. The ramps meet componentwise upper/lower plateaus.
+Spectral transport is disabled for this mathematical RGB diagram; the PNG
+is display-managed, while raw EXR pixels verify the clipping values.
+It is not a photorealistic material example or a speed benchmark.</p>
 
 <h2>Materials</h2>
 <p>Principled BSDF exports as OpenPBR (see
