@@ -47,6 +47,64 @@ def build_cases():
         if clamped:
             expected = min(1., max(0., expected))
         cases.append(export_case(node, material, f"math-snap-{index}", [expected] * 3))
+    vector = tree.nodes.new("ShaderNodeCombineXYZ")
+    vector.inputs["Y"].default_value = 1.5
+    scalar = tree.nodes.new("ShaderNodeMath")
+    scalar.operation = "SINE"
+    tree.links.new(vector.outputs[0], scalar.inputs[0])
+    cases.append(export_case(scalar, material, "vector-to-scalar-sine", [math.sin(.5)] * 3))
+    import PyOpenColorIO as ocio
+    colour = tree.nodes.new("ShaderNodeRGB")
+    colour.outputs[0].default_value = (0., 1.5, 0., 1.)
+    scalar = tree.nodes.new("ShaderNodeMath")
+    scalar.operation = "SINE"
+    tree.links.new(colour.outputs[0], scalar.inputs[0])
+    luminance = 1.5 * ocio.GetCurrentConfig().getDefaultLumaCoefs()[1]
+    cases.append(export_case(scalar, material, "colour-to-scalar-sine",
+                             [math.sin(luminance)] * 3))
+    scalar = tree.nodes.new("ShaderNodeMath")
+    scalar.operation = "ADD"
+    scalar.inputs[1].default_value = 0.
+    tree.links.new(colour.outputs[0], scalar.inputs[0])
+    cases.append(export_case(scalar, material, "colour-to-scalar-add", [luminance] * 3))
+    bw = tree.nodes.new("ShaderNodeRGBToBW")
+    tree.links.new(colour.outputs[0], bw.inputs[0])
+    cases.append(export_case(bw, material, "colour-luminance", [luminance] * 3))
+    product = tree.nodes.new("ShaderNodeVectorMath")
+    product.operation = "MULTIPLY"
+    product.inputs[1].default_value = (3., 0., 0.)
+    tree.links.new(vector.outputs[0], product.inputs[0])
+    scalar = tree.nodes.new("ShaderNodeMath")
+    scalar.operation = "SINE"
+    tree.links.new(product.outputs[0], scalar.inputs[0])
+    cases.append(export_case(scalar, material, "derived-vector-to-scalar", [0.] * 3))
+    scalar = tree.nodes.new("ShaderNodeMath")
+    scalar.operation = "MULTIPLY_ADD"
+    scalar.inputs[0].default_value = 1.5
+    scalar.inputs[1].default_value = 2.
+    tree.links.new(vector.outputs[0], scalar.inputs[2])
+    cases.append(export_case(scalar, material, "vector-to-third-scalar-input", [3.5] * 3))
+    for boundary in ("input", "output"):
+        group_tree = bpy.data.node_groups.new("ScalarBoundary_" + boundary, "ShaderNodeTree")
+        group_tree.interface.new_socket(name="Result", in_out="OUTPUT", socket_type="NodeSocketFloat")
+        output = group_tree.nodes.new("NodeGroupOutput")
+        group = tree.nodes.new("ShaderNodeGroup")
+        group.node_tree = group_tree
+        if boundary == "input":
+            group_tree.interface.new_socket(name="Value", in_out="INPUT", socket_type="NodeSocketFloat")
+            source = group_tree.nodes.new("NodeGroupInput")
+            group_tree.links.new(source.outputs[0], output.inputs[0])
+            tree.links.new(vector.outputs[0], group.inputs[0])
+            expected = math.sin(.5)
+        else:
+            source = group_tree.nodes.new("ShaderNodeRGB")
+            source.outputs[0].default_value = (0., 1.5, 0., 1.)
+            group_tree.links.new(source.outputs[0], output.inputs[0])
+            expected = math.sin(luminance)
+        scalar = tree.nodes.new("ShaderNodeMath")
+        scalar.operation = "SINE"
+        tree.links.new(group.outputs[0], scalar.inputs[0])
+        cases.append(export_case(scalar, material, "group-scalar-" + boundary, [expected] * 3))
     for value, clamped in [(.25, False), (.25, True), (9., False)]:
         node = tree.nodes.new("ShaderNodeMath")
         node.operation = "SQRT"

@@ -90,6 +90,21 @@ The discrete cells include negative-coordinate intervals. This is a
 display-managed emission probe, not a surface-shading or speed benchmark;
 the table describes the mathematical results before colour management.</p>
 
+<h2>Vector and colour inputs to scalar Math</h2>
+<p>A Math input is a scalar, even when linked from a vector or colour.
+Vectors convert to the mean of their three components; colours convert
+to luminance using the active OpenColorIO configuration. The resulting
+scalar is broadcast when used as an Emission colour.</p>
+<table>
+<tr><th>Input to Sine</th><th>Scalar result</th></tr>
+<tr><td>Vector (0, 1.5, 0)</td><td>sin(0.5) ≈ 0.479426</td></tr>
+<tr><td>Colour (0, 1.5, 0)</td><td>sin(1.5 × 0.7152) ≈ 0.878541 with the default config</td></tr>
+</table>
+<p>Conversion occurs at scalar socket boundaries, including group
+inputs/outputs and Math's third operand. RGB to BW uses the same
+luminance coefficients. Already-scalar links need no identity-power
+conversion texture. Vector Math remains componentwise.</p>
+
 <h2>Materials</h2>
 <p>Principled BSDF exports as OpenPBR (see
 <a href="materials.html">Materials</a>) — no SSS radius / sheen / aniso

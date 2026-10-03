@@ -1,5 +1,6 @@
 import bpy
 import pysuperluxcore
+import PyOpenColorIO as ocio
 from .. import utils
 from ..utils import node as utils_node
 from ..utils.errorlog import SuperLuxCoreErrorLog
@@ -764,8 +765,17 @@ def _socket(socket, props, material, obj_name, group_node, superluxcore_name=Non
         # Pass superluxcore_name through so pass-through nodes can re-emit the
         # upstream subtree under the requested name (convert() relies on the
         # top-level node returning the name it was given)
-        return _node(link.from_node, link.from_socket, props, material,
-                     superluxcore_name, obj_name, group_node)
+        value = _node(link.from_node, link.from_socket, props, material,
+                      superluxcore_name, obj_name, group_node)
+        if socket.type == "VALUE" and link.from_socket.type in {"VECTOR", "RGBA"}:
+            weights = (list(ocio.GetCurrentConfig().getDefaultLumaCoefs())
+                       if link.from_socket.type == "RGBA" else [1. / 3.] * 3)
+            if _is_textured(value):
+                return _tex_helper(props, value + "_to_float_" + link.from_socket.type.lower(), {
+                    "type": "dotproduct", "texture1": value, "texture2": weights})
+            if isinstance(value, (list, tuple)):
+                return sum(component * weight for component, weight in zip(value, weights))
+        return value
 
     if not hasattr(socket, "default_value"):
         return ERROR_VALUE
@@ -1703,13 +1713,6 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
         tex1 = _socket(node.inputs[0], props, material, obj_name, group_node_stack)
         tex2 = _socket(node.inputs[1], props, material, obj_name, group_node_stack)
 
-        # In Cycles, the inputs are converted to float values (e.g. averaged in case of RGB input).
-        # The following SuperLuxCore textures would perform RGB operations if we didn't convert the inputs to floats.
-        if node.operation in {"ADD", "SUBTRACT", "MULTIPLY", "DIVIDE", "ABSOLUTE",
-                              "FLOOR", "CEIL", "TRUNC", "FRACT", "ROUND"}:
-            tex1 = _convert_to_float(tex1, props)
-            tex2 = _convert_to_float(tex2, props)
-
         if node.operation in {"ADD", "SUBTRACT", "MULTIPLY", "DIVIDE", "GREATER_THAN", "LESS_THAN"}:
             try:
                 definitions["type"] = math_operation_map[node.operation]
@@ -1874,8 +1877,6 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
         if not current_input.is_linked:
             return ERROR_VALUE
 
-        link = utils_node.get_link(current_input)
-        
         if group_node_stack is None:
             _group_node_stack = []
         else:
@@ -1883,9 +1884,8 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
         
         _group_node_stack.append(node)
         
-        # I call _node instead of _socket here because I need to pass the
-        # superluxcore_name in case the node group is the first node in the tree
-        return _node(link.from_node, link.from_socket, props, material, superluxcore_name, obj_name, _group_node_stack)
+        return _socket(current_input, props, material, obj_name,
+                       _group_node_stack, superluxcore_name)
     elif node.bl_idname == "NodeGroupInput":
         return _socket(group_node_stack[-1].inputs[output_socket.name], props,
                        material, obj_name, group_node_stack[:-1], superluxcore_name)
@@ -2054,9 +2054,7 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
         definitions = {
             "type": "dotproduct",
             "texture1": _socket(node.inputs["Color"], props, material, obj_name, group_node_stack),
-            # From Cycles source code:
-            # intern/cycles/render/shader.cpp:726: float ShaderManager::linear_rgb_to_gray(float3 c)
-            "texture2": [0.2126729, 0.7151522, 0.0721750],
+            "texture2": list(ocio.GetCurrentConfig().getDefaultLumaCoefs()),
         }
     elif node.bl_idname == "ShaderNodeBrightContrast":
         prefix = "scene.textures."
@@ -2302,7 +2300,6 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
             # A linked temperature (e.g. a density grid or attribute) drives the
             # per-point Planckian eval on the SuperLuxCore side.
             temperature = _socket(temperature_socket, props, material, obj_name, group_node_stack)
-            temperature = _convert_to_float(temperature, props)
         else:
             temperature = temperature_socket.default_value
 
@@ -2324,7 +2321,6 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
         prefix = "scene.textures."
 
         value = _socket(node.inputs["Value"], props, material, obj_name, group_node_stack)
-        value = _convert_to_float(value, props)
 
         definitions = {
             "type": "remap",
@@ -3837,25 +3833,6 @@ def _squared_roughness_to_linear(socket, props, material, superluxcore_name, obj
 
 def _is_textured(value):
     return isinstance(value, str)
-
-
-def _convert_to_float(color_or_texture, props):
-    if _is_textured(color_or_texture):
-        # This is more or less a hack because we don't have a dedicated "RGB to BW" texture
-        tex_name = color_or_texture + "to_float"
-        helper_prefix = "scene.textures." + tex_name + "."
-        helper_defs = {
-            "type": "power",
-            "base": color_or_texture,
-            "exponent": 1,
-        }
-        props.Set(utils.luxutils.create_props(helper_prefix, helper_defs))
-        return tex_name
-    elif isinstance(color_or_texture, list):
-        return sum(color_or_texture) / len(color_or_texture)
-    # Scalar constants pass through unchanged — dropping them here turned
-    # e.g. MULTIPLY(attr, 50.0) into attr * 0.
-    return color_or_texture
 
 
 def _is_zero(value):

@@ -285,8 +285,8 @@ Notes:
   CPU and the shared GPU kernel path, appending enum IDs without shifting
   existing operations. Scalar Floor/Ceil/Truncate/Fraction keep constant
   folding; Round retains native float32 half-add semantics rather than
-  using Python double arithmetic. Scalar inputs use the existing float
-  conversion convention; vector operations stay componentwise.
+  using Python double arithmetic. Typed scalar socket conversion is
+  handled at the input boundary; vector operations stay componentwise.
 - Removed the composed round/shift/sign approximations. Vector rounding
   uses one native unary texture rather than channel splitting/recombining.
   No measured end-to-end speedup is claimed.
@@ -302,3 +302,31 @@ Notes:
   distinct colour bands and flat interior plateaus passed checks.
   Display-managed RGB is not used as a raw math oracle; the SDL emission
   gate above checks numeric semantics independently.
+
+## Typed scalar socket regression gate
+
+- Blender's `gpu_shader_codegen_lib.glsl` converts Vector→Float by the
+  mean of RGB components and Color→Float by luminance, not the mean.
+  Colour coefficients come from the active OpenColorIO configuration;
+  [upstream colour management](https://github.com/blender/blender/blob/main/source/blender/imbuf/intern/colormanagement.cc)
+  loads `get_default_luma_coefs()`.
+- Actual CPU rendering of Combine XYZ(0,1.5,0)→Math.Sine produced
+  biased RGB `[4,4.99753,4]` rather than scalar `[4.47943]*3`.
+  RGB(0,1.5,0)→Math.Sine had the same channelwise defect; the expected
+  biased luminance result is `[4.87854]*3` with Blender's default config.
+- Float inputs now convert linked Vector/Color outputs with the existing
+  native `dotproduct` texture. This averages the evaluated vector, not
+  the product of its component means. Scalar links pass through unchanged.
+  The same boundary applies to Math's third input and group interfaces.
+  RGB to BW uses the same active-config luminance coefficients.
+- Removed the `power(x,1)` conversion workaround and its callers.
+  Linked scalar Floor/Ceil/Truncate/Fraction graphs drop from three
+  explicit textures to two, including their Value input. The large
+  Round→Subtract graph also drops from three to two. Vector/Color→Sine
+  gains one necessary conversion texture; no native type/layout changes
+  or separate GPU buffers are introduced. No render-speedup claim.
+- 222 actual CPU/isolated Metal render checks passed: native SDL
+  round-trip, previous Math/Clamp/Snap/coordinate coverage, vector/colour
+  Sine, colour Add, RGB to BW, derived vector multiplication, third
+  operands, and scalar group input/output boundaries. Tolerance `0.05`
+  remains a radiance gate, not proof of bitwise mathematical parity.
