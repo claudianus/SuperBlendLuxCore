@@ -37,20 +37,44 @@ th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);verti
 
 <h2>Install the release ZIP</h2>
 <ol>
-<li>Download the latest <code>superluxcore-addon-*.zip</code> from the
-<a href="https://github.com/claudianus/SuperBlendLuxCore/releases">releases page</a>.
-The ZIP bundles the engine wheel (pysuperluxcore) and the addon.</li>
-<li>In Blender: <em>Edit &rarr; Preferences &rarr; Add-ons &rarr;
-Install from Disk</em> &rarr; pick the ZIP.</li>
+<li>Download the matching <code>SuperLuxCore-Latest-*.zip</code> from the
+<a href="https://github.com/claudianus/SuperBlendLuxCore/releases/tag/latest">rolling release</a>:
+<code>windows_x64</code>, <code>linux_x64</code>, <code>macos_arm64</code> or
+<code>macos_x64</code>. Each platform ZIP bundles its engine wheel and the add-on.</li>
+<li>In Blender 5.2: <em>Edit &rarr; Preferences &rarr; Get Extensions</em>,
+open the top-right settings menu and choose <em>Install from Disk</em>.</li>
 <li>Enable <b>Render: SuperLuxCore</b>.</li>
 <li>Switch the active render engine to <b>SuperLuxCore</b>.</li>
 </ol>
+<p>The public bundles currently pair add-on <b>2.11.8</b> with
+<b>pysuperluxcore 2.11.8 / Python 3.13</b>. The packaging workflow uses
+Blender 5.2.1. <code>latest</code> is a rolling pre-release and is not a
+production-qualified versioned release. Restart Blender after upgrading:
+updating Python source alone does not replace an already-loaded native module.</p>
+<p>Headless installation uses the same Blender extension installer:</p>
+<pre><code>blender --background --command extension install-file \
+  --repo user_default --enable SuperLuxCore-Latest-macos_arm64.zip</code></pre>
 
 <h2>Verify</h2>
 <pre><code># Blender scripting console / Text Editor
 import bpy
+import pysuperluxcore
+print(pysuperluxcore.Version())  # 2.11.8 for the verified current bundle
 bpy.context.scene.render.engine = "SUPERLUXCORE"
 print(bpy.context.scene.superluxcore.config.engine)</code></pre>
+<p>The hash-verified public Apple-silicon wheel passed 310 actual CPU/isolated
+Metal render checks inside Blender 5.2.1, including HDR/tiny-input boundaries
+and live Generated-coordinate edits. A clean, separate Blender profile also
+installed the offline ZIP without downloading the engine and rendered through
+the actual SUPERLUXCORE add-on on CPU and Metal (native CPU workers disabled
+for the Metal run).</p>
+<p><img src="../assets/ex_public_bundle_sine.png"
+alt="Actual public offline bundle render: bright red sine-controlled emitter on the left and dark zero-strength emitter on the right"
+style="max-width:100%;width:256px;border:1px solid var(--line);border-radius:8px"></p>
+<p>This actual 128&times;128 bundle render uses two cubes with emission strength
+<code>sin(pi/2)</code> and <code>sin(0)</code>. Both CPU and isolated Metal passed
+the bright/dark image-region checks. It is a display-managed installation
+probe, not a photorealistic example, throughput benchmark or bitwise-parity claim.</p>
 
 <h2>GPU backends</h2>
 <p>Metal is used automatically on Apple silicon (device type
