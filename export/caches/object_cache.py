@@ -1154,8 +1154,10 @@ class ObjectCache2:
             len(data.loop_triangles),
             ",".join(m.type + m.name for m in obj.modifiers),
         )
+        texspace = (data.use_auto_texspace, tuple(data.texspace_location),
+                    tuple(data.texspace_size))
         sig = hashlib.blake2b(
-            sig_src.encode() + repr(sample).encode(), digest_size=8
+            sig_src.encode() + repr((sample, texspace)).encode(), digest_size=8
         ).hexdigest()
         entry = _auto_proxies.get(sig)
         if entry and all(os.path.isfile(p) for p in entry[1].values()):

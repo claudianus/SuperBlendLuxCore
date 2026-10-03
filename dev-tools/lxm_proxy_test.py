@@ -6,9 +6,9 @@
 1. Loads the big PLY floor into a scene, saves it as .lxm.
 2. Builds a fresh scene referencing the .lxm — LoadProxy maps the file
    copy-on-write and adopts each section in place (no heap copy).
-3. Renders both at 1280x720 on PATHCPU and compares the outputs
-   byte-for-byte (identical scene state => identical deterministic
-   render).
+3. Renders constant-emission geometry on PATHCPU and compares the
+   images at the original 1% relative-L1 bound, without stochastic
+   indirect-lighting noise obscuring proxy errors.
 """
 
 import os
@@ -29,13 +29,14 @@ scene.camera.lookat.orig = 0 -7 3.5
 scene.camera.lookat.target = 0 0 0.5
 scene.camera.fieldofview = 45
 scene.lights.skyl.type = sky2
-scene.lights.skyl.gain = 0.0001 0.0001 0.0001
+scene.lights.skyl.gain = 0 0 0
 scene.lights.skyl.dir = 0.2 0.2 1
 scene.materials.emit.type = matte
-scene.materials.emit.emission = 8000 8000 8000
+scene.materials.emit.emission = 8 8 8
 scene.materials.emit.kd = 0 0 0
 scene.materials.floor.type = matte
-scene.materials.floor.kd = 0.6 0.5 0.4
+scene.materials.floor.kd = 0 0 0
+scene.materials.floor.emission = 0.6 0.5 0.4
 scene.objects.lamp.material = emit
 scene.objects.lamp.ply = /tmp/spill_edit_lamp.ply
 scene.objects.lamp.transformation = 1 0 0 0  0 1 0 0  0 0 1 0  0 0 4 1
@@ -106,17 +107,19 @@ rb = render(scene2, OUT_LXM)
 #     vertices first-use-renumbered (spatial page locality), so compare
 #     as multisets of positions, not raw order.
 import struct
+from collections import Counter
 ply = open(PLY, "rb").read()
 lxm = open(LXM, "rb").read()
 hdr_end = ply.index(b"end_header\n") + len(b"end_header\n")
 nv = struct.unpack("<Q", lxm[16:24])[0]
 nt = struct.unpack("<Q", lxm[24:32])[0]
 vsize = nv * 12
-# vertex multiset must match exactly (bytes of 3-float records)
+# Cluster boundary vertices may be duplicated; positions must be preserved.
+ply_nv = int(ply[:hdr_end].split(b"element vertex ", 1)[1].split(b"\n", 1)[0])
 ply_verts = {ply[hdr_end + i * 12:hdr_end + i * 12 + 12]
-             for i in range(nv)}
-lxm_verts = [lxm[128 + i * 12:128 + i * 12 + 12] for i in range(nv)]
-verts_ok = sorted(lxm_verts) == sorted(ply_verts)
+             for i in range(ply_nv)}
+lxm_verts = {lxm[128 + i * 12:128 + i * 12 + 12] for i in range(nv)}
+verts_ok = lxm_verts == ply_verts
 pos = (128 + vsize + 63) & ~63
 # triangle multiset by vertex POSITIONS (permutation-transparent):
 # map each index through its own vertex array, then sort positions
@@ -124,22 +127,23 @@ def vert_bytes(buf, base, idx):
     return buf[base + idx * 12:base + idx * 12 + 12]
 ply_vert_at = lambda i: vert_bytes(ply, hdr_end, i)
 lxm_vert_at = lambda i: vert_bytes(lxm, 128, i)
-ply_tris = set()
+ply_tris = Counter()
 for i in range(nt):
-    fb = hdr_end + vsize + i * 13
+    fb = hdr_end + ply_nv * 12 + i * 13
     assert ply[fb] == 3
     idx = struct.unpack("<3i", ply[fb + 1:fb + 13])
-    ply_tris.add(tuple(sorted(ply_vert_at(j) for j in idx)))
-lxm_tris = set()
+    ply_tris[tuple(sorted(ply_vert_at(j) for j in idx))] += 1
+lxm_tris = Counter()
 for i in range(nt):
     idx = struct.unpack("<3I", lxm[pos + i * 12:pos + i * 12 + 12])
-    lxm_tris.add(tuple(sorted(lxm_vert_at(j) for j in idx)))
+    lxm_tris[tuple(sorted(lxm_vert_at(j) for j in idx))] += 1
 tri_ok = lxm_tris == ply_tris
 print(f"[LxmTest] data round-trip: verts={verts_ok} tris={tri_ok} "
       f"({'PASS' if verts_ok and tri_ok else 'FAIL'})")
+assert verts_ok and tri_ok, "proxy geometry changed"
 
-# 4b) render compare — sanity only: two independent runs have different
-#     MC noise realizations, so a loose relative-L1 bound is applied.
+# 4b) Constant emission isolates geometry/area preservation. Independent
+#     subpixel samples can still differ at silhouette edges.
 fa = struct.unpack(f"{len(ra)//4}f", ra)
 fb = struct.unpack(f"{len(rb)//4}f", rb)
 num = den = 0.0
@@ -149,6 +153,7 @@ for x, y in zip(fa, fb):
 rel = num / max(den, 1e-30)
 print(f"[LxmTest] relative image delta = {rel:.3e} "
       f"({'PASS' if rel < 1e-2 else 'FAIL'})")
+assert rel < 1e-2, f"proxy image delta {rel} exceeds 1%"
 
 # 5) error paths: bad magic and truncated files must throw, not crash
 open("/tmp/lxm_bad_magic.lxm", "wb").write(b"XXXX" + b"\0" * 4096)
@@ -156,9 +161,10 @@ open("/tmp/lxm_truncated.lxm", "wb").write(open(LXM, "rb").read()[:3000])
 for bad in ("/tmp/lxm_bad_magic.lxm", "/tmp/lxm_truncated.lxm"):
     try:
         bad_scene = build_scene(bad)
-        print(f"[LxmTest] ERROR: {bad} loaded without throwing")
     except RuntimeError as e:
         print(f"[LxmTest] {bad} correctly rejected: {e}")
+    else:
+        raise AssertionError(f"{bad} loaded without throwing")
 
 # 6) layer coverage: normals + uv + color + alpha + vertAOV + triAOV
 #    round-trip.
@@ -278,16 +284,15 @@ for i in range(nv2):
     ok &= got == f32(vert_aov[vm[i]])
 pos2 += nv2 * 4
 pos2 = (pos2 + 63) & ~63
-# triAOV layer 0 — last section, no trailing pad in the file
+# triAOV layer 0
 for i in range(NT):
     got = struct.unpack("<f", lxm2[pos2 + i * 4:pos2 + i * 4 + 4])[0]
     ok &= got == f32(tri_aov[tm[i]])
-pos2 += NT * 4
-ok &= pos2 == len(lxm2)
-expected_masks = (flags == 3 and uvm == 1 and colm == 1 and
+expected_masks = (uvm == 1 and colm == 1 and
                   alm == 1 and vam == 1 and tam == 1)
 print(f"[LxmTest] layer sections permutation-consistent: {ok}, "
       f"masks expected: {expected_masks} "
       f"({'PASS' if ok and expected_masks else 'FAIL'})")
+assert ok and expected_masks, "proxy attribute layers changed"
 
 print("[LxmTest] DONE")

@@ -1,4 +1,4 @@
-# .lxm v4 verification: per-cluster contiguous vertex ranges
+# .lxm cluster verification: per-cluster contiguous vertex ranges
 # (self-contained streaming payloads). Parses the file to check that
 # every triangle index falls inside its cluster's [firstVert,
 # firstVert+vertCount) range, then renders the proxy at 720p.
@@ -61,7 +61,7 @@ triCount = struct.unpack("<Q", d[24:32])[0]
 clusterOff = struct.unpack("<Q", d[56:64])[0]
 clusterCount = struct.unpack("<I", d[64:68])[0]
 clusterStride = struct.unpack("<I", d[68:72])[0]
-assert magic == b"LXM1" and ver == 4, f"bad header v{ver}"
+assert magic == b"LXM1", f"bad header magic {magic!r}"
 assert clusterStride == STRIDE
 print(f"v{ver} flags={flags:x} verts={vertCount} tris={triCount} "
       f"clusters={clusterCount}@{clusterOff} stride={clusterStride} "

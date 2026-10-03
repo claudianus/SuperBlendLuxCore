@@ -732,8 +732,8 @@ def _vector_mapping_defs(vector_socket, is_2d, flip_v, props, material, obj_name
             return {}  # the default UV mapping already matches
         if source_socket.name == "Generated":
             SuperLuxCoreErrorLog.add_warning(
-                "Generated texture coordinates are approximated by the UV mapping "
-                "(no bounding-box normalization in SuperLuxCore)", obj_name=obj_name)
+                "Generated coordinates on this texture Vector mapping path "
+                "are approximated by UV coordinates", obj_name=obj_name)
             return {}
         if source_socket.name == "Object" and not is_2d:
             # LocalMapping3D evaluates the hit point in object space

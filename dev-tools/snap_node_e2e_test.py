@@ -305,6 +305,62 @@ def build_cases():
     ]
     edited["target"] = list(edits[1] @ edits[0] @ baked @ Vector(sample))
     cases.append(edited)
+    # Custom texspace and material partitions must keep whole-mesh values.
+    probe_mesh.use_auto_texspace = False
+    probe_mesh.texspace_location = (1., -.5, 0.)
+    probe_mesh.texspace_size = (8., 2., 0.)
+    split_mesh = bpy.data.meshes.new("GeneratedMaterialSplitReference")
+    split_mesh.from_pydata(
+        [(-4., -4., 0.), (0., -4., 0.), (4., -4., 0.),
+         (-4., 4., 0.), (0., 4., 0.), (4., 4., 0.)],
+        [], [(0, 1, 4, 3), (1, 2, 5, 4)])
+    split_mesh.materials.append(material)
+    split_mesh.materials.append(material)
+    split_mesh.polygons[1].material_index = 1
+    split_mesh.update()
+    for label, mesh, indices, sample_point in [
+        ("custom-texspace", probe_mesh, range(4), (1., -1., 0.)),
+        ("material-split", split_mesh, split_mesh.polygons[0].vertices, (-2., -1., 0.)),
+    ]:
+        vertices = [tuple(mesh.vertices[index].co) for index in indices]
+        normalization = Matrix.Identity(4)
+        for axis in range(3):
+            size = mesh.texspace_size[axis]
+            normalization[axis][axis] = .5 / size if size else 0.
+            normalization[axis][3] = .5 - mesh.texspace_location[axis] * normalization[axis][axis]
+        for instanced in (False, True):
+            case = export_case(node, material, f"generated-{label}-instance-{int(instanced)}",
+                               [0.] * 3, "Generated")
+            case["vertices"] = vertices
+            case["reference_colours"] = [
+                tuple(.5 * (p - loc) / size + .5 if size else .5
+                      for p, loc, size in zip(point, mesh.texspace_location, mesh.texspace_size))
+                for point in vertices
+            ]
+            case["generated_transform"] = [
+                normalization[row][col] for col in range(4) for row in range(4)
+            ]
+            case["mesh_transform"] = [baked[row][col] for col in range(4) for row in range(4)]
+            total = wrapper @ baked if instanced else baked
+            case["target"] = list(total @ Vector(sample_point))
+            if instanced:
+                case["object_transform"] = [wrapper[row][col] for col in range(4) for row in range(4)]
+            cases.append(case)
+            if label == "custom-texspace":
+                cases.append(dict(case, label=case["label"] + "-proxy", mesh_archive="lxm"))
+            elif instanced:
+                cases.append(dict(case, label=case["label"] + "-legacy-proxy", mesh_archive="lxm4"))
+            if label == "custom-texspace":
+                if instanced:
+                    archive = dict(case, label="generated-custom-texspace-scene-archive",
+                                   scene_archive=True)
+                    cases.append(archive)
+                else:
+                    live = dict(case, label="generated-custom-texspace-live-edits")
+                    live["update_transforms"] = edited["update_transforms"]
+                    live["target"] = list(edits[1] @ edits[0] @ baked @ Vector(sample_point))
+                    cases.append(live)
+    bpy.data.meshes.remove(split_mesh)
     bpy.data.meshes.remove(probe_mesh)
     scaled = tree.nodes.new("ShaderNodeVectorMath")
     scaled.operation = "SCALE"

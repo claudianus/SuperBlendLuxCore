@@ -33,8 +33,16 @@
   load-time validation covers truncation, bad magic, and crafted
   element counts. Windows read-only path maps via FILE_MAP_READ
   fallback (MapFileCopyOnWrite is implemented — see below).
-- Regression: `dev-tools/lxm_proxy_test.py` (byte-exact round-trip +
-  720p render compare + error paths).
+- v5 keeps the 128-byte header and v4 geometry/cluster layout. Existing
+  reserved bytes store the authored Generated map (flag bit4), and former
+  padding stores mesh area. Custom texture space and whole-object bounds
+  therefore survive one-proxy-per-material export without per-vertex ORCO.
+  v5 emissive proxies restore area without scanning; legacy files compute
+  it lazily when needed. Mapped loading skips per-triangle UV-cache rebuilds.
+- Regression: `dev-tools/lxm_proxy_test.py` checks position preservation,
+  triangle multiplicities, normal/UV/color/alpha/AOV layers, rejected
+  malformed files and constant-emission 720p parity at a 1% relative-L1
+  bound. Cluster boundary duplicates do not require equal vertex counts.
 
 ## Image map decode peak (resize policies)
 
@@ -97,7 +105,9 @@
   evaluated meshes to `tempfile.gettempdir()/superluxcore_autoproxy/*.lxm`
   (module-level `_auto_proxies` dict survives cache rebuilds; stale
   `ap_*` files >24h swept once per process). Signature = data name +
-  counts + modifier types + 64-vertex position sample hash.
+  counts + modifier types + a hash of the 64-vertex position sample and
+  texture-space auto/location/size settings. Changing custom texture space
+  invalidates the proxy even when vertex positions are unchanged.
 - External file changes: `geo_meta` records (path, mtime_ns, size) —
   persistent-scene reuse stats proxy files; `handlers/proxy_watch.py`
   timer (2s) marks objects updated on change for viewport live reload.

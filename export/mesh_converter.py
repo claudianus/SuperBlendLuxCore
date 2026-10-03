@@ -155,6 +155,14 @@ def convert(
                 ],
                 dtype=np.float32,
             )
+        # Blender's texture space belongs to the whole evaluated mesh, not
+        # to each material partition. Preserve custom texture spaces too.
+        generated_transform = np.eye(4, dtype=np.float32)
+        for axis in range(3):
+            size = mesh.texspace_size[axis]
+            scale = .5 / size if size else 0.
+            generated_transform[axis, axis] = scale
+            generated_transform[axis, 3] = .5 - mesh.texspace_location[axis] * scale
 
         # Weld the loop-expanded arrays back to indexed vertices: a loop
         # survives as its own exported vertex only when its
@@ -288,6 +296,7 @@ def convert(
                 colors=sub_rgb,
                 alphas=sub_alphas,
                 transformation=mesh_transform,
+                generated_transformation=generated_transform,
             )
             for aov_index, aov in enumerate(exp_aovs):
                 sub_aov = aov if is_identity else aov[uniq]
