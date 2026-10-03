@@ -39,3 +39,24 @@
   socket still answers to "Subsurface Radius" and rejects the RGB
   tuple's `default_value` assignment).
 
+## Continuous camera raster coordinates
+
+Blender pixel centers are continuous positions `(x + 0.5, y + 0.5)`.
+The native sampler adds the reconstruction-filter offset before generating
+the ray. Reflecting Y therefore requires `height - y`, not the integer
+pixel-index formula `height - y - 1`.
+
+Engine 2.11.10 corrects orthographic/perspective CPU and GPU rays, reciprocal
+camera projections, and CPU equirectangular ray/PDF latitude. Do not
+compensate in the exporter with a camera shift or change Generated texture
+coordinates: the bug displaced every spatial shader, not just Generated.
+
+`dev-tools/camera_raster_parity_test.py` renders independent Blender
+`Camera.view_frame` world-position ramps and an incoming-direction panorama.
+Fifteen actual Cycles/CPU/isolated GPU renders cover centered and shifted
+orthographic/perspective cameras and full equirectangular projection.
+Raw EXR checks bound maximum RGB error at 0.003 and per-row mean Y error at
+0.05 pixels; the corrected Apple-silicon run observed at most 0.018039
+pixels. Depth of field, barrel distortion and cross-vendor GPU behavior
+are not established by this fixture.
+

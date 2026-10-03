@@ -13,10 +13,10 @@ type = "add-on"  # Supported types: "add-on", "theme"
 # I.e. MAJOR.MINOR.PATCH
 # E.g.: "2.9.4": major: 2; minor: 9; patch: 3.
 # or for pre-release versions: "2.9.4-alpha.1": major: 2; minor: 9; patch: 3; pre-release: alpha.1
-version = "2.11.9"
+version = "2.11.10"
 
 # Optional: link to documentation, support, source files, etc
-website = "https://claudianus.github.io/SuperLuxCore/"
+website = "https://claudianus.github.io/SuperBlendLuxCore/manual/"
 
 # Optional: tag list defined by Blender and server, see:
 # https://docs.blender.org/manual/en/dev/advanced/extensions/tags.html
