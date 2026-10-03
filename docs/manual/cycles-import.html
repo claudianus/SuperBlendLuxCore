@@ -67,6 +67,29 @@ with either Clamp setting, and unclamped <code>Sqrt(9) = 3</code>. Its
 native power texture receives the actual base and exponent, rather than
 silently using their defaults.</p>
 
+<h2>Integer and fractional procedural math</h2>
+<p>Floor, Ceil, Truncate, Fraction and Round use native renderer operations,
+not compositions of nearest rounding. Negative coordinates and exact
+integer boundaries follow Blender's rules:</p>
+<table>
+<tr><th>Value</th><th>Floor</th><th>Ceil</th><th>Truncate</th><th>Fraction</th><th>Round</th></tr>
+<tr><td>-1.5</td><td>-2</td><td>-1</td><td>-1</td><td>0.5</td><td>-1</td></tr>
+<tr><td>-1</td><td>-1</td><td>-1</td><td>-1</td><td>0</td><td>-1</td></tr>
+<tr><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td></tr>
+<tr><td>1.75</td><td>1</td><td>2</td><td>1</td><td>0.75</td><td>2</td></tr>
+</table>
+<p>Fraction is <code>x - floor(x)</code>. Round evaluates
+<code>floor(x + 0.5)</code> with a float32 half-add, including for constant
+inputs. Vector Math Floor, Ceil and Fraction apply independently to each
+component on CPU and GPU.</p>
+<p><img src="../assets/ex_math_floor.png" alt="Actual SuperLuxCore render of a four-by-four procedural Vector Floor colour grid"
+style="max-width:100%;width:256px;border:1px solid var(--line);border-radius:8px"></p>
+<p>This actual Blender SUPERLUXCORE render uses Generated coordinates:
+<code>Scale(4) → Add(-2) → Vector Floor → Add(3) → Scale(0.15) → Emission</code>.
+The discrete cells include negative-coordinate intervals. This is a
+display-managed emission probe, not a surface-shading or speed benchmark;
+the table describes the mathematical results before colour management.</p>
+
 <h2>Materials</h2>
 <p>Principled BSDF exports as OpenPBR (see
 <a href="materials.html">Materials</a>) — no SSS radius / sheen / aniso

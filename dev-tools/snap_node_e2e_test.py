@@ -59,6 +59,44 @@ def build_cases():
             expected = min(1., max(0., expected))
         cases.append(export_case(node, material,
                                  f"linked-sqrt-{value}-clamp-{int(clamped)}", [expected] * 3))
+    rounded = tree.nodes.new("ShaderNodeMath")
+    rounded.operation = "ROUND"
+    rounded.inputs[0].default_value = 8388609.
+    residual = tree.nodes.new("ShaderNodeMath")
+    residual.operation = "SUBTRACT"
+    residual.inputs[1].default_value = 8388610.
+    tree.links.new(rounded.outputs[0], residual.inputs[0])
+    cases.append(export_case(residual, material, "round-float32-half-add", [0.] * 3))
+    rounding_ops = {
+        "FLOOR": math.floor, "CEIL": math.ceil, "TRUNC": math.trunc,
+        "FRACT": lambda value: value - math.floor(value),
+        "ROUND": lambda value: math.floor(value + .5),
+    }
+    for operation, evaluate in rounding_ops.items():
+        for value in (-1.5, -1., 0., 1., 1.75):
+            for linked in (False, True):
+                node = tree.nodes.new("ShaderNodeMath")
+                node.operation = operation
+                node.inputs[0].default_value = value
+                if linked:
+                    source = tree.nodes.new("ShaderNodeValue")
+                    source.outputs[0].default_value = value
+                    tree.links.new(source.outputs[0], node.inputs[0])
+                expected = evaluate(value)
+                cases.append(export_case(node, material,
+                                         f"math-{operation.lower()}-{value}-linked-{int(linked)}",
+                                         [expected] * 3))
+    for operation in ("FLOOR", "CEIL", "FRACTION"):
+        node = tree.nodes.new("ShaderNodeVectorMath")
+        node.operation = operation
+        source = tree.nodes.new("ShaderNodeCombineXYZ")
+        values = (-1.5, -1., 1.75)
+        for socket, value in zip(source.inputs, values):
+            socket.default_value = value
+        tree.links.new(source.outputs[0], node.inputs[0])
+        evaluate = rounding_ops["FRACT" if operation == "FRACTION" else operation]
+        cases.append(export_case(node, material, "vector-" + operation.lower(),
+                                 [evaluate(value) for value in values]))
     # Helper-generated Math outputs must use the same final Clamp stage as
     # direct native textures. Exercise both constant folding and linked graphs.
     for operation, values, raw in [
@@ -119,7 +157,8 @@ def build_cases():
 def export_case(node, material, label, expected, output_name=None):
     props = reader.pysuperluxcore.Properties()
     output = node.outputs[output_name] if output_name else node.outputs[0]
-    name = reader._node(node, output, props, material, "probe_" + label.replace("-", "_"),
+    texture_name = reader.utils.sanitize_superluxcore_name("probe_" + label.replace("-", "_"))
+    name = reader._node(node, output, props, material, texture_name,
                         obj_name="Probe", group_node_stack=[])
     return {"label": label, "output": name, "graph": props.ToString(), "expected": expected}
 

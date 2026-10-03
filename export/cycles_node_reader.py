@@ -374,6 +374,7 @@ _MATHFUNC_UNARY_OPS = {
     "ARCSINE": "asin", "ARCCOSINE": "acos", "ARCTANGENT": "atan",
     "SINH": "sinh", "COSH": "cosh", "TANH": "tanh",
     "INVERSE_SQRT": "invsqrt",
+    "FLOOR": "floor", "CEIL": "ceil", "TRUNC": "trunc", "FRACT": "fract",
 }
 
 _MATHFUNC_BINARY_OPS = {
@@ -392,6 +393,8 @@ _MATHFUNC_FOLD = {
     "sinh": math.sinh, "cosh": math.cosh, "tanh": math.tanh,
     "invsqrt": lambda a: 1.0 / math.sqrt(max(a, 1e-9)),
     "floormod": _floormod_fold,
+    "floor": math.floor, "ceil": math.ceil, "trunc": math.trunc,
+    "fract": lambda value: value - math.floor(value),
 }
 
 
@@ -1702,7 +1705,8 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
 
         # In Cycles, the inputs are converted to float values (e.g. averaged in case of RGB input).
         # The following SuperLuxCore textures would perform RGB operations if we didn't convert the inputs to floats.
-        if node.operation in {"ADD", "SUBTRACT", "MULTIPLY", "DIVIDE", "ABSOLUTE"}:
+        if node.operation in {"ADD", "SUBTRACT", "MULTIPLY", "DIVIDE", "ABSOLUTE",
+                              "FLOOR", "CEIL", "TRUNC", "FRACT", "ROUND"}:
             tex1 = _convert_to_float(tex1, props)
             tex2 = _convert_to_float(tex2, props)
 
@@ -1721,9 +1725,9 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
             definitions["type"] = "abs"
             definitions["texture"] = tex1
         elif node.operation == "ROUND":
-            definitions["type"] = "rounding"
-            definitions["texture"] = tex1
-            definitions["increment"] = 1
+            # Keep the native float32 half-add even for constants: at large
+            # magnitudes Python's double arithmetic changes Blender's ties.
+            definitions = {"type": "mathfunc", "op": "round", "texture1": tex1}
         elif node.operation == "MODULO":
             definitions["type"] = "modulo"
             definitions["texture"] = tex1
@@ -1749,44 +1753,6 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
                                   superluxcore_name + "_sl", props)
                 math_output = _tex_binary("add", tex1, sel,
                                           superluxcore_name + "_max", props)
-        elif node.operation == "FLOOR":
-            # floor(x) = round_nearest(x - 0.5); differs from floor only at
-            # exact half-integers, where both agree anyway
-            shifted = _tex_binary("subtract", tex1, 0.5,
-                                  superluxcore_name + "_sh", props)
-            math_output = _tex_unary("rounding", shifted, 1.0,
-                                     superluxcore_name + "_floor", props)
-        elif node.operation == "CEIL":
-            # ceil(x) = -floor(-x)
-            neg = _tex_binary("scale", tex1, -1.0, superluxcore_name + "_neg",
-                              props)
-            shifted = _tex_binary("subtract", neg, 0.5,
-                                  superluxcore_name + "_sh", props)
-            rounded = _tex_unary("rounding", shifted, 1.0,
-                                 superluxcore_name + "_r", props)
-            math_output = _tex_binary("scale", rounded, -1.0,
-                                      superluxcore_name + "_ceil", props)
-        elif node.operation == "TRUNC":
-            # trunc(x) = sign(x) * floor(|x|)
-            lt0 = _tex_lessthan(tex1, 0.0, superluxcore_name + "_lt0", props)
-            sgn = _tex_binary("subtract",
-                              _tex_binary("scale", lt0, 2.0,
-                                          superluxcore_name + "_lt2", props),
-                              1.0, superluxcore_name + "_sgn", props)
-            absv = _tex_unary("abs", tex1, None, superluxcore_name + "_abs", props)
-            shifted = _tex_binary("subtract", absv, 0.5,
-                                  superluxcore_name + "_sh", props)
-            fl = _tex_unary("rounding", shifted, 1.0,
-                            superluxcore_name + "_fl", props)
-            math_output = _tex_binary("scale", fl, sgn, superluxcore_name + "_tr", props)
-        elif node.operation == "FRACT":
-            # fract(x) = x - floor(x)
-            shifted = _tex_binary("subtract", tex1, 0.5,
-                                  superluxcore_name + "_sh", props)
-            fl = _tex_unary("rounding", shifted, 1.0,
-                            superluxcore_name + "_fl", props)
-            math_output = _tex_binary("subtract", tex1, fl,
-                                      superluxcore_name + "_fract", props)
         elif node.operation == "RADIANS":
             math_output = _tex_binary("scale", tex1, 0.017453292519943295,
                                       superluxcore_name + "_rad", props)
@@ -2774,6 +2740,12 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
                 "op": "snap",
                 "texture1": vector1,
                 "texture2": vector2,
+            }
+        elif operation in {"FLOOR", "CEIL", "FRACTION"}:
+            definitions = {
+                "type": "mathfunc",
+                "op": {"FLOOR": "floor", "CEIL": "ceil", "FRACTION": "fract"}[operation],
+                "texture1": vector1,
             }
         elif operation in {"SINE", "COSINE", "TANGENT"}:
             # Elementwise trig via mathfunc (matches Cycles' per-component

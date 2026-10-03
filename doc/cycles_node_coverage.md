@@ -90,8 +90,8 @@ with no SuperLuxCore equivalent additionally carry a specific reason via
 
 | Node | Status | Notes |
 |---|---|---|
-| ShaderNodeMath | mapped | SINE/COSINE/TANGENT/ARC*/ARCTAN2/SINH/COSH/TANH/INVERSE_SQRT/FLOORED_MODULO/SNAP/EXPONENT/LOGARITHM via SuperLuxCore `mathfunc` texture (log_b(x)=ln(x)/ln(b)); SNAP floors to the increment, including negative/zero increments and Clamp; SMOOTH_MIN/SMOOTH_MAX via polynomial composition; SQRT/MIN/MAX/FLOOR/CEIL/TRUNC/FRACT/PINGPONG/SIGN/COMPARE/WRAP/MULTIPLY_ADD/RADIANS/DEGREES composed from existing textures; remaining ops warn + passthrough |
-| ShaderNodeVectorMath | approx | ADD/SUBTRACT/MULTIPLY/DIVIDE/DOT/CROSS/REFLECT/PROJECT/FACEFORWARD/MULTIPLY_ADD/LENGTH/DISTANCE/NORMALIZE/SCALE/ABSOLUTE/MODULO/MIN/MAX mapped; SNAP→native componentwise floored `mathfunc.snap`, including negative/zero increments; SINE/COSINE/TANGENT→elementwise `mathfunc`; WRAP/FLOORMOD/REFRACT→warn passthrough |
+| ShaderNodeMath | mapped | SINE/COSINE/TANGENT/ARC*/ARCTAN2/SINH/COSH/TANH/INVERSE_SQRT/FLOORED_MODULO/SNAP/FLOOR/CEIL/TRUNC/FRACT/ROUND/EXPONENT/LOGARITHM via SuperLuxCore `mathfunc` texture (log_b(x)=ln(x)/ln(b)); SNAP floors to the increment, including negative/zero increments; ROUND uses Blender's float32 floor(x+0.5), not ties-away; supported results share the post-operation Clamp stage; SMOOTH_MIN/SMOOTH_MAX via polynomial composition; SQRT/MIN/MAX/PINGPONG/SIGN/COMPARE/WRAP/MULTIPLY_ADD/RADIANS/DEGREES composed from existing textures; remaining ops warn + passthrough |
+| ShaderNodeVectorMath | approx | ADD/SUBTRACT/MULTIPLY/DIVIDE/DOT/CROSS/REFLECT/PROJECT/FACEFORWARD/MULTIPLY_ADD/LENGTH/DISTANCE/NORMALIZE/SCALE/ABSOLUTE/MODULO/MIN/MAX mapped; SNAP→native componentwise floored `mathfunc.snap`, including negative/zero increments; FLOOR/CEIL/FRACTION→native componentwise unary `mathfunc`; SINE/COSINE/TANGENT→elementwise `mathfunc`; WRAP/FLOORMOD/REFRACT→warn passthrough |
 | ShaderNodeVectorRotate | const-only | rotation composed as constant 3x3 matrix over texture channels; textured axis/angle/euler → warn passthrough |
 | ShaderNodeVectorTransform | approx | world/object/camera matrices composed per object; per-instance object space not expressible (base object matrix used); unresolvable → warn passthrough |
 | ShaderNodeMixRGB / Mix | approx | direct blend modes; exotic blends → mix + warn |
@@ -271,3 +271,34 @@ Notes:
   cases remain in the same actual-Blender graph/render run.
 - Synchronized installed-extension `Value(0.25)→Square Root` graphs also
   rendered the expected biased radiance `4.5` on CPU and isolated Metal.
+
+## Signed integer / fractional Math regression gate
+
+- Blender 5.2 `gpu_shader_common_math.glsl` defines Floor/Ceil/Truncate
+  natively, Fraction as `a-floor(a)`, and Round as `floor(a+0.5f)`.
+  `gpu_shader_material_vector_math.glsl` applies Floor/Ceil/Fraction
+  componentwise.
+- Actual exported CPU emission renders reproduced five discrepancies:
+  Floor(-1)→-2, Ceil(1)→2, Truncate(1.75)→-1, Fraction(-1)→1,
+  Round(-1.5)→-2. Vector Floor/Ceil/Fraction warned and passed through.
+- Added native unary `mathfunc.floor/ceil/trunc/fract/round` operations on
+  CPU and the shared GPU kernel path, appending enum IDs without shifting
+  existing operations. Scalar Floor/Ceil/Truncate/Fraction keep constant
+  folding; Round retains native float32 half-add semantics rather than
+  using Python double arithmetic. Scalar inputs use the existing float
+  conversion convention; vector operations stay componentwise.
+- Removed the composed round/shift/sign approximations. Vector rounding
+  uses one native unary texture rather than channel splitting/recombining.
+  No measured end-to-end speedup is claimed.
+- 206 actual CPU/isolated Metal renders passed, covering constant/linked
+  signed integers, negative half-ties, fractions, vector components and
+  positive/negative float32 unit-spacing boundaries. A real Blender
+  `Round(8388609)→Subtract(8388610)` graph also yields zero on both paths.
+  SDL round-trip and previous Math/Clamp/Snap/coordinate cases are included;
+  radiance tolerance remains `0.05`, not a bitwise-parity claim.
+- Installed Blender 5.2.1 SUPERLUXCORE rendering of
+  Generated→Scale(4)→Add(-2)→Vector Floor→Add(3)→Scale(0.15)→Emission
+  produced the actual `docs/assets/ex_math_floor.png` example. Four
+  distinct colour bands and flat interior plateaus passed checks.
+  Display-managed RGB is not used as a raw math oracle; the SDL emission
+  gate above checks numeric semantics independently.
