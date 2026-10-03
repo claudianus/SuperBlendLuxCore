@@ -1,0 +1,109 @@
+# SPDX-License-Identifier: Apache-2.0
+"""Real Blender nodes -> repository exporter -> rebuilt CPU/GPU renderer.
+
+Run Blender --background --python dev-tools/snap_node_e2e_test.py.
+Requires an enabled SuperLuxCore extension for its registered dependencies.
+SUPERLUXCORE_TEST_PYTHON selects the external Python with the built module's
+ABI; SUPERLUXCORE_TEST_GPU_DEVICES selects the GPU mask (default 010).
+"""
+import importlib.util
+import json
+import math
+import os
+from pathlib import Path
+import shutil
+import subprocess
+import tempfile
+
+import bpy
+from bl_ext.user_default.superluxcore.export import cycles_node_reader as installed
+
+ROOT = Path(__file__).resolve().parents[1]
+ENGINE = ROOT.parent / "SuperLuxCore"
+# Exercise repository code even when the installed extension is older.
+spec = importlib.util.spec_from_file_location(installed.__name__, ROOT / "export/cycles_node_reader.py")
+reader = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(reader)
+
+
+def build_cases():
+    material = bpy.data.materials.new("SnapCompatibilityProbe")
+    material.use_nodes = True
+    tree = material.node_tree
+    cases = []
+    for index, (a, b, clamped, linked) in enumerate([
+        (1.75, 1., False, False), (-1.25, 1., False, True),
+        (2.75, 1., True, True), (1.75, 0., False, True)]):
+        node = tree.nodes.new("ShaderNodeMath")
+        node.operation = "SNAP"
+        node.use_clamp = clamped
+        for socket, value in zip(node.inputs[:2], [a, b]):
+            socket.default_value = value
+            if linked:
+                source = tree.nodes.new("ShaderNodeValue")
+                source.outputs[0].default_value = value
+                tree.links.new(source.outputs[0], socket)
+        expected = 0. if b == 0 else math.floor(a / b) * b
+        if clamped:
+            expected = min(1., max(0., expected))
+        cases.append(export_case(node, material, f"math-snap-{index}", [expected] * 3))
+    for operation in ["SNAP", "ADD"]:
+        node = tree.nodes.new("ShaderNodeVectorMath")
+        node.operation = operation
+        vectors = [(1.75, -1.25, .5), (1., 1., 0.)]
+        for socket, vector in zip(node.inputs[:2], vectors):
+            source = tree.nodes.new("ShaderNodeCombineXYZ")
+            for component, value in zip(source.inputs, vector):
+                component.default_value = value
+            tree.links.new(source.outputs[0], socket)
+        expected = [1., -2., 0.] if operation == "SNAP" else [2.75, -.25, .5]
+        cases.append(export_case(node, material, "vector-" + operation.lower(), expected))
+    node = tree.nodes.new("ShaderNodeTexCoord")
+    cases.append(export_case(node, material, "generated-coordinates", [.5, .5, 0.], "Generated"))
+    scaled = tree.nodes.new("ShaderNodeVectorMath")
+    scaled.operation = "SCALE"
+    scaled.inputs["Scale"].default_value = 2.
+    tree.links.new(node.outputs["Generated"], scaled.inputs[0])
+    shifted = tree.nodes.new("ShaderNodeVectorMath")
+    shifted.operation = "ADD"
+    shifted.inputs[1].default_value = (.4, .4, .4)
+    tree.links.new(scaled.outputs[0], shifted.inputs[0])
+    snapped = tree.nodes.new("ShaderNodeVectorMath")
+    snapped.operation = "SNAP"
+    snapped.inputs[1].default_value = (1., 1., 0.)
+    tree.links.new(shifted.outputs[0], snapped.inputs[0])
+    cases.append(export_case(snapped, material, "procedural-vector-snap", [1., 1., 0.]))
+    return cases
+
+
+def export_case(node, material, label, expected, output_name=None):
+    props = reader.pysuperluxcore.Properties()
+    output = node.outputs[output_name] if output_name else node.outputs[0]
+    name = reader._node(node, output, props, material, "probe_" + label.replace("-", "_"),
+                        obj_name="Probe", group_node_stack=[])
+    return {"label": label, "output": name, "graph": props.ToString(), "expected": expected}
+
+
+def main():
+    python = os.environ.get("SUPERLUXCORE_TEST_PYTHON") or shutil.which("python3.13")
+    if not python:
+        raise RuntimeError("Set SUPERLUXCORE_TEST_PYTHON to the built module's Python executable")
+    env = os.environ.copy()
+    module_dir = ENGINE / "out/build/src/pysuperluxcore/Release"
+    env["PYTHONPATH"] = str(module_dir) + os.pathsep + env.get("PYTHONPATH", "")
+    with tempfile.TemporaryDirectory(prefix="blender-snap-") as directory:
+        cases = Path(directory) / "cases.json"
+        cases.write_text(json.dumps(build_cases()), encoding="utf-8")
+        result = subprocess.run([
+            python, str(ENGINE / "dev-tools/math-snap-regression.py"), "--cases", str(cases),
+            "--gpu-devices", os.environ.get("SUPERLUXCORE_TEST_GPU_DEVICES", "010")],
+            cwd=ENGINE, env=env, capture_output=True, text=True, timeout=600)
+        print(result.stdout, flush=True)
+        if result.returncode:
+            print(result.stderr[-8000:], flush=True)
+            raise RuntimeError(f"Snap render regression failed: {result.returncode}")
+    print("PASS: real Blender Math/VectorMath/Texture Coordinate export and CPU/GPU rendering", flush=True)
+
+
+if __name__ == "__main__":
+    main()

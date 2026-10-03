@@ -90,8 +90,8 @@ with no SuperLuxCore equivalent additionally carry a specific reason via
 
 | Node | Status | Notes |
 |---|---|---|
-| ShaderNodeMath | mapped | SINE/COSINE/TANGENT/ARC*/ARCTAN2/SINH/COSH/TANH/INVERSE_SQRT/FLOORED_MODULO/EXPONENT/LOGARITHM via SuperLuxCore `mathfunc` texture (log_b(x)=ln(x)/ln(b)); SMOOTH_MIN/SMOOTH_MAX via polynomial composition; SQRT/MIN/MAX/FLOOR/CEIL/TRUNC/FRACT/PINGPONG/SIGN/COMPARE/WRAP/SNAP/MULTIPLY_ADD/RADIANS/DEGREES composed from existing textures; remaining ops warn + passthrough |
-| ShaderNodeVectorMath | approx | ADD/SUBTRACT/MULTIPLY/DIVIDE/DOT/CROSS/REFLECT/PROJECT/FACEFORWARD/MULTIPLY_ADD/LENGTH/DISTANCE/NORMALIZE/SCALE/ABSOLUTE/MODULO/MIN/MAX mapped; SNAP→nearest-multiple approx; SINE/COSINE/TANGENT→elementwise `mathfunc`; WRAP/FLOORMOD/REFRACT→warn passthrough |
+| ShaderNodeMath | mapped | SINE/COSINE/TANGENT/ARC*/ARCTAN2/SINH/COSH/TANH/INVERSE_SQRT/FLOORED_MODULO/SNAP/EXPONENT/LOGARITHM via SuperLuxCore `mathfunc` texture (log_b(x)=ln(x)/ln(b)); SNAP floors to the increment, including negative/zero increments and Clamp; SMOOTH_MIN/SMOOTH_MAX via polynomial composition; SQRT/MIN/MAX/FLOOR/CEIL/TRUNC/FRACT/PINGPONG/SIGN/COMPARE/WRAP/MULTIPLY_ADD/RADIANS/DEGREES composed from existing textures; remaining ops warn + passthrough |
+| ShaderNodeVectorMath | approx | ADD/SUBTRACT/MULTIPLY/DIVIDE/DOT/CROSS/REFLECT/PROJECT/FACEFORWARD/MULTIPLY_ADD/LENGTH/DISTANCE/NORMALIZE/SCALE/ABSOLUTE/MODULO/MIN/MAX mapped; SNAP→native componentwise floored `mathfunc.snap`, including negative/zero increments; SINE/COSINE/TANGENT→elementwise `mathfunc`; WRAP/FLOORMOD/REFRACT→warn passthrough |
 | ShaderNodeVectorRotate | const-only | rotation composed as constant 3x3 matrix over texture channels; textured axis/angle/euler → warn passthrough |
 | ShaderNodeVectorTransform | approx | world/object/camera matrices composed per object; per-instance object space not expressible (base object matrix used); unresolvable → warn passthrough |
 | ShaderNodeMixRGB / Mix | approx | direct blend modes; exotic blends → mix + warn |
@@ -206,3 +206,31 @@ Notes:
   first path vertex. Works on PATHCPU and PATHOCL; BiDir/light-tracing
   hits carry the corresponding light-path context.
 
+
+## Snap / vector dispatch regression gate
+
+- Blender 5.2 reference: `gpu_shader_common_math.glsl::math_snap` and
+  `gpu_shader_material_vector_math.glsl::vector_math_snap` both evaluate
+  `floor(safe_divide(a,b))*b`.
+- Math and Vector Math SNAP now emit one native binary `mathfunc.snap`
+  texture, replacing nearest-multiple rounding. Scalar Clamp follows the
+  common Math output path; vector increments remain componentwise.
+- A missing `ShaderNodeTexCoord` branch header had placed coordinate
+  dispatch inside Vector Math. Actual Blender export reproduced
+  `NameError: coord is not defined` for Vector Math SNAP and a neutral
+  fallback for Generated coordinates. Restoring the branch separates
+  these supported node families without a fallback shim.
+- `dev-tools/snap_node_e2e_test.py` runs real Blender nodes through the
+  repository reader and renders their exported graphs using the rebuilt
+  renderer. 26 CPU/isolated Metal checks passed: five native cases plus
+  eight Blender-export cases (positive/negative/zero increments, Clamp,
+  linked Combine XYZ inputs, Vector Add, Generated coordinates, and
+  Generated→Scale→Add→Snap procedural input).
+- Texture SDL round-trip is included. Rendered radiance tolerance is
+  `0.05`, not a claim of bitwise texture precision: a preliminary strict
+  gate observed GPU radiance residuals around `0.01` even for constant
+  emission. The nearest-rounding regression changes the fixtures by
+  `0.5` or more and fails this gate.
+- Installed Blender 5.2.1 extension/runtime bundle was synchronized using
+  `sync_dev_install.sh`; actual SUPERLUXCORE rendering of the linked
+  Vector Snap material completed and produced a readable EXR.

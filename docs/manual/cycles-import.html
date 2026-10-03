@@ -44,6 +44,16 @@ noise-level stop still ends early on easy scenes)</td></tr>
 <tr><td>view-layer <code>samples</code></td><td>per-layer halt override</td></tr>
 </table>
 
+<h2>Procedural snapping and coordinates</h2>
+<p>Math and Vector Math <b>Snap</b> use Blender's floored-increment rule,
+not nearest rounding: <code>Snap(1.75, 1) = 1</code> and
+<code>Snap(-1.25, 1) = -2</code>. Vector increments work per component;
+a zero increment produces zero in that component. Linked inputs and the
+Math node's Clamp option are supported on CPU and GPU.</p>
+<p>Texture Coordinate UV, Normal, Generated, Object and Reflection outputs
+are routed separately from Vector Math. Window and Camera outputs still
+report their documented unsupported-coordinate warnings.</p>
+
 <h2>Materials</h2>
 <p>Principled BSDF exports as OpenPBR (see
 <a href="materials.html">Materials</a>) — no SSS radius / sheen / aniso

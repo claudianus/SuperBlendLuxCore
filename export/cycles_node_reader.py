@@ -1861,15 +1861,11 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
                              superluxcore_name + "_mod", props)
             return _tex_binary("add", tex2, mod, superluxcore_name + "_wr", props)
         elif node.operation == "SNAP":
-            # snap(x, s) = round(x / s) * s — nearest multiple like
-            # VectorMath SNAP (Blender floors; documented difference)
-            _warn_unsupported(
-                node, "'Snap' approximated by round-to-nearest-multiple "
-                "(Blender floors to the increment)", None, obj_name)
             definitions = {
-                "type": "rounding",
-                "texture": tex1,
-                "increment": tex2,
+                "type": "mathfunc",
+                "op": "snap",
+                "texture1": tex1,
+                "texture2": tex2,
             }
         else:
             # Never silently black: pass through the first input
@@ -2764,16 +2760,11 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
                 return _tex_binary("add", vector1, sel,
                                    superluxcore_name + "_max", props)
         elif operation == "SNAP":
-            # Approximation: SuperLuxCore's rounding texture snaps to the nearest
-            # multiple of the increment; Blender's SNAP floors to it. The
-            # difference is at most half an increment per component.
-            _warn_unsupported(
-                node, "'Snap' approximated by round-to-nearest-multiple "
-                "(Blender floors to the increment)", None, obj_name)
             definitions = {
-                "type": "rounding",
-                "texture": vector1,
-                "increment": vector2,
+                "type": "mathfunc",
+                "op": "snap",
+                "texture1": vector1,
+                "texture2": vector2,
             }
         elif operation in {"SINE", "COSINE", "TANGENT"}:
             # Elementwise trig via mathfunc (matches Cycles' per-component
@@ -2787,6 +2778,9 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
                 return _warn_unsupported(
                     node, f"vector math operation '{operation}' is not supported, "
                     "passing through the first input", vector1, obj_name)
+    elif node.bl_idname == "ShaderNodeTexCoord":
+        prefix = "scene.textures."
+        coord = output_socket.name
         if coord == "UV":
             definitions = {"type": "uv"}
         elif coord == "Normal":
