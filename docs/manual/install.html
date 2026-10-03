@@ -46,33 +46,41 @@ open the top-right settings menu and choose <em>Install from Disk</em>.</li>
 <li>Enable <b>Render: SuperLuxCore</b>.</li>
 <li>Switch the active render engine to <b>SuperLuxCore</b>.</li>
 </ol>
-<p>The public bundles currently pair add-on <b>2.11.9</b> with
-<b>pysuperluxcore 2.11.9 / Python 3.13</b>. The packaging workflow uses
+<p>The public bundles currently pair add-on <b>2.11.10</b> with
+<b>pysuperluxcore 2.11.10 / Python 3.13</b>. The packaging workflow uses
 Blender 5.2.1. <code>latest</code> is a rolling pre-release and is not a
 production-qualified versioned release. Restart Blender after upgrading:
 updating Python source alone does not replace an already-loaded native module.</p>
 <p>Headless installation uses the same Blender extension installer:</p>
 <pre><code>blender --background --command extension install-file \
   --repo user_default --enable SuperLuxCore-Latest-macos_arm64.zip</code></pre>
+<p>For an isolated CI profile, create the directories referenced by
+<code>BLENDER_USER_CONFIG</code>, <code>BLENDER_USER_SCRIPTS</code> and
+<code>BLENDER_USER_EXTENSIONS</code> before launching Blender.</p>
 
 <h2>Verify</h2>
 <pre><code># Blender scripting console / Text Editor
 import bpy
 import pysuperluxcore
-print(pysuperluxcore.Version())  # 2.11.9 for the verified current bundle
+print(pysuperluxcore.Version())  # 2.11.10 for the verified current bundle
 bpy.context.scene.render.engine = "SUPERLUXCORE"
 print(bpy.context.scene.superluxcore.config.engine)</code></pre>
-<p>The hash-verified public Apple-silicon wheel passed 328 actual CPU/isolated
-Metal render checks in factory-startup Blender 5.2.1, including HDR/tiny-input
-boundaries, custom Generated texture space, material splits, live edits and
-scene/proxy archives. A clean, separate Blender profile installed the offline
-ZIP without downloading the engine. Its actual SUPERLUXCORE CPU and Metal
-renders retained continuous Generated coordinates across two materials;
-native CPU workers were disabled for the Metal run.</p>
+<p>The hash-verified public <b>2.11.10</b> Apple-silicon wheel passed 328
+actual CPU/isolated Metal coordinate/math checks and 15 camera-reference
+renders in factory-startup Blender 5.2.1. Coverage includes HDR/tiny-input
+boundaries, custom Generated texture space, material splits, live edits,
+scene/proxy archives and centered/shifted orthographic/perspective plus
+full equirectangular cameras. The matching offline ZIP embeds the same
+native wheel. Native CPU workers were disabled for the Metal runs.</p>
+<p>A fresh, separate Blender profile installed the public offline ZIP
+without downloading the engine. Both the add-on and native-module paths
+were checked inside that profile; all 15 actual camera renders passed.
+See <a href="cycles-import.html#camera-raster">camera pixel-center alignment
+and the genuine bundle-rendered panorama</a>.</p>
 <p><img src="../assets/ex_generated_texspace.png"
 alt="Actual public 2.11.9 offline bundle render: custom Generated texture space stays continuous across two material submeshes"
 style="max-width:100%;width:512px;border:1px solid var(--line);border-radius:8px"></p>
-<p>The public bundle's raw EXR interior comparison with Cycles had maximum
+<p>The earlier <b>2.11.9</b> public bundle's raw EXR interior comparison with Cycles had maximum
 absolute RGB errors <code>0.003421</code> on CPU and <code>0.007908</code>
 on Metal. This is a behavior and installation check, not bitwise parity,
 a throughput benchmark or cross-vendor GPU certification.</p>

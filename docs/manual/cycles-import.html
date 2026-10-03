@@ -72,6 +72,39 @@ maximum absolute RGB errors <code>0.003421</code> and <code>0.007908</code>;
 the material boundary introduced no coordinate seam. The public 2.11.9
 wheel passed all 328 export/SDL/CPU/Metal checks in factory-startup Blender.</p>
 
+<h2 id="camera-raster">Camera pixel-center alignment</h2>
+<p>Native engine <b>2.11.10</b> corrects a one-pixel vertical displacement
+in orthographic and perspective CPU/GPU renders and CPU equirectangular
+panoramas. Film samples are continuous coordinates: a pixel center is
+<code>(x + 0.5, y + 0.5)</code>, so reflecting Y uses
+<code>height - y</code>, not the integer-index rule
+<code>height - y - 1</code>. Reciprocal camera projections follow the same
+convention; CPU panorama longitude reconstruction also avoids a meridian
+precision loss.</p>
+<p>No camera-shift workaround or Generated-coordinate remapping is needed.
+Upgrade the native wheel as well as the add-on and restart Blender.
+MNEE, vertex connection and other rendering defaults are not disabled by
+this correction.</p>
+<p>Actual Blender 5.2.1 raw EXR checks cover centered and shifted
+orthographic/perspective cameras and a full 360&deg; equirectangular panorama:
+15 Cycles/CPU/isolated Metal renders passed against independent camera-frame
+and ray-direction references. The fixture rejects a 0.05-pixel per-row mean
+Y displacement and maximum RGB errors above 0.003. It does not certify
+depth of field, barrel distortion, partial panoramas or cross-vendor GPU
+parity.</p>
+<p><img src="../assets/ex_camera_raster.png"
+alt="Actual public 2.11.10 offline bundle CPU render: an incoming-direction emission ramp viewed with a full equirectangular camera"
+style="max-width:100%;width:512px;border:1px solid var(--line);border-radius:8px"></p>
+<p>This genuine 384&times;192 PNG was rendered by the public offline bundle
+in a clean Blender profile. Its shader is
+<code>Geometry Incoming &rarr; Scale(0.25) &rarr; Add(0.5) &rarr; Emission</code>
+on the inside of a sphere. It is a display-managed diagnostic, not a
+photorealistic scene. The bundle repeated all 15 raw EXR camera checks:
+maximum RGB error <code>0.001358</code> and maximum per-row mean Y error
+<code>0.017232</code> pixels across Cycles/CPU/Metal. The independently
+downloaded native wheel also passed these 15 checks and the 328-check
+coordinate/math corpus.</p>
+
 <h2>Math output Clamp</h2>
 <p>The scalar Math node's <b>Clamp</b> checkbox limits the completed
 operation to <code>[0, 1]</code>. It applies to native textures,
@@ -156,7 +189,7 @@ render-speedup claim.</p>
 checks, including linked/folded extrema, full-range input normalization,
 tiny-input quotients and authored Generated coordinates. Another 70 checks
 passed using the installed extension and native package. The public
-<code>pysuperluxcore 2.11.9</code> Apple-silicon wheel repeated all 328
+<code>pysuperluxcore 2.11.10</code> Apple-silicon wheel repeated all 328
 checks inside Blender 5.2.1. An older cached wheel does not gain native
 operations from an add-on source update alone.</p>
 <p><img src="../assets/ex_vector_extrema.png"
