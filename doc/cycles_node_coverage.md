@@ -398,8 +398,12 @@ Notes:
   Generated minus the interpolated reference is amplified 1000× before
   checking every pixel in the original 4×4 region. Radiance tolerance
   remains 0.05, not a claim of bitwise parity.
+- A warmed scene also applies rotation and translation in two live edit
+  transitions after a rotation/nonuniform-scale bake. CPU and isolated
+  Metal retain the Blender reference; applied-transform composition now
+  follows the same `new × old` order as vertex updates.
 - The full Blender export → SDL round-trip → CPU/isolated Metal corpus
-  passed 308 checks. The installed extension's actual 384×192 RGB emission
+  passed 310 checks. The installed extension's actual 384×192 RGB emission
   render is `docs/assets/ex_vector_extrema.png`: raw EXR pixels verified
   upper/lower clipping plateaus and distinct blue components.
 - Generated remains a base-mesh bbox approximation. Full undeformed ORCO,

@@ -295,6 +295,16 @@ def build_cases():
             if instanced:
                 case["object_transform"] = [wrapper[row][col] for col in range(4) for row in range(4)]
             cases.append(case)
+    baked = transforms[1][1]
+    edits = [Matrix.Rotation(-.4, 4, "Z"), Matrix.Translation((.3, -.2, 0.))]
+    edited = export_case(node, material, "generated-live-noncommuting-edits", [0.] * 3, "Generated")
+    edited["reference_colours"] = reference_colours
+    edited["mesh_transform"] = [baked[row][col] for col in range(4) for row in range(4)]
+    edited["update_transforms"] = [
+        [transform[row][col] for col in range(4) for row in range(4)] for transform in edits
+    ]
+    edited["target"] = list(edits[1] @ edits[0] @ baked @ Vector(sample))
+    cases.append(edited)
     bpy.data.meshes.remove(probe_mesh)
     scaled = tree.nodes.new("ShaderNodeVectorMath")
     scaled.operation = "SCALE"

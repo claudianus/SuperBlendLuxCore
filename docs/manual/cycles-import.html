@@ -55,7 +55,8 @@ are routed separately from Vector Math. Window and Camera outputs still
 report their documented unsupported-coordinate warnings.</p>
 <p>Generated now keeps baked mesh coordinates and their bounds in the same
 authoring frame, including translation, rotation, nonuniform scale and
-instances. Flat axes return <code>0.5</code>. This remains a base-mesh
+instances. Live rotation/translation edits also retain the Blender reference
+on CPU and Metal. Flat axes return <code>0.5</code>. This remains a base-mesh
 bounding-box approximation: full undeformed ORCO, custom texspace and
 whole-object bounds across material submeshes are not mapped.</p>
 
@@ -139,7 +140,7 @@ avoids that intermediate subtraction. With two linked inputs, explicit
 texture nodes decrease from six to three; arithmetic operations decrease
 from four to one. This is a measured graph reduction, not a measured
 render-speedup claim.</p>
-<p>The CPU/isolated Metal regression corpus passed 308 actual render
+<p>The CPU/isolated Metal regression corpus passed 310 actual render
 checks, including linked/folded extrema, full-range input normalization
 and tiny-input quotients. Another 70 checks passed using the installed
 extension and native package. This requires the current engine build;
