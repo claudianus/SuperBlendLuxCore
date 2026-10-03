@@ -54,6 +54,15 @@ Math node's Clamp option are supported on CPU and GPU.</p>
 are routed separately from Vector Math. Window and Camera outputs still
 report their documented unsupported-coordinate warnings.</p>
 
+<h2>Math output Clamp</h2>
+<p>The scalar Math node's <b>Clamp</b> checkbox limits the completed
+operation to <code>[0, 1]</code>. It applies to native textures,
+helper-generated expressions and folded constants alike; linked inputs
+do not bypass it. For example, clamped <code>Exponent(1)</code> produces
+<code>1</code> instead of <code>e</code>, and clamped
+<code>Sine(-π / 2)</code> produces <code>0</code>. Disabling Clamp preserves
+the original operation result.</p>
+
 <h2>Materials</h2>
 <p>Principled BSDF exports as OpenPBR (see
 <a href="materials.html">Materials</a>) — no SSS radius / sheen / aniso

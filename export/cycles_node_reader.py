@@ -1688,6 +1688,7 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
 
         prefix = "scene.textures."
         definitions = {}
+        math_output = None
 
         tex1 = _socket(node.inputs[0], props, material, obj_name, group_node_stack)
         tex2 = _socket(node.inputs[1], props, material, obj_name, group_node_stack)
@@ -1721,10 +1722,10 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
             definitions["texture"] = tex1
             definitions["modulo"] = tex2
         elif node.operation == "SQRT":
-            return _tex_binary("power", tex1, 0.5, superluxcore_name + "_sqrt",
-                               props)
+            math_output = _tex_binary("power", tex1, 0.5, superluxcore_name + "_sqrt",
+                                      props)
         elif node.operation == "EXPONENT":
-            return _tex_mathfunc("exp", tex1, None, superluxcore_name, props)
+            math_output = _tex_mathfunc("exp", tex1, None, superluxcore_name, props)
         elif node.operation in {"MINIMUM", "MAXIMUM"}:
             lt = _tex_lessthan(tex1, tex2, superluxcore_name + "_lt", props)
             if node.operation == "MINIMUM":
@@ -1732,22 +1733,22 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
                                    superluxcore_name + "_df", props)
                 sel = _tex_binary("scale", diff, lt,
                                   superluxcore_name + "_sl", props)
-                return _tex_binary("add", tex2, sel,
-                                   superluxcore_name + "_min", props)
+                math_output = _tex_binary("add", tex2, sel,
+                                          superluxcore_name + "_min", props)
             else:
                 diff = _tex_binary("subtract", tex2, tex1,
                                    superluxcore_name + "_df", props)
                 sel = _tex_binary("scale", diff, lt,
                                   superluxcore_name + "_sl", props)
-                return _tex_binary("add", tex1, sel,
-                                   superluxcore_name + "_max", props)
+                math_output = _tex_binary("add", tex1, sel,
+                                          superluxcore_name + "_max", props)
         elif node.operation == "FLOOR":
             # floor(x) = round_nearest(x - 0.5); differs from floor only at
             # exact half-integers, where both agree anyway
             shifted = _tex_binary("subtract", tex1, 0.5,
                                   superluxcore_name + "_sh", props)
-            return _tex_unary("rounding", shifted, 1.0,
-                              superluxcore_name + "_floor", props)
+            math_output = _tex_unary("rounding", shifted, 1.0,
+                                     superluxcore_name + "_floor", props)
         elif node.operation == "CEIL":
             # ceil(x) = -floor(-x)
             neg = _tex_binary("scale", tex1, -1.0, superluxcore_name + "_neg",
@@ -1756,8 +1757,8 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
                                   superluxcore_name + "_sh", props)
             rounded = _tex_unary("rounding", shifted, 1.0,
                                  superluxcore_name + "_r", props)
-            return _tex_binary("scale", rounded, -1.0,
-                               superluxcore_name + "_ceil", props)
+            math_output = _tex_binary("scale", rounded, -1.0,
+                                      superluxcore_name + "_ceil", props)
         elif node.operation == "TRUNC":
             # trunc(x) = sign(x) * floor(|x|)
             lt0 = _tex_lessthan(tex1, 0.0, superluxcore_name + "_lt0", props)
@@ -1770,21 +1771,21 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
                                   superluxcore_name + "_sh", props)
             fl = _tex_unary("rounding", shifted, 1.0,
                             superluxcore_name + "_fl", props)
-            return _tex_binary("scale", fl, sgn, superluxcore_name + "_tr", props)
+            math_output = _tex_binary("scale", fl, sgn, superluxcore_name + "_tr", props)
         elif node.operation == "FRACT":
             # fract(x) = x - floor(x)
             shifted = _tex_binary("subtract", tex1, 0.5,
                                   superluxcore_name + "_sh", props)
             fl = _tex_unary("rounding", shifted, 1.0,
                             superluxcore_name + "_fl", props)
-            return _tex_binary("subtract", tex1, fl,
-                               superluxcore_name + "_fract", props)
+            math_output = _tex_binary("subtract", tex1, fl,
+                                      superluxcore_name + "_fract", props)
         elif node.operation == "RADIANS":
-            return _tex_binary("scale", tex1, 0.017453292519943295,
-                               superluxcore_name + "_rad", props)
+            math_output = _tex_binary("scale", tex1, 0.017453292519943295,
+                                      superluxcore_name + "_rad", props)
         elif node.operation == "DEGREES":
-            return _tex_binary("scale", tex1, 57.29577951308232,
-                               superluxcore_name + "_deg", props)
+            math_output = _tex_binary("scale", tex1, 57.29577951308232,
+                                      superluxcore_name + "_deg", props)
         elif node.operation == "COMPARE":
             # compare(a, b, eps) = 1 if |a-b| <= eps else 0;
             # = gt(eps, |a-b|) using lessthan swapped
@@ -1793,7 +1794,7 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
             diff = _tex_binary("subtract", tex1, tex2,
                                superluxcore_name + "_df", props)
             absd = _tex_unary("abs", diff, None, superluxcore_name + "_ad", props)
-            return _tex_lessthan(absd, tex3, superluxcore_name + "_cmp", props)
+            math_output = _tex_lessthan(absd, tex3, superluxcore_name + "_cmp", props)
         elif node.operation == "PINGPONG":
             # pingpong(x, s) = s - |mod(x, 2s) - s|
             two_s = _tex_binary("scale", tex2, 2.0, superluxcore_name + "_2s",
@@ -1804,14 +1805,14 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
                              _tex_binary("subtract", mod, tex2,
                                          superluxcore_name + "_sub", props),
                              None, superluxcore_name + "_dev", props)
-            return _tex_binary("subtract", tex2, dev,
-                               superluxcore_name + "_pp", props)
+            math_output = _tex_binary("subtract", tex2, dev,
+                                      superluxcore_name + "_pp", props)
         elif node.operation in _MATHFUNC_UNARY_OPS:
-            return _tex_mathfunc(_MATHFUNC_UNARY_OPS[node.operation],
-                                 tex1, None, superluxcore_name, props)
+            math_output = _tex_mathfunc(_MATHFUNC_UNARY_OPS[node.operation],
+                                        tex1, None, superluxcore_name, props)
         elif node.operation in _MATHFUNC_BINARY_OPS:
-            return _tex_mathfunc(_MATHFUNC_BINARY_OPS[node.operation],
-                                 tex1, tex2, superluxcore_name, props)
+            math_output = _tex_mathfunc(_MATHFUNC_BINARY_OPS[node.operation],
+                                        tex1, tex2, superluxcore_name, props)
         elif node.operation in {"SMOOTH_MIN", "SMOOTH_MAX"}:
             # Polynomial smooth-min/max: h = clamp(0.5 + 0.5*(b-a)/k, 0, 1);
             # smin = mix(b, a, h) - k*h*(1-h), smax = -smin(-a, -b).
@@ -1825,30 +1826,31 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
                                  superluxcore_name + "_nb", props)
                 smin = _smooth_min(na, nb, tex3, superluxcore_name + "_sm",
                                    props)
-                return _tex_binary("scale", smin, -1.0,
-                                   superluxcore_name + "_smax", props)
-            return _smooth_min(tex1, tex2, tex3, superluxcore_name + "_smin",
-                               props)
+                math_output = _tex_binary("scale", smin, -1.0,
+                                          superluxcore_name + "_smax", props)
+            else:
+                math_output = _smooth_min(tex1, tex2, tex3, superluxcore_name + "_smin",
+                                          props)
         elif node.operation == "LOGARITHM":
             # log_b(x) = ln(x) / ln(b); Cycles' second input is the base
             num = _tex_mathfunc("ln", tex1, None, superluxcore_name + "_num",
                                 props)
             den = _tex_mathfunc("ln", tex2, None, superluxcore_name + "_den",
                                 props)
-            return _tex_binary("divide", num, den, superluxcore_name + "_log",
-                               props)
+            math_output = _tex_binary("divide", num, den, superluxcore_name + "_log",
+                                      props)
         elif node.operation == "SIGN":
             lt0 = _tex_lessthan(tex1, 0.0, superluxcore_name + "_lt0", props)
             gt0 = _tex_greaterthan(tex1, 0.0, superluxcore_name + "_gt0", props)
-            return _tex_binary("subtract", gt0, lt0,
-                               superluxcore_name + "_sign", props)
+            math_output = _tex_binary("subtract", gt0, lt0,
+                                      superluxcore_name + "_sign", props)
         elif node.operation == "MULTIPLY_ADD":
             tex3 = _socket(node.inputs[2], props, material, obj_name,
                            group_node_stack)
             prod = _tex_binary("scale", tex1, tex2, superluxcore_name + "_mp",
                                props)
-            return _tex_binary("add", prod, tex3, superluxcore_name + "_ma",
-                               props)
+            math_output = _tex_binary("add", prod, tex3, superluxcore_name + "_ma",
+                                      props)
         elif node.operation == "WRAP":
             # wrap(x, min, max) = min + mod(x - min, max - min)
             rng = _tex_binary("subtract",
@@ -1859,7 +1861,7 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
                                   superluxcore_name + "_sh", props)
             mod = _tex_unary("modulo", shifted, rng,
                              superluxcore_name + "_mod", props)
-            return _tex_binary("add", tex2, mod, superluxcore_name + "_wr", props)
+            math_output = _tex_binary("add", tex2, mod, superluxcore_name + "_wr", props)
         elif node.operation == "SNAP":
             definitions = {
                 "type": "mathfunc",
@@ -3817,19 +3819,24 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
             # Float/Int/Bool and everything else
             return FALLBACK_FLOAT
 
-    if node.bl_idname in {"ShaderNodeMixRGB", "ShaderNodeMath"} and node.use_clamp:
-        # Here we need to insert a helper texture *after* the current texture
+    # Both native definitions and helper-generated Math results must reach
+    # the same post-operation Clamp stage. Do not emit an identity texture
+    # merely to name a helper result or a folded constant.
+    if node.bl_idname == "ShaderNodeMath" and math_output is not None:
+        result_texture = math_output
+    else:
         props.Set(utils.luxutils.create_props(prefix + superluxcore_name + ".", definitions))
-        definitions = {
+        result_texture = superluxcore_name
+
+    if node.bl_idname in {"ShaderNodeMixRGB", "ShaderNodeMath"} and node.use_clamp:
+        return _tex_helper(props, superluxcore_name + "clamp", {
             "type": "clamp",
-            "texture": superluxcore_name,
+            "texture": result_texture,
             "min": 0,
             "max": 1,
-        }
-        superluxcore_name = superluxcore_name + "clamp"
+        })
 
-    props.Set(utils.luxutils.create_props(prefix + superluxcore_name + ".", definitions))
-    return superluxcore_name
+    return result_texture
 
 
 def _squared_roughness_to_linear(socket, props, material, superluxcore_name, obj_name, group_node):

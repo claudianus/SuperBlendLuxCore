@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 """Real Blender nodes -> repository exporter -> rebuilt CPU/GPU renderer.
 
-Run Blender --background --python dev-tools/snap_node_e2e_test.py.
+Run Blender --background --python-exit-code 1 --python dev-tools/snap_node_e2e_test.py.
 Requires an enabled SuperLuxCore extension for its registered dependencies.
 SUPERLUXCORE_TEST_PYTHON selects the external Python with the built module's
 ABI; SUPERLUXCORE_TEST_GPU_DEVICES selects the GPU mask (default 010).
@@ -47,6 +47,34 @@ def build_cases():
         if clamped:
             expected = min(1., max(0., expected))
         cases.append(export_case(node, material, f"math-snap-{index}", [expected] * 3))
+    # Helper-generated Math outputs must use the same final Clamp stage as
+    # direct native textures. Exercise both constant folding and linked graphs.
+    for operation, values, raw in [
+        ("SQRT", (9.,), 3.), ("SQRT", (.25,), .5),
+        ("EXPONENT", (1.,), math.e),
+        ("MINIMUM", (2., 3.), 2.), ("MAXIMUM", (2., 3.), 3.),
+        ("SINE", (-math.pi / 2.,), -1.),
+        ("RADIANS", (-90.,), -math.pi / 2.),
+        ("DEGREES", (.04,), math.degrees(.04)),
+        ("LOGARITHM", (16., 2.), 4.),
+        ("MULTIPLY_ADD", (2., 2., -1.), 3.),
+        ("SMOOTH_MIN", (2., 3., .2), 2.),
+        ("SMOOTH_MAX", (2., 3., .2), 3.),
+        ("SIGN", (-2.,), -1.),
+    ]:
+        for clamped in (False, True):
+            node = tree.nodes.new("ShaderNodeMath")
+            node.operation = operation
+            node.use_clamp = clamped
+            for socket, value in zip(node.inputs, values):
+                socket.default_value = value
+                if clamped and raw != .5:
+                    source = tree.nodes.new("ShaderNodeValue")
+                    source.outputs[0].default_value = value
+                    tree.links.new(source.outputs[0], socket)
+            expected = min(1., max(0., raw)) if clamped else raw
+            label = f"math-{operation.lower()}-{values[0]}-clamp-{int(clamped)}"
+            cases.append(export_case(node, material, label, [expected] * 3))
     for operation in ["SNAP", "ADD"]:
         node = tree.nodes.new("ShaderNodeVectorMath")
         node.operation = operation

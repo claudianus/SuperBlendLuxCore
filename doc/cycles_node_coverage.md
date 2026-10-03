@@ -234,3 +234,24 @@ Notes:
 - Installed Blender 5.2.1 extension/runtime bundle was synchronized using
   `sync_dev_install.sh`; actual SUPERLUXCORE rendering of the linked
   Vector Snap material completed and produced a readable EXR.
+
+## Math output Clamp regression gate
+
+- Actual Blender export/render reproduced `EXPONENT(1)` with Clamp
+  enabled producing biased radiance `6.71837` rather than `5`. Helper
+  Math branches returned before the existing post-operation Clamp stage.
+- Supported helper branches now carry their output to the same final
+  stage as direct native definitions. No identity texture is inserted:
+  an unclamped folded result stays a constant, and a linked helper result
+  keeps its existing texture graph. Clamp adds one native wrapper.
+- The real-Blender E2E gate now passes 78 CPU/isolated Metal renders,
+  including Clamp enabled/disabled for Square Root (interior and upper
+  values), Exponent, Minimum, Maximum, Sine, Radians, Degrees, Logarithm,
+  Multiply Add, Smooth Minimum, Smooth Maximum and Sign. Constant and
+  linked inputs are included, along with the earlier Snap/vector/Generated
+  coordinate gates. Radiance tolerance remains `0.05`.
+- Invocation:
+  `Blender --background --python-exit-code 1 --python dev-tools/snap_node_e2e_test.py`.
+  The explicit exit code makes a failed Python assertion fail the command.
+- Synchronized installed-extension smoke also rendered clamped Exponent
+  and Sine graphs successfully on CPU and isolated Metal (four checks).
