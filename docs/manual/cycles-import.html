@@ -64,13 +64,13 @@ report a warning.</p>
 <p><img src="../assets/ex_generated_texspace.png"
 alt="Actual Blender SuperLuxCore Generated-coordinate render: custom texture space remains continuous across two material submeshes"
 style="max-width:100%;width:512px;border:1px solid var(--line);border-radius:8px"></p>
-<p>This actual Blender 5.2.1 render uses custom texture-space location
-<code>(1, -0.5, 0)</code> and size <code>(8, 4, 0)</code>.
+<p>This actual public 2.11.9 bundle render in Blender 5.2.1 uses custom
+texture-space location <code>(1, -0.5, 0)</code> and size <code>(8, 4, 0)</code>.
 The left and right faces have separate materials but share one coordinate
 space. CPU and isolated Metal raw EXR comparisons against Cycles had
-maximum absolute RGB errors <code>0.003396</code> and <code>0.007030</code>;
-the material boundary introduced no coordinate seam. The full local
-export/SDL/CPU/Metal regression corpus passed 328 render checks.</p>
+maximum absolute RGB errors <code>0.003421</code> and <code>0.007908</code>;
+the material boundary introduced no coordinate seam. The public 2.11.9
+wheel passed all 328 export/SDL/CPU/Metal checks in factory-startup Blender.</p>
 
 <h2>Math output Clamp</h2>
 <p>The scalar Math node's <b>Clamp</b> checkbox limits the completed
@@ -152,12 +152,13 @@ avoids that intermediate subtraction. With two linked inputs, explicit
 texture nodes decrease from six to three; arithmetic operations decrease
 from four to one. This is a measured graph reduction, not a measured
 render-speedup claim.</p>
-<p>The CPU/isolated Metal regression corpus passed 310 actual render
-checks, including linked/folded extrema, full-range input normalization
-and tiny-input quotients. Another 70 checks passed using the installed
-extension and native package. The public <code>pysuperluxcore 2.11.8</code>
-Apple-silicon wheel repeated all 310 checks inside Blender 5.2.1. An older
-cached wheel does not gain native operations from an add-on source update alone.</p>
+<p>The CPU/isolated Metal regression corpus passed 328 actual render
+checks, including linked/folded extrema, full-range input normalization,
+tiny-input quotients and authored Generated coordinates. Another 70 checks
+passed using the installed extension and native package. The public
+<code>pysuperluxcore 2.11.9</code> Apple-silicon wheel repeated all 328
+checks inside Blender 5.2.1. An older cached wheel does not gain native
+operations from an add-on source update alone.</p>
 <p><img src="../assets/ex_vector_extrema.png"
 alt="Actual SuperLuxCore render of componentwise Vector Minimum on the left and Maximum on the right"
 style="max-width:100%;width:512px;border:1px solid var(--line);border-radius:8px"></p>
