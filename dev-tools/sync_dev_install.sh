@@ -54,6 +54,10 @@ rm -rf "$SITE_PKG/pysuperluxcore/.dylibs"
 mkdir -p "$SITE_PKG/pysuperluxcore/.dylibs"
 DEST_SO="$SITE_PKG/pysuperluxcore/$(basename "$SO")"
 cp "$SO" "$DEST_SO"
+# The Metal runtime resolves its translator beside this extension module.
+# Updating the binary alone leaves released wheels using an older shader shim.
+TRANSLATOR="$SUPERLUXCORE_REPO/src/slg/utils/cl2msl.py"
+cp "$TRANSLATOR" "$SITE_PKG/pysuperluxcore/cl2msl.py"
 
 # Collect the .so's own rpath dirs — each @rpath dep is resolved against
 # them at build time, so the same dirs give us the matching dylib versions
@@ -105,9 +109,9 @@ DEV_WHEEL="$DEV_WHEEL_DIR/pysuperluxcore-${ENGINE_VER}-cp313-cp313-macosx_14_0_a
 BASE_WHEEL="$(ls "$WHEELS_DIR"/pysuperluxcore-*.whl 2>/dev/null | head -1 || true)"
 [ -z "$BASE_WHEEL" ] && BASE_WHEEL="$DEV_WHEEL"
 if [ -f "$BASE_WHEEL" ]; then
-    python3 - "$BASE_WHEEL" "$DEV_WHEEL" "$ENGINE_VER" "$DEST_SO" "$SITE_PKG/pysuperluxcore/.dylibs" <<'PYEOF'
+    python3 - "$BASE_WHEEL" "$DEV_WHEEL" "$ENGINE_VER" "$DEST_SO" "$SITE_PKG/pysuperluxcore/.dylibs" "$TRANSLATOR" <<'PYEOF'
 import os, re, sys, zipfile
-wheel, dev_wheel, version, so, dylibs = sys.argv[1:6]
+wheel, dev_wheel, version, so, dylibs, translator = sys.argv[1:7]
 tmp = dev_wheel + ".tmp"
 soname = os.path.basename(so)
 
@@ -126,7 +130,7 @@ def retag_dist_info(name):
 with zipfile.ZipFile(wheel) as zin, \
      zipfile.ZipFile(tmp, "w", zipfile.ZIP_DEFLATED) as zout:
     for item in zin.infolist():
-        if item.filename == f"pysuperluxcore/{soname}" or \
+        if item.filename in (f"pysuperluxcore/{soname}", "pysuperluxcore/cl2msl.py") or \
                 item.filename.startswith("pysuperluxcore/.dylibs/"):
             continue  # replaced below
         new_name, is_dist_info = retag_dist_info(item.filename)
@@ -137,6 +141,7 @@ with zipfile.ZipFile(wheel) as zin, \
             )
         zout.writestr(new_name, data)
     zout.write(so, f"pysuperluxcore/{soname}")
+    zout.write(translator, "pysuperluxcore/cl2msl.py")
     for f in sorted(os.listdir(dylibs)):
         src = os.path.join(dylibs, f)
         if os.path.isfile(src):

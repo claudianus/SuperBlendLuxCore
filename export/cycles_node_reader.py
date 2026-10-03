@@ -398,21 +398,25 @@ _MATHFUNC_FOLD = {
     "floor": math.floor, "ceil": math.ceil, "trunc": math.trunc,
     "fract": lambda value: value - math.floor(value),
     "max": lambda a, b: b if math.isnan(a) else max(a, b),
+    "min": lambda a, b: b if math.isnan(a) else min(a, b),
     "lessequal": lambda a, b: float(a <= b),
 }
 
 
 def _tex_mathfunc(op, tex1, tex2, name, props):
-    """Emit a mathfunc texture (trig/exp/log/mod), folding constants."""
-    binary = op in ("atan2", "floormod", "max", "lessequal")
+    """Emit a native unary/binary mathfunc texture, folding constants."""
+    binary = op in ("atan2", "floormod", "max", "lessequal", "min")
     textured = _is_textured(tex1) or (binary and _is_textured(tex2))
     if not textured:
-        def val(t):
-            return t[0] if isinstance(t, (list, tuple)) else t
+        def as_vec(value):
+            return list(value)[:3] if isinstance(value, (list, tuple)) else [value] * 3
         try:
-            if binary:
-                return _MATHFUNC_FOLD[op](val(tex1), val(tex2))
-            return _MATHFUNC_FOLD[op](val(tex1))
+            evaluate = _MATHFUNC_FOLD[op]
+            if isinstance(tex1, (list, tuple)) or (binary and isinstance(tex2, (list, tuple))):
+                if binary:
+                    return [evaluate(a, b) for a, b in zip(as_vec(tex1), as_vec(tex2))]
+                return [evaluate(value) for value in as_vec(tex1)]
+            return evaluate(tex1, tex2) if binary else evaluate(tex1)
         except (ValueError, OverflowError, ZeroDivisionError):
             pass  # domain error at fold time — let the texture evaluate it
     definitions = {"type": "mathfunc", "op": op, "texture1": tex1}
@@ -1744,21 +1748,8 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
         elif node.operation == "EXPONENT":
             math_output = _tex_mathfunc("exp", tex1, None, superluxcore_name, props)
         elif node.operation in {"MINIMUM", "MAXIMUM"}:
-            lt = _tex_lessthan(tex1, tex2, superluxcore_name + "_lt", props)
-            if node.operation == "MINIMUM":
-                diff = _tex_binary("subtract", tex1, tex2,
-                                   superluxcore_name + "_df", props)
-                sel = _tex_binary("scale", diff, lt,
-                                  superluxcore_name + "_sl", props)
-                math_output = _tex_binary("add", tex2, sel,
-                                          superluxcore_name + "_min", props)
-            else:
-                diff = _tex_binary("subtract", tex2, tex1,
-                                   superluxcore_name + "_df", props)
-                sel = _tex_binary("scale", diff, lt,
-                                  superluxcore_name + "_sl", props)
-                math_output = _tex_binary("add", tex1, sel,
-                                          superluxcore_name + "_max", props)
+            math_output = _tex_mathfunc("min" if node.operation == "MINIMUM" else "max",
+                                        tex1, tex2, superluxcore_name, props)
         elif node.operation == "RADIANS":
             math_output = _tex_binary("scale", tex1, 0.017453292519943295,
                                       superluxcore_name + "_rad", props)
@@ -2723,20 +2714,8 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
             return _tex_binary("add", prod, vector3,
                                superluxcore_name + "_madd", props)
         elif operation in {"MINIMUM", "MAXIMUM"}:
-            # min(a,b) = b + lt(a,b)*(a-b);  max(a,b) = a + lt(a,b)*(b-a)
-            lt = _tex_lessthan(vector1, vector2, superluxcore_name + "_lt", props)
-            if operation == "MINIMUM":
-                diff = _tex_binary("subtract", vector1, vector2,
-                                   superluxcore_name + "_df", props)
-                sel = _tex_binary("scale", diff, lt, superluxcore_name + "_sl", props)
-                return _tex_binary("add", vector2, sel,
-                                   superluxcore_name + "_min", props)
-            else:
-                diff = _tex_binary("subtract", vector2, vector1,
-                                   superluxcore_name + "_df", props)
-                sel = _tex_binary("scale", diff, lt, superluxcore_name + "_sl", props)
-                return _tex_binary("add", vector1, sel,
-                                   superluxcore_name + "_max", props)
+            return _tex_mathfunc("min" if operation == "MINIMUM" else "max",
+                                 vector1, vector2, superluxcore_name, props)
         elif operation == "SNAP":
             definitions = {
                 "type": "mathfunc",

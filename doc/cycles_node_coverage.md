@@ -90,8 +90,8 @@ with no SuperLuxCore equivalent additionally carry a specific reason via
 
 | Node | Status | Notes |
 |---|---|---|
-| ShaderNodeMath | mapped | SINE/COSINE/TANGENT/ARC*/ARCTAN2/SINH/COSH/TANH/INVERSE_SQRT/FLOORED_MODULO/SNAP/FLOOR/CEIL/TRUNC/FRACT/ROUND/EXPONENT/LOGARITHM via SuperLuxCore `mathfunc` texture (log_b(x)=ln(x)/ln(b)); SNAP floors to the increment, including negative/zero increments; ROUND uses Blender's float32 floor(x+0.5), not ties-away; supported results share the post-operation Clamp stage; SMOOTH_MIN/SMOOTH_MAX via polynomial composition; SQRT/MIN/MAX/PINGPONG/SIGN/COMPARE/WRAP/MULTIPLY_ADD/RADIANS/DEGREES composed from existing textures; remaining ops warn + passthrough |
-| ShaderNodeVectorMath | approx | ADD/SUBTRACT/MULTIPLY/DIVIDE/DOT/CROSS/REFLECT/PROJECT/FACEFORWARD/MULTIPLY_ADD/LENGTH/DISTANCE/NORMALIZE/SCALE/ABSOLUTE/MODULO/MIN/MAX mapped; SNAP→native componentwise floored `mathfunc.snap`, including negative/zero increments; FLOOR/CEIL/FRACTION→native componentwise unary `mathfunc`; SINE/COSINE/TANGENT→elementwise `mathfunc`; WRAP/FLOORMOD/REFRACT→warn passthrough |
+| ShaderNodeMath | mapped | SINE/COSINE/TANGENT/ARC*/ARCTAN2/SINH/COSH/TANH/INVERSE_SQRT/FLOORED_MODULO/SNAP/FLOOR/CEIL/TRUNC/FRACT/ROUND/EXPONENT/LOGARITHM/MINIMUM/MAXIMUM via SuperLuxCore `mathfunc` texture (log_b(x)=ln(x)/ln(b)); SNAP floors to the increment, including negative/zero increments; ROUND uses Blender's float32 floor(x+0.5), not ties-away; supported results share the post-operation Clamp stage; SQRT via native power; SMOOTH_MIN/SMOOTH_MAX via polynomial composition; PINGPONG/SIGN/COMPARE/WRAP/MULTIPLY_ADD/RADIANS/DEGREES composed from existing textures; remaining ops warn + passthrough |
+| ShaderNodeVectorMath | approx | ADD/SUBTRACT/MULTIPLY/DIVIDE/DOT/CROSS/REFLECT/PROJECT/FACEFORWARD/MULTIPLY_ADD/LENGTH/DISTANCE/NORMALIZE/SCALE/ABSOLUTE/MODULO mapped; MINIMUM/MAXIMUM→native componentwise `mathfunc.min/max`, including folded constants; SNAP→native componentwise floored `mathfunc.snap`, including negative/zero increments; FLOOR/CEIL/FRACTION→native componentwise unary `mathfunc`; SINE/COSINE/TANGENT→elementwise `mathfunc`; WRAP/FLOORMOD/REFRACT→warn passthrough |
 | ShaderNodeVectorRotate | const-only | rotation composed as constant 3x3 matrix over texture channels; textured axis/angle/euler → warn passthrough |
 | ShaderNodeVectorTransform | approx | world/object/camera matrices composed per object; per-instance object space not expressible (base object matrix used); unresolvable → warn passthrough |
 | ShaderNodeMixRGB / Mix | approx | direct blend modes; exotic blends → mix + warn |
@@ -357,3 +357,30 @@ Notes:
   graphs also passed. Installed numeric Property SDL round-tripped 5004
   finite double values exactly, including signed zero and subnormals.
   Radiance tolerance stays `0.05`, not a bitwise shader-parity claim.
+
+## Native Minimum/Maximum and quotient boundaries
+
+- Math and Vector Math Minimum/Maximum now use one native `mathfunc`
+  operation instead of four composed operations. Two linked operands
+  need three explicit textures instead of six, measured on actual
+  Blender graphs for all four node/operation combinations.
+- Direct extrema avoid overflowing an intermediate subtraction with
+  finite opposite-sign values near float32's maximum. Constant vector
+  inputs fold componentwise, rather than selecting their first channel.
+- Full-range fixtures remain at `±3e38`; their normalization divides by
+  the selected extreme and must return one on CPU and isolated Metal.
+  This also exposed and repaired Metal reciprocal underflow.
+- Divide texture spectrum evaluation now avoids CPU reciprocal overflow.
+  The Metal translator preserves subnormal input significands and exact
+  zero-divisor guards locally, without disabling global fast math or
+  changing texture storage. Native scalar/spectrum probes include
+  `1e-45/1e-45`, signed tiny inputs and zero divisors.
+- Development installs synchronize the Metal translator into both the
+  installed package and cached wheel. Installed exporter and native
+  package rendering passed these boundaries plus linked/folded extrema.
+- This is a graph-cost reduction and numerical correctness fix, not a
+  measured render-speedup or bitwise GPU-parity claim.
+- The final full corpus passed 302 actual CPU/isolated Metal checks;
+  70 installed-package checks also passed. All graphs go through SDL
+  round-trip, with radiance tolerance `0.05` and no native CPU workers
+  enabled on the Metal gate.

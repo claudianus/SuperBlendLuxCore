@@ -123,6 +123,24 @@ conversions follow the same socket rules above. Accurate native SDL
 number formatting also preserves large values when a scene is exported
 and read back.</p>
 
+<h2 id="minimum-maximum">Minimum and Maximum</h2>
+<p>Math and Vector Math Minimum/Maximum use native, componentwise
+<code>mathfunc.min/max</code> operations. Constant vectors retain their
+individual components; scalar Math inputs use the socket conversions
+above. Math's Clamp remains a separate post-operation stage.</p>
+<p>The previous subtract/compare/multiply/add selection could overflow
+even with finite inputs near float32's maximum. The native operation
+avoids that intermediate subtraction. With two linked inputs, explicit
+texture nodes decrease from six to three; arithmetic operations decrease
+from four to one. This is a measured graph reduction, not a measured
+render-speedup claim.</p>
+<p>The CPU/isolated Metal regression corpus passed 302 actual render
+checks, including linked/folded extrema, full-range input normalization
+and tiny-input quotients. Another 70 checks passed using the installed
+extension and native package. This requires the current engine build;
+an older cached wheel does not gain native operations from an add-on
+source update alone.</p>
+
 <h2>Materials</h2>
 <p>Principled BSDF exports as OpenPBR (see
 <a href="materials.html">Materials</a>) — no SSS radius / sheen / aniso

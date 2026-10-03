@@ -132,6 +132,48 @@ def build_cases():
     tree.links.new(overflow.outputs[0], scalar.inputs[0])
     tree.links.new(overflow.outputs[0], scalar.inputs[1])
     cases.append(export_case(scalar, material, "math-compare-nan-difference", [0.] * 3))
+    for operation, a, b, divisor in [
+        ("MINIMUM", 3e38, -3e38, -3e38),
+        ("MAXIMUM", -3e38, 3e38, 3e38),
+    ]:
+        scalar = tree.nodes.new("ShaderNodeMath")
+        scalar.operation = operation
+        for socket, value in zip(scalar.inputs[:2], (a, b)):
+            source = tree.nodes.new("ShaderNodeValue")
+            source.outputs[0].default_value = value
+            tree.links.new(source.outputs[0], socket)
+        normalized = tree.nodes.new("ShaderNodeMath")
+        normalized.operation = "DIVIDE"
+        normalized.inputs[1].default_value = divisor
+        tree.links.new(scalar.outputs[0], normalized.inputs[0])
+        cases.append(export_case(normalized, material, "scalar-extreme-" + operation.lower(), [1.] * 3))
+        vector = tree.nodes.new("ShaderNodeVectorMath")
+        vector.operation = operation
+        for socket, values in zip(vector.inputs[:2], ((a, b, a), (b, a, b))):
+            source = tree.nodes.new("ShaderNodeCombineXYZ")
+            for component, value in zip(source.inputs, values):
+                component.default_value = value
+            tree.links.new(source.outputs[0], socket)
+        normalized = tree.nodes.new("ShaderNodeVectorMath")
+        normalized.operation = "DIVIDE"
+        normalized.inputs[1].default_value = (divisor,) * 3
+        tree.links.new(vector.outputs[0], normalized.inputs[0])
+        cases.append(export_case(normalized, material, "vector-extreme-" + operation.lower(), [1.] * 3))
+    for operation, expected in [
+        ("MINIMUM", [-1.5, -2., .25]), ("MAXIMUM", [1., 2., .25]),
+    ]:
+        for linked in (False, True):
+            vector = tree.nodes.new("ShaderNodeVectorMath")
+            vector.operation = operation
+            for socket, values in zip(vector.inputs[:2], ((-1.5, 2., .25), (1., -2., .25))):
+                socket.default_value = values
+                if linked:
+                    source = tree.nodes.new("ShaderNodeCombineXYZ")
+                    for component, value in zip(source.inputs, values):
+                        component.default_value = value
+                    tree.links.new(source.outputs[0], socket)
+            cases.append(export_case(vector, material,
+                                     f"vector-{operation.lower()}-linked-{int(linked)}", expected))
     for value, clamped in [(.25, False), (.25, True), (9., False)]:
         node = tree.nodes.new("ShaderNodeMath")
         node.operation = "SQRT"
