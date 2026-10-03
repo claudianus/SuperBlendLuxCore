@@ -88,9 +88,12 @@ class FrameBufferFinal:
         film = session.GetFilm()
         if self._combined_output_type == plc.FilmOutputType.RGB_IMAGEPIPELINE:
             size = self._width * self._height
-            pixels = np.empty([size, 3], dtype=np.float32)
-            film.GetOutputFloat(self._combined_output_type, pixels)
-            pixels = np.c_[pixels, np.ones(size, dtype=np.float32)]
+            rgb_pixels = np.empty([size, 3], dtype=np.float32)
+            film.GetOutputFloat(self._combined_output_type, rgb_pixels)
+            pixels = np.empty([size, 4], dtype=np.float32)
+            pixels[:, :3] = rgb_pixels
+            pixels[:, 3] = 1.0
+            del rgb_pixels
             combined.rect.foreach_set(pixels.ravel())
         elif (
             self._combined_output_type == plc.FilmOutputType.RGBA_IMAGEPIPELINE

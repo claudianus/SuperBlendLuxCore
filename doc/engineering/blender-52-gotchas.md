@@ -60,3 +60,33 @@ Raw EXR checks bound maximum RGB error at 0.003 and per-row mean Y error at
 pixels. Depth of field, barrel distortion and cross-vendor GPU behavior
 are not established by this fixture.
 
+## Large-film Combined and native channel transfer
+
+Engine 2.11.11 indexes each parallel RGBA/radiance-group output pixel
+independently. Advancing a pointer captured by a parallel lambda corrupts
+large films even when a small render looks correct. Native RGB and alpha
+must be checked independently; an EXR and Combined view can otherwise
+share the same faulty conversion.
+
+Opaque Combined packing uses contiguous float32 RGB and RGBA buffers,
+fills `pixels[:, :3]` and alpha in place, then releases RGB before AOV
+transfer. At 1024×512 this reduces NumPy payload peak from 16 to 14 MiB.
+Transparent Combined still needs one native RGBA buffer (8 MiB here).
+These are transfer buffers, not total Blender RSS or GPU memory; measured
+CPU/Metal draw timings do not establish a general speedup.
+
+Metal keeps the large texture/material VM dispatchers as separate call
+targets but no longer forces a separate call for the small texture-reader
+loops. A clean 512-spp SDK render of `0.25 + 0.25` previously lost rare
+emission contributions; removing that reader boundary restored 0.5 without
+re-evaluation, sample-clamping changes, or shader diagnostics. The precise
+Apple backend mechanism remains unproven.
+
+`dev-tools/film_rgba_parity_test.py` checks nine actual 1024×512 Cycles,
+CPU and Metal renders against Blender camera geometry: opaque, transparent,
+and half-plane coverage. RGB/alpha gates stay at 0.003/1e-5; the developer
+run observed at most 4.2945147e-5 RGB and 5.9604645e-8 alpha error.
+Its native radiance-group observation runs inside the live final-draw
+callback. Do not retain RenderEngine RNA and inspect it after
+`bpy.ops.render.render()` returns: that object may already be invalid.
+
