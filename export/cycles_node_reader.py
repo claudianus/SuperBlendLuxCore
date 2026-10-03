@@ -2303,9 +2303,14 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
                 "type": "rayinfo",
                 "channel": "raylength",
             }
+        elif output_socket.name == "View Z Depth":
+            # Camera-space depth along the forward axis, stamped per
+            # hit by Scene::Intersect (base pose for motion blur).
+            definitions = {
+                "type": "rayinfo",
+                "channel": "viewdepth",
+            }
         else:
-            # View Z Depth needs the camera-forward projection of the hit
-            # - no camera access from textures.
             return _warn_unsupported(
                 node, f"'{output_socket.name}' output is not supported "
                 "(needs camera projection); using 0", 0.0, obj_name)
