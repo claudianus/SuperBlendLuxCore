@@ -105,6 +105,24 @@ inputs/outputs and Math's third operand. RGB to BW uses the same
 luminance coefficients. Already-scalar links need no identity-power
 conversion texture. Vector Math remains componentwise.</p>
 
+<h2>Compare includes the epsilon boundary</h2>
+<p>Math Compare returns one when
+<code>abs(a-b) &lt;= max(epsilon, 1e-5)</code>, zero otherwise.
+Equal inputs compare true even with zero or negative epsilon. A
+difference exactly equal to a positive epsilon is included.</p>
+<table>
+<tr><th>A</th><th>B</th><th>Epsilon</th><th>Compare</th></tr>
+<tr><td>1</td><td>1</td><td>0</td><td>1</td></tr>
+<tr><td>0.125</td><td>0</td><td>0.125</td><td>1</td></tr>
+<tr><td>0.000005</td><td>0</td><td>0</td><td>1</td></tr>
+<tr><td>0.00002</td><td>0</td><td>-0.5</td><td>0</td></tr>
+</table>
+<p>Comparison uses float32 subtraction, including at large magnitudes;
+unordered NaN differences compare false. Scalar, linked and third-input
+conversions follow the same socket rules above. Accurate native SDL
+number formatting also preserves large values when a scene is exported
+and read back.</p>
+
 <h2>Materials</h2>
 <p>Principled BSDF exports as OpenPBR (see
 <a href="materials.html">Materials</a>) — no SSS radius / sheen / aniso

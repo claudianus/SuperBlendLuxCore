@@ -105,6 +105,33 @@ def build_cases():
         scalar.operation = "SINE"
         tree.links.new(group.outputs[0], scalar.inputs[0])
         cases.append(export_case(scalar, material, "group-scalar-" + boundary, [expected] * 3))
+    from ctypes import c_float
+    for index, (a, b, epsilon) in enumerate([
+        (1., 1., 0.), (.125, 0., .125), (-.125, 0., .125),
+        (5e-6, 0., 0.), (1e-5, 0., -.5), (2e-5, 0., -.5),
+        (16777216., -1., 16777216.), (16777218., -1., 16777218.),
+    ]):
+        a, b, epsilon = (c_float(value).value for value in (a, b, epsilon))
+        expected = float(abs(c_float(a - b).value) <= max(epsilon, c_float(1e-5).value))
+        for linked in (False, True):
+            scalar = tree.nodes.new("ShaderNodeMath")
+            scalar.operation = "COMPARE"
+            for socket, value in zip(scalar.inputs, (a, b, epsilon)):
+                socket.default_value = value
+                if linked:
+                    source = tree.nodes.new("ShaderNodeValue")
+                    source.outputs[0].default_value = value
+                    tree.links.new(source.outputs[0], socket)
+            cases.append(export_case(scalar, material,
+                                     f"math-compare-{index}-linked-{int(linked)}", [expected] * 3))
+    overflow = tree.nodes.new("ShaderNodeMath")
+    overflow.operation = "EXPONENT"
+    overflow.inputs[0].default_value = 1000.
+    scalar = tree.nodes.new("ShaderNodeMath")
+    scalar.operation = "COMPARE"
+    tree.links.new(overflow.outputs[0], scalar.inputs[0])
+    tree.links.new(overflow.outputs[0], scalar.inputs[1])
+    cases.append(export_case(scalar, material, "math-compare-nan-difference", [0.] * 3))
     for value, clamped in [(.25, False), (.25, True), (9., False)]:
         node = tree.nodes.new("ShaderNodeMath")
         node.operation = "SQRT"

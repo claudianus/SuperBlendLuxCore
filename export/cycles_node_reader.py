@@ -1,6 +1,7 @@
 import bpy
 import pysuperluxcore
 import PyOpenColorIO as ocio
+from ctypes import c_float
 from .. import utils
 from ..utils import node as utils_node
 from ..utils.errorlog import SuperLuxCoreErrorLog
@@ -396,12 +397,14 @@ _MATHFUNC_FOLD = {
     "floormod": _floormod_fold,
     "floor": math.floor, "ceil": math.ceil, "trunc": math.trunc,
     "fract": lambda value: value - math.floor(value),
+    "max": lambda a, b: b if math.isnan(a) else max(a, b),
+    "lessequal": lambda a, b: float(a <= b),
 }
 
 
 def _tex_mathfunc(op, tex1, tex2, name, props):
     """Emit a mathfunc texture (trig/exp/log/mod), folding constants."""
-    binary = op in ("atan2", "floormod")
+    binary = op in ("atan2", "floormod", "max", "lessequal")
     textured = _is_textured(tex1) or (binary and _is_textured(tex2))
     if not textured:
         def val(t):
@@ -1763,14 +1766,18 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
             math_output = _tex_binary("scale", tex1, 57.29577951308232,
                                       superluxcore_name + "_deg", props)
         elif node.operation == "COMPARE":
-            # compare(a, b, eps) = 1 if |a-b| <= eps else 0;
-            # = gt(eps, |a-b|) using lessthan swapped
+            # Blender compares inclusively and floors epsilon at float32 1e-5.
             tex3 = _socket(node.inputs[2], props, material, obj_name,
                            group_node_stack)
             diff = _tex_binary("subtract", tex1, tex2,
                                superluxcore_name + "_df", props)
+            if not _is_textured(diff):
+                diff = c_float(diff).value
             absd = _tex_unary("abs", diff, None, superluxcore_name + "_ad", props)
-            math_output = _tex_lessthan(absd, tex3, superluxcore_name + "_cmp", props)
+            epsilon = _tex_mathfunc("max", tex3, c_float(1e-5).value,
+                                    superluxcore_name + "_eps", props)
+            math_output = _tex_mathfunc("lessequal", absd, epsilon,
+                                        superluxcore_name + "_cmp", props)
         elif node.operation == "PINGPONG":
             # pingpong(x, s) = s - |mod(x, 2s) - s|
             two_s = _tex_binary("scale", tex2, 2.0, superluxcore_name + "_2s",

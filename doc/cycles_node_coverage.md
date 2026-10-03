@@ -330,3 +330,30 @@ Notes:
   Sine, colour Add, RGB to BW, derived vector multiplication, third
   operands, and scalar group input/output boundaries. Tolerance `0.05`
   remains a radiance gate, not proof of bitwise mathematical parity.
+
+## Compare boundary and numeric SDL regression gate
+
+- Blender 5.2 `math_compare` evaluates
+  `abs(a-b) <= max(epsilon,1e-5f)`. Actual CPU Compare(1,1,0) returned
+  biased radiance 4 instead of 5 because the adapter used strict `<`
+  without a minimum epsilon.
+- Compare now uses native absolute difference, `mathfunc.max` for the
+  epsilon floor, and `mathfunc.lessequal`. Constant subtraction rounds
+  to float32, so 16777216−(-1) rounds to 16777216 while
+  16777218−(-1) rounds to 16777220. NaN differences compare false.
+- These linked boundary fixtures also exposed SDL precision loss:
+  Python double properties serialized 16777216 as 16777200, while the
+  native float formatter could round it to 16777220. The engine's
+  float/double formatting now preserves shortest round-trip values
+  using `std::to_chars`; no identity textures or input special cases.
+- With two linked operands and constant epsilon, Compare keeps three
+  operation textures. Linked epsilon adds one native maximum operation
+  to enforce its minimum. No native texture/layout changes; no measured
+  render-speedup claim.
+- 268 actual CPU/isolated Metal renders passed, including the full
+  previous corpus, native scalar/spectrum maximum and inclusive compare,
+  epsilon equality, zero/negative epsilon, both float32 spacing ties,
+  NaN differences, and SDL round-trip. Installed-extension Compare
+  graphs also passed. Installed numeric Property SDL round-tripped 5004
+  finite double values exactly, including signed zero and subnormals.
+  Radiance tolerance stays `0.05`, not a bitwise shader-parity claim.
