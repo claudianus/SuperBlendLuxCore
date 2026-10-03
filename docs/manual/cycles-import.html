@@ -105,6 +105,53 @@ maximum RGB error <code>0.001358</code> and maximum per-row mean Y error
 downloaded native wheel also passed these 15 checks and the 328-check
 coordinate/math corpus.</p>
 
+<h2 id="film-transfer">Large-film RGBA and light-group integrity</h2>
+<p>Native engine <b>2.11.11</b> fixes parallel RGBA and radiance-group
+extraction: each worker writes its own pixel offsets instead of advancing
+a shared destination pointer. Transparent film keeps its weighted alpha;
+opaque Combined output receives alpha <code>1</code>.</p>
+<p>On Apple Metal, the same release removes forced out-of-line calls for
+the small texture-reading loops. This corrected rare black texture-VM
+results in an actual 1024&times;512 emission render. The large VM dispatchers
+retain their compilation boundaries. No texture re-evaluation, radiance
+clamp, diagnostic shader write or rendering-algorithm disablement is part
+of the fix; the precise Apple compiler mechanism is not established.</p>
+<p>The add-on also avoids a temporary all-ones alpha array and NumPy
+concatenation when transferring opaque Combined pixels to Blender.
+Simultaneous NumPy pixel payload falls from <code>32N</code> to
+<code>28N</code> bytes: <b>16 &rarr; 14 MiB</b> at 1024&times;512
+(12.5%). Transparent transfer remains <code>16N</code> bytes.
+This is a transfer-buffer measurement, not a whole-render RSS or VRAM
+reduction, and mixed CPU/Metal timings do not establish a speedup.</p>
+<p>The Blender 5.2.1 release-candidate run passed nine actual raw EXR
+renders: opaque, transparent and half-covered transparent planes, each in
+Cycles, CPU and Apple M5 Pro Metal. References come independently from
+Blender camera geometry; native light groups are checked during the live
+render callback. The unchanged gates are maximum RGB error
+<code>0.003</code> and alpha error <code>0.00001</code>, with finite pixels
+required. This does not certify other GPU vendors or every film AOV.</p>
+<p>The independently downloaded, attestation-verified public Apple-silicon
+wheel repeated these nine checks, all 15 camera-reference renders and
+the 328-check coordinate/math corpus. Large-film maximum RGB error was
+<code>0.000038654</code>; maximum alpha error was
+<code>0.000000059605</code>. The compiled module path was verified inside
+the isolated public-wheel installation, not the developer build tree.</p>
+<p>The matching offline ZIP embedded that exact wheel and repeated all
+328 coordinate/math checks, 15 camera renders and nine large-film renders
+in a fresh Blender profile with <code>PIP_NO_INDEX=1</code>. Both add-on
+and compiled-module paths were verified inside the separate profile.</p>
+<p><img src="../assets/ex_film_transfer.png"
+alt="Genuine public 2.11.11 offline bundle Metal render: position-emission ramp on the opaque left half and transparent background on the right"
+style="max-width:100%;width:512px;border:1px solid var(--line);border-radius:8px;background:repeating-conic-gradient(#303842 0% 25%,#20262e 0% 50%) 0 0/16px 16px"></p>
+<p>This genuine 1024&times;512 RGBA PNG was rendered in Blender by the public
+2.11.11 offline bundle with Metal and 512 samples per pixel. Its shader is
+<code>Geometry Position &rarr; Scale(0.25) &rarr; Add(0.5) &rarr; Emission</code>
+on a half-plane. Blender image-data checks verified finite RGBA pixels,
+opaque left interior and zero-alpha right interior. The checkerboard is
+the page background showing through transparency, not painted render
+content. This display-managed diagnostic is not a throughput benchmark
+or a photorealistic scene.</p>
+
 <h2>Math output Clamp</h2>
 <p>The scalar Math node's <b>Clamp</b> checkbox limits the completed
 operation to <code>[0, 1]</code>. It applies to native textures,

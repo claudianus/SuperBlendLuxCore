@@ -90,3 +90,27 @@ Its native radiance-group observation runs inside the live final-draw
 callback. Do not retain RenderEngine RNA and inspect it after
 `bpy.ops.render.render()` returns: that object may already be invalid.
 
+
+### Published 2.11.11 artifact proof
+
+- Native CI [37160075827](https://github.com/claudianus/SuperLuxCore/actions/runs/37160075827)
+  built and attested all four cp313 wheels from
+  `2ba32d940ac45c97b73756598155a69e60a18359`. The independently downloaded ARM
+  wheel passed nine actual large-film, 15 camera and 328 coordinate/math
+  checks. Maximum large-film RGB/alpha errors were
+  `3.865361213684082e-5` / `5.960464477539063e-8`.
+- SDK CI [37162209415](https://github.com/claudianus/SuperBlendLuxCore/actions/runs/37162209415)
+  packaged add-on source `b26ffb048c192a29ad80d555b3cfdbc5f4fd5b8c`.
+  Its public ARM ZIP SHA-256 is
+  `62d2d25a4ab038533515d110b990d0879a694a16c3519a27e4d35d299ff05261`.
+  The manifest is 2.11.11; the embedded wheel SHA-256 is
+  `f68f87f38cd6dcd055942d0278677652a3388441bde34b949e8b27433eb9d4fc`,
+  identical to the independently proven native wheel. Both attestations
+  verified. A fresh profile installed the SDK with `PIP_NO_INDEX=1` and
+  repeated all 352 checks/renders, with add-on and compiled-module paths
+  confined to that profile. It rendered the actual transparent Metal PNG
+  in `docs/assets/ex_film_transfer.png`; Blender verified finite RGBA,
+  1024×512 dimensions and the independent opaque/transparent interiors.
+- Apple M5 Pro/macOS 25.6 runtime evidence is not cross-vendor GPU
+  certification. The rolling pre-release remains explicitly unqualified
+  for production release status.
