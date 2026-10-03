@@ -255,3 +255,19 @@ Notes:
   The explicit exit code makes a failed Python assertion fail the command.
 - Synchronized installed-extension smoke also rendered clamped Exponent
   and Sine graphs successfully on CPU and isolated Metal (four checks).
+
+## Linked Square Root regression gate
+
+- Actual Blender `Value(0.25)→Math.SQRT` export/render reproduced biased
+  radiance `5` instead of `4.5`. `_tex_binary("power", ...)` emitted
+  `texture1/texture2`, while native power SDL reads `base/exponent` and
+  defaulted both operands to one.
+- The binary helper now emits power's correct operand names, after its
+  existing constant-folding stage. Direct Math POWER already used the
+  correct SDL keys and remains unchanged.
+- 84 CPU/isolated Metal renders passed. Added consumer gates exercise
+  linked `Sqrt(0.25)` with Clamp off/on and linked `Sqrt(9)` without Clamp;
+  earlier constant-folded Square Root, Math Clamp, Snap and coordinate
+  cases remain in the same actual-Blender graph/render run.
+- Synchronized installed-extension `Value(0.25)→Square Root` graphs also
+  rendered the expected biased radiance `4.5` on CPU and isolated Metal.

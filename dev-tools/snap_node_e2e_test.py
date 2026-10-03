@@ -47,6 +47,18 @@ def build_cases():
         if clamped:
             expected = min(1., max(0., expected))
         cases.append(export_case(node, material, f"math-snap-{index}", [expected] * 3))
+    for value, clamped in [(.25, False), (.25, True), (9., False)]:
+        node = tree.nodes.new("ShaderNodeMath")
+        node.operation = "SQRT"
+        node.use_clamp = clamped
+        source = tree.nodes.new("ShaderNodeValue")
+        source.outputs[0].default_value = value
+        tree.links.new(source.outputs[0], node.inputs[0])
+        expected = math.sqrt(value)
+        if clamped:
+            expected = min(1., max(0., expected))
+        cases.append(export_case(node, material,
+                                 f"linked-sqrt-{value}-clamp-{int(clamped)}", [expected] * 3))
     # Helper-generated Math outputs must use the same final Clamp stage as
     # direct native textures. Exercise both constant folding and linked graphs.
     for operation, values, raw in [

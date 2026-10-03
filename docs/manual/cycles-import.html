@@ -62,6 +62,10 @@ do not bypass it. For example, clamped <code>Exponent(1)</code> produces
 <code>1</code> instead of <code>e</code>, and clamped
 <code>Sine(-π / 2)</code> produces <code>0</code>. Disabling Clamp preserves
 the original operation result.</p>
+<p>Square Root also preserves linked inputs: <code>Sqrt(0.25) = 0.5</code>
+with either Clamp setting, and unclamped <code>Sqrt(9) = 3</code>. Its
+native power texture receives the actual base and exponent, rather than
+silently using their defaults.</p>
 
 <h2>Materials</h2>
 <p>Principled BSDF exports as OpenPBR (see

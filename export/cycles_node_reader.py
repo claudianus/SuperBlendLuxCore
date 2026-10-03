@@ -305,13 +305,20 @@ def _const_binary(op, value1, value2):
 
 def _tex_binary(op, texture1, texture2, name, props):
     """
-    Emit a two-operand math texture (add/subtract/scale/divide/dotproduct),
+    Emit a two-operand math texture (add/subtract/scale/divide/dotproduct/power),
     folding constants when both operands are plain values.
     """
     if not _is_textured(texture1) and not _is_textured(texture2):
         folded = _const_binary(op, texture1, texture2)
         if folded is not None:
             return folded
+    if op == "power":
+        # Power's SDL operands are base/exponent, not texture1/texture2.
+        return _tex_helper(props, name, {
+            "type": op,
+            "base": texture1,
+            "exponent": texture2,
+        })
     return _tex_helper(props, name, {
         "type": op,
         "texture1": texture1,
