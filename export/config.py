@@ -93,16 +93,17 @@ def convert(exporter, scene, context=None, engine=None):
         # Composite node in the tree yields a black output file even though
         # the film itself is fine (measured on a production scene: lit film
         # 0.27, black PNG). Warn loudly instead of silently delivering black.
+        # Blender 5.x: no compositing_node_group means the compositor does
+        # not run (the default scene), and the output node is a Group Output
+        # - CompositorNodeComposite no longer exists, so matching only that
+        # warned on every final render.
         try:
-            if (scene.render.use_compositing and scene.use_nodes and
+            tree = getattr(scene, "compositing_node_group", None)
+            if (scene.render.use_compositing and tree is not None and
                     not is_viewport_render):
-                tree = getattr(scene, "compositing_node_group", None)
-                has_output = False
-                if tree is not None:
-                    for _n in tree.nodes:
-                        if _n.bl_idname == "CompositorNodeComposite":
-                            has_output = True
-                            break
+                has_output = any(
+                    _n.bl_idname in ("NodeGroupOutput", "CompositorNodeComposite")
+                    for _n in tree.nodes)
                 if not has_output:
                     SuperLuxCoreErrorLog.add_warning(
                         "Compositing is enabled but the node tree has no "

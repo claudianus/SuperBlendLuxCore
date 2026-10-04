@@ -146,6 +146,18 @@ class SuperLuxCoreRenderEngine(bpy.types.RenderEngine):
             error_str = str(error)
             if error_str.startswith("OpenCL device selection string has the wrong length"):
                 error_str += ". To fix this, update the OpenCL device list in the device settings"
+            elif "XPC_ERROR_CONNECTION_INTERRUPTED" in error_str:
+                # macOS Metal compiler service gave up mid-compile (a long
+                # first, uncached kernel build, worse under heavy load).
+                # The kernels that did compile are cached, so a retry
+                # resumes.
+                error_str = (
+                    "The macOS Metal shader compiler gave up while building "
+                    "GPU kernels (first GPU render, worse when the machine "
+                    "is busy). Already compiled kernels are cached: render "
+                    "again to continue, ideally with other heavy apps "
+                    "closed, or switch Device to CPU. Details: " + error_str
+                )
 
             self.report({"ERROR"}, error_str)
             self.error_set(error_str)
