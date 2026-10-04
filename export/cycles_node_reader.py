@@ -100,6 +100,11 @@ def convert(material, props, superluxcore_name, obj_name=""):
                               props, material, superluxcore_name, obj_name)
         if volume_defs is not None:
             volume_defs = _promote_textured_volume(volume_defs, obj_name)
+            # Cycles volumes always scatter multiply; the engine default
+            # (single scattering) rendered every converted medium dark
+            # (a furnace volume sphere at 0.42 of the background)
+            if volume_defs.get("type") in ("homogeneous", "heterogeneous"):
+                volume_defs.setdefault("multiscattering", True)
             volume_name = superluxcore_name + "_volume"
             props.Set(utils.luxutils.create_props("scene.volumes." + volume_name + ".", volume_defs))
             props.Set(pysuperluxcore.Property(

@@ -532,7 +532,9 @@ def convert_volume_obj(
                 "emission": vol_emission,
                 "steps.size": step_size,
                 "steps.maxcount": maxcount,
-                "multiscattering": 0,
+                # Cycles volumes scatter multiply (single-scattering
+                # only rendered OpenVDB media dark)
+                "multiscattering": 1,
                 "ior": 1.0,
                 "priority": 0,
                 "emission.id": 0,
