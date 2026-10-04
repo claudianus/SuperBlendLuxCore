@@ -107,6 +107,7 @@ class SUPERLUXCORE_RENDER_PT_lightpaths_bounces(RenderButtonsPanel, Panel):
             draw_bounce_prop(col, "depth_diffuse")
             draw_bounce_prop(col, "depth_glossy")
             draw_bounce_prop(col, "depth_specular")
+            draw_bounce_prop(col, "depth_volume")
         else:
             # Bidir options
             col.prop(config, "bidir_path_maxdepth")

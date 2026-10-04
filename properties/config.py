@@ -312,6 +312,13 @@ class SuperLuxCoreConfigPath(PropertyGroup):
     depth_glossy: IntProperty(name="Glossy", default=8, min=1, soft_max=128)
     # path.pathdepth.specular
     depth_specular: IntProperty(name="Specular", default=24, min=1, soft_max=128)
+    # path.pathdepth.volume (-1 = volume scattering counts as Diffuse)
+    depth_volume: IntProperty(name="Volume", default=-1, min=-1, soft_max=128,
+                              description="Maximum number of volume bounces "
+                                          "(as Cycles' Volume bounces: 0 = "
+                                          "single scattering). -1: volume "
+                                          "scattering counts against the "
+                                          "Diffuse depth")
 
     hybridbackforward_enable: BoolProperty(name="Add Light Tracing", default=True,
                                            description=HYBRID_BACKFORWARD_DESC)
@@ -347,8 +354,11 @@ class SuperLuxCoreConfigPath(PropertyGroup):
     lighttracing_focus_radius: FloatProperty(name="Focus Radius", default=0.02, min=0.0001, max=1.0,
                                              description=LIGHTTRACING_FOCUS_RADIUS_DESC)
     # path.vertexconnection.enable - GPU BDPT connects: cached light
-    # vertices are connected to eye vertices with BIDIRCPU-style MIS
-    vertex_connection: BoolProperty(name="Vertex Connection", default=True,
+    # vertices are connected to eye vertices with BIDIRCPU-style MIS.
+    # Off by default: the MIS is not yet unbiased (a diffuse room renders
+    # +4% with the default connect budget/pool/reuse, +10% with Russian
+    # roulette; plain PATHOCL matches PATHCPU and Cycles).
+    vertex_connection: BoolProperty(name="Vertex Connection", default=False,
                                     description=VERTEX_CONNECTION_DESC)
     vertex_connection_connects: IntProperty(name="Connect Budget", default=4,
                                     min=0, max=256,

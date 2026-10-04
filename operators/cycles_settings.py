@@ -48,11 +48,18 @@ class SUPERLUXCORE_OT_import_cycles_settings(bpy.types.Operator):
             ("glossy_bounces",  "depth_glossy",   None),
             ("transparent_bounces", "depth_specular", None),
             ("transmission_bounces", "depth_specular", "min"),
+            # Cycles counts volume scattering apart from diffuse bounces
+            ("volume_bounces", "depth_volume", None),
         ]
         for cyc_name, slc_name, op in depth_map:
             try:
                 v = int(getattr(cyc, cyc_name))
             except Exception:
+                continue
+            if slc_name == "depth_volume":
+                # 0 volume bounces is single scattering, not "unset"
+                slc.config.path.depth_volume = max(0, v)
+                changed.append(f"depth_volume={slc.config.path.depth_volume}")
                 continue
             if v <= 0:
                 continue

@@ -788,6 +788,8 @@ def _convert_path(
     definitions["path.pathdepth.diffuse"] = path.depth_diffuse + 1
     definitions["path.pathdepth.glossy"] = path.depth_glossy + 1
     definitions["path.pathdepth.specular"] = path.depth_specular
+    # Same +1 convention as diffuse/glossy (the depth counts vertices)
+    definitions["path.pathdepth.volume"] = path.depth_volume + 1 if path.depth_volume >= 0 else 0
 
     if not utils.using_photongi_debug_mode(is_viewport_render, scene):
         if device == "OCL":
