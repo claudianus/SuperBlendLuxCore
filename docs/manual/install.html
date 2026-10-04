@@ -46,8 +46,9 @@ open the top-right settings menu and choose <em>Install from Disk</em>.</li>
 <li>Enable <b>Render: SuperLuxCore</b>.</li>
 <li>Switch the active render engine to <b>SuperLuxCore</b>.</li>
 </ol>
-<p>The public bundles currently pair add-on <b>2.11.11</b> with
-<b>pysuperluxcore 2.11.11 / Python 3.13</b>. The packaging workflow uses
+<p>The public bundles currently pair add-on <b>2.11.12</b> with
+<b>pysuperluxcore 2.11.12 / Python 3.13</b>; <code>v2.11.12</code> is
+the current versioned GitHub release. The packaging workflow uses
 Blender 5.2.1. <code>latest</code> is a rolling pre-release and is not a
 production-qualified versioned release. Restart Blender after upgrading:
 updating Python source alone does not replace an already-loaded native module.</p>
@@ -62,9 +63,17 @@ updating Python source alone does not replace an already-loaded native module.</
 <pre><code># Blender scripting console / Text Editor
 import bpy
 import pysuperluxcore
-print(pysuperluxcore.Version())  # 2.11.11 for the verified current bundle
+print(pysuperluxcore.Version())  # 2.11.12 for the verified current bundle
 bpy.context.scene.render.engine = "SUPERLUXCORE"
 print(bpy.context.scene.superluxcore.config.engine)</code></pre>
+<p><b>2.11.12</b> fixes the first GPU render with the default spectral
+mode: the Metal shader compiler previously gave up on one oversized kernel
+after 10+ minutes, so the render failed. The attestation-verified public
+<code>SuperLuxCore-2.11.12-macos_arm64.zip</code> (SHA-256
+<code>c4eac3fa72a3f5dcc3296ca5dd714cffb99b4d82ba55e5691676ba6725281d57</code>),
+installed into a fresh Blender 5.2.1 profile with an empty kernel cache,
+completed a spectral Metal render in 51&nbsp;s including all kernel builds.
+Later renders reuse the cached kernels.</p>
 <p>The hash- and attestation-verified public <b>2.11.11</b> Apple-silicon
 wheel passed 328 actual CPU/isolated Metal coordinate/math checks, 15
 camera-reference renders and nine large-film RGB/alpha renders in
