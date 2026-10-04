@@ -2135,6 +2135,9 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
             "texture1": _socket(node.inputs[0], props, material, obj_name, group_node_stack),
             "texture2": _socket(node.inputs[1], props, material, obj_name, group_node_stack),
             "texture3": _socket(node.inputs[2], props, material, obj_name, group_node_stack),
+            # Combine Color/RGB build an RGB color (upsampled in spectral
+            # mode); Combine XYZ builds a vector (passed through)
+            "color": node.bl_idname != "ShaderNodeCombineXYZ",
         }
     elif node.bl_idname == "ShaderNodeRGBToBW":
         prefix = "scene.textures."
