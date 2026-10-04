@@ -67,6 +67,37 @@ math_operation_map = {
 }
 
 
+def _bump_filter_width(node_tree, seen=None):
+    """Filter Width of the tree's Bump nodes (groups included); None when
+    the tree has none. Blender < 4.4 had no input: one pixel."""
+    seen = seen if seen is not None else set()
+    if node_tree is None or node_tree.name in seen:
+        return None
+    seen.add(node_tree.name)
+    widths = []
+    for n in node_tree.nodes:
+        if n.bl_idname == "ShaderNodeBump":
+            sk = n.inputs.get("Filter Width")
+            widths.append(sk.default_value if sk is not None else 1.0)
+        elif n.bl_idname == "ShaderNodeGroup" and n.node_tree is not None:
+            w = _bump_filter_width(n.node_tree, seen)
+            if w is not None:
+                widths.append(w)
+    return max(widths) if widths else None
+
+
+def _apply_bump_filter_width(node_tree, props):
+    """Cycles evaluates Bump height differences over Filter Width times the
+    pixel footprint, which smooths sub-pixel bump detail at a distance;
+    the engine's material bumpfilterwidth reproduces it. Applied to every
+    bumped material the tree defined (mix members included)."""
+    fw = _bump_filter_width(node_tree)
+    if not fw:
+        return
+    for key in props.GetAllNamesRE(r"scene\.materials\..*\.bumptex"):
+        props.Set(pysuperluxcore.Property(key[:-len("bumptex")] + "bumpfilterwidth", fw))
+
+
 def convert(material, props, superluxcore_name, obj_name=""):
     # print("Converting Cycles node tree of material", material.name_full)
     output = material.node_tree.get_output_node("CYCLES")
@@ -94,6 +125,8 @@ def convert(material, props, superluxcore_name, obj_name=""):
         props.Set(utils.luxutils.create_props("scene.materials." + superluxcore_name + ".", {
             "type": "null",
         }))
+
+    _apply_bump_filter_width(material.node_tree, props)
 
     if volume_link is not None:
         volume_defs = _volume(volume_link.from_node, volume_link.from_socket,
@@ -3428,75 +3461,47 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
     elif node.bl_idname == "ShaderNodeTexWave":
         prefix = "scene.textures."
 
-        # Closest match: blender_wood provides bands/rings with sin/saw/tri
-        # profiles plus turbulence for distortion. Divergences: no phase offset,
-        # no detail roughness, direction only via the mapping rotation.
-        wave_profile_map = {"SIN": "sin", "SAW": "saw", "TRI": "tri"}
-        noisebasis2 = wave_profile_map.get(node.wave_profile, "sin")
-
-        distortion_socket = node.inputs.get("Distortion")
-        distortion = 0.0
-        if distortion_socket is not None:
-            if distortion_socket.is_linked:
-                SuperLuxCoreErrorLog.add_warning(
-                    f'Wave node "{node.name}": textured distortion is not supported',
-                    obj_name=obj_name)
-            else:
-                distortion = distortion_socket.default_value
-
-        if node.wave_type == "RINGS":
-            woodtype = "ringnoise" if distortion != 0 else "rings"
-            direction = node.rings_direction
+        # Exact: the engine's cyclesnoise "wave" mode ports Cycles svm_wave
+        # (bands/rings, directions, sin/saw/tri, phase, fBM distortion).
+        # The former blender_wood approximation had a different frequency
+        # and distortion (065 desert ripples 2x too dark under a low sun).
+        vector_socket = node.inputs["Vector"]
+        if vector_socket.is_linked:
+            vec_tex = _socket(vector_socket, props, material, obj_name,
+                              group_node_stack)
         else:
-            woodtype = "bandnoise" if distortion != 0 else "bands"
-            direction = node.bands_direction
+            # Cycles' default texture coordinate is Generated
+            vec_tex = node.name + "::wavegenerated"
+            props.Set(utils.luxutils.create_props(
+                f"{prefix}{vec_tex}.", {"type": "hitpoint",
+                                        "channel": "generated"}))
 
-        scale_socket = node.inputs["Scale"]
-        if scale_socket.is_linked:
-            SuperLuxCoreErrorLog.add_warning(
-                f'Wave node "{node.name}": textured scale is not supported',
-                obj_name=obj_name)
-            noisesize = 0.25
-        else:
-            noisesize = 1.0 / max(scale_socket.default_value, 1e-6)
+        def _fin(name, default):
+            sk = node.inputs.get(name)
+            if sk is None or not sk.enabled:
+                return default
+            return _socket(sk, props, material, obj_name, group_node_stack)
 
-        if node.wave_type == "RINGS" and node.rings_direction == "SPHERICAL":
-            SuperLuxCoreErrorLog.add_warning(
-                f'Wave node "{node.name}": spherical rings are approximated by '
-                "planar rings along Z", obj_name=obj_name)
-
-        # Rotate the texture space so the bands/rings axis maps onto Z
-        direction_vectors = {
-            "X": Vector((1, 0, 0)),
-            "Y": Vector((0, 1, 0)),
-            "Z": Vector((0, 0, 1)),
-            "DIAGONAL": Vector((0.5, 0.5, 0)).normalized(),
-            "SPHERICAL": Vector((0, 0, 1)),
-        }
-        direction_vector = direction_vectors.get(direction, Vector((0, 0, 1)))
-        transform = Vector((0, 0, 1)).rotation_difference(
-            direction_vector).to_matrix().to_4x4()
-
-        link = utils_node.get_link(node.inputs["Vector"])
-        if link is not None and link.from_node.bl_idname == "ShaderNodeMapping":
-            user_matrix = _mapping_matrix(*_mapping_node_values(
-                link.from_node, obj_name))
-            transform = transform @ user_matrix
-        elif link is not None and not (
-                link.from_node.bl_idname == "ShaderNodeTexCoord"
-                and link.from_socket.name in {"UV", "Generated", "Object"}):
-            SuperLuxCoreErrorLog.add_warning(
-                f'Wave node "{node.name}": unsupported Vector input source is '
-                "ignored", obj_name=obj_name)
+        rings = node.wave_type == "RINGS"
+        direction = node.rings_direction if rings else node.bands_direction
+        dir_bits = {"X": 0, "Y": 1, "Z": 2, "DIAGONAL": 3, "SPHERICAL": 3}.get(direction, 0)
+        profile_bits = {"SIN": 0, "SAW": 1, "TRI": 2}.get(node.wave_profile, 0)
+        wave_mode = (1 if rings else 0) | (dir_bits << 1) | (profile_bits << 3)
 
         definitions = {
-            "type": "blender_wood",
-            "woodtype": woodtype,
-            "noisebasis2": noisebasis2,
-            "noisesize": noisesize,
-            "turbulence": distortion if distortion != 0 else 5.0,
-            "mapping.type": "localmapping3d",
-            "mapping.transformation": utils.luxutils.matrix_to_list(transform),
+            "type": "cyclesnoise",
+            "noisetype": "wave",
+            "wavemode": wave_mode,
+            "vector": vec_tex,
+            "scale": _fin("Scale", 5.0),
+            "distortion": _fin("Distortion", 0.0),
+            "detail": _fin("Detail", 2.0),
+            "gain": _fin("Detail Scale", 1.0),
+            "roughness": _fin("Detail Roughness", 0.5),
+            "offset": _fin("Phase Offset", 0.0),
+            "dimensions": 3,
+            # Color and Fac are the same scalar
+            "output": "fac",
         }
     elif node.bl_idname == "ShaderNodeTexGradient":
         prefix = "scene.textures."

@@ -348,6 +348,8 @@ def convert(exporter, scene, context=None, engine=None):
                 for i, rect in enumerate(portal_rects):
                     definitions[f"path.portal.{i}"] = rect
 
+        definitions["path.shadowterminator"] = config.shadow_terminator.lower()
+
         if config.spectral_enable and superluxcore_engine in (
             "PATHCPU", "PATHOCL", "TILEPATHCPU", "TILEPATHOCL",
             "RTPATHCPU", "RTPATHOCL", "BIDIRCPU",

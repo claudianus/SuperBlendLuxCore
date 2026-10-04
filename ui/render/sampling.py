@@ -293,3 +293,4 @@ class SUPERLUXCORE_RENDER_PT_sampling_advanced(RenderButtonsPanel, Panel):
             # adaptive share falls back to this fixed value.
             col.prop(config, "portal_weight")
             col.prop(config, "spectral_enable")
+            col.prop(config, "shadow_terminator")

@@ -1190,6 +1190,21 @@ class SuperLuxCoreConfig(PropertyGroup):
                                               "(dispersion through glass, physically correct color transport). "
                                               "Slightly slower; results are projected back to RGB on film")
 
+    # path.shadowterminator: softening of the bump/shading-normal terminator
+    shadow_terminator: EnumProperty(
+        name="Bump Terminator",
+        items=[
+            ("CHIANG", "Chiang", "Chiang, Li & Burley 2019 on diffuse and glossy "
+             "reflection (SuperLuxCore default)"),
+            ("CONTY", "Conty (Cycles)", "Conty Estevez et al. 2019 on diffuse "
+             "reflection, Cycles' bump shadowing term"),
+            ("NONE", "None", "No terminator softening"),
+        ],
+        default="CHIANG",
+        description="How bumped/shading normals are shadowed near the "
+                    "terminator. Under a low light the Chiang term darkens "
+                    "bumped diffuse surfaces much more than Cycles")
+
     # Special properties of the direct light sampling cache
     dls_cache: PointerProperty(type=SuperLuxCoreConfigDLSCache)
     # Special properties of the photon GI cache

@@ -80,6 +80,13 @@ class SUPERLUXCORE_OT_import_cycles_settings(bpy.types.Operator):
             slc.config.spectral_enable = False
             changed.append("spectral=off")
 
+        # --- bump terminator --------------------------------------------
+        # Cycles softens bumped diffuse with Conty et al.'s shadowing term
+        # (the Chiang term darkened 065's sand ripples ~2x under a low sun)
+        if getattr(slc.config, "shadow_terminator", "CONTY") != "CONTY":
+            slc.config.shadow_terminator = "CONTY"
+            changed.append("shadow_terminator=conty")
+
         # --- transparent film ------------------------------------------
         try:
             if bool(cyc.film_transparent):
