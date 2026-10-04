@@ -2451,11 +2451,10 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
         if roughness == ERROR_VALUE:
             roughness = 0.5
 
-        weight_socket = node.inputs.get("Weight")
-        weight = _socket(weight_socket, props, material, obj_name,
-                         group_node_stack) if weight_socket is not None else 1.0
-        if weight == ERROR_VALUE or weight is None:
-            weight = 1.0
+        # The node's "Weight" input is Blender's hidden closure-weight
+        # socket (default 0.0, ignored by Cycles): the standalone SSS node
+        # is always fully subsurface. Reading it exported weight 0.
+        weight = 1.0
 
         definitions = {
             "type": "openpbr",
