@@ -2210,10 +2210,18 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
 
         prefix = "scene.textures."
 
+        # Cycles displaces by Height * Distance (world units) and blends
+        # the bumped normal with Strength. The engine bump texture is a
+        # world-space height, so fold Distance in; Strength scales the
+        # height (equal to Cycles' normal blend for gentle slopes).
+        # Without Distance (default 0.1) bumps were 10-20x too steep.
+        distance = node.inputs["Distance"].default_value
+        strength = _socket(node.inputs["Strength"], props, material, obj_name, group_node_stack)
         definitions = {
             "type": "scale",
             "texture1": _socket(node.inputs["Height"], props, material, obj_name, group_node_stack),
-            "texture2": _socket(node.inputs["Strength"], props, material, obj_name, group_node_stack),
+            "texture2": _tex_binary("scale", strength, distance,
+                                    superluxcore_name + "_bumpscale", props),
         }
 
         if node.invert:
