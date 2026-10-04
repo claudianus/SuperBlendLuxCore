@@ -623,8 +623,10 @@ SCENES = [
          # disney approx + area-light fudge gain factor
          parity=2.5, rmse=0.8),
     dict(id="s03", name="s03_glass_sun", build=build_s03_glass_sun,
-         # glass IOR/caustic handling differs; loose bound only
-         parity=2.0, rmse=0.9),
+         # glass IOR/caustic handling differs; loose bound only. 128 spp:
+         # the unbiased spectral projection adds chromatic noise to the
+         # dispersive caustic, which dominated the 32 spp structure RMSE.
+         parity=2.0, rmse=0.9, samples=128),
     dict(id="s04", name="s04_emission", build=build_s04_emission,
          parity=2.0, rmse=0.9),
     dict(id="s05", name="s05_noise_ramp", build=build_s05_noise_ramp,
