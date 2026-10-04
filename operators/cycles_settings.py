@@ -69,6 +69,17 @@ class SUPERLUXCORE_OT_import_cycles_settings(bpy.types.Operator):
             setattr(slc.config.path, slc_name, max(1, v))
             changed.append(f"{slc_name}={getattr(slc.config.path, slc_name)}")
 
+        # --- transport colour model ------------------------------------
+        # Cycles transports RGB. SuperLuxCore's spectral mode projects the
+        # hero wavelengths through a low-noise control variate that leaves
+        # a few-% hue bias on near-monochromatic emitters (a (1, .24, 0)
+        # sodium lamp gains a pink cast under AgX), and the Cycles reader
+        # exports no spectral-only feature (dispersion), so a converted
+        # Cycles scene renders closest to Cycles in RGB.
+        if getattr(slc.config, "spectral_enable", False):
+            slc.config.spectral_enable = False
+            changed.append("spectral=off")
+
         # --- transparent film ------------------------------------------
         try:
             if bool(cyc.film_transparent):
