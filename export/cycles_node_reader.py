@@ -99,6 +99,7 @@ def convert(material, props, superluxcore_name, obj_name=""):
         volume_defs = _volume(volume_link.from_node, volume_link.from_socket,
                               props, material, superluxcore_name, obj_name)
         if volume_defs is not None:
+            volume_defs = _promote_textured_volume(volume_defs, obj_name)
             volume_name = superluxcore_name + "_volume"
             props.Set(utils.luxutils.create_props("scene.volumes." + volume_name + ".", volume_defs))
             props.Set(pysuperluxcore.Property(
@@ -106,6 +107,33 @@ def convert(material, props, superluxcore_name, obj_name=""):
         # If None, _volume already logged a warning
 
     return superluxcore_name, props
+
+
+def _promote_textured_volume(definitions, obj_name):
+    """Ray-march volumes whose coefficients vary in space.
+
+    "clear"/"homogeneous" evaluate their coefficient textures once per ray
+    segment, so a Cycles volume with a textured density (height falloff,
+    noise fog) rendered as one constant - or not at all. Any textured
+    coefficient switches to "heterogeneous" with a step sized from the
+    carrier object (about 256 steps across its diagonal).
+    """
+    if definitions.get("type") not in ("clear", "homogeneous"):
+        return definitions
+    if not any(_is_textured(definitions.get(k))
+               for k in ("absorption", "scattering", "emission")):
+        return definitions
+    diagonal = 1.0
+    obj = bpy.data.objects.get(obj_name) if obj_name else None
+    if obj is not None:
+        diagonal = max(obj.dimensions.length, 1e-3)
+    step = max(diagonal / 256.0, 1e-3)
+    promoted = dict(definitions)
+    promoted["type"] = "heterogeneous"
+    promoted.setdefault("scattering", [0.0, 0.0, 0.0])
+    promoted["steps.size"] = step
+    promoted["steps.maxcount"] = int(math.ceil(diagonal / step)) + 1
+    return promoted
 
 
 def get_displacement_link(material):
