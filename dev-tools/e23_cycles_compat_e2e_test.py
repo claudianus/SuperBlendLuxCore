@@ -631,8 +631,12 @@ def check_camera_vs_mirror_colors(rgb):
     return [
         ("camera-ray branch (red) visible", reddish > 0.01,
          f"red={reddish:.3f}"),
+        # The mirror is a roughness-0 Glossy (merged Glossy/Anisotropic
+        # node): a sharp reflection covers ~0.07% of the frame in Cycles
+        # (the old 0.005 gate passed only on the blurred 0.05-vroughness
+        # export, which also made every Glossy BSDF streaky)
         ("secondary-ray branch (green) visible in reflection",
-         greenish > 0.005, f"green={greenish:.3f}"),
+         greenish > 0.0003, f"green={greenish:.4f}"),
     ]
 
 

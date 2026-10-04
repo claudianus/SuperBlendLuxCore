@@ -1459,16 +1459,20 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
         }
         props.Set(utils.luxutils.create_props(helper_prefix, helper_defs))
 
-        roughness = _squared_roughness_to_linear(node.inputs["Roughness"], props, material,
-                                                 superluxcore_name, obj_name, group_node_stack)
+        # metal2's GGX path squares the roughness itself (alpha = r^2, as
+        # Cycles): pass the perceptual value (pre-squaring gave alpha = r^4)
+        roughness = _socket(node.inputs["Roughness"], props, material,
+                            obj_name, group_node_stack)
 
         definitions = {
             "type": "metal2",
             "fresnel": tex_name,
             "uroughness": roughness,
             "vroughness": roughness,
-            # Cycles Glossy BSDF is GGX-based
+            # Cycles Glossy BSDF is GGX-based; MULTI_GGX (the default) is
+            # energy-conserving multiscatter
             "distribution": "ggx",
+            "multibounce": 1 if getattr(node, "distribution", "MULTI_GGX") == "MULTI_GGX" else 0,
             "bumptex": _normal_input(node.inputs["Normal"], props, material, obj_name, group_node_stack),
         }
     elif node.bl_idname == "ShaderNodeTexImage":
@@ -1566,25 +1570,41 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
     elif node.bl_idname == "ShaderNodeBsdfGlass":
         prefix = "scene.materials."
         color = _socket(node.inputs["Color"], props, material, obj_name, group_node_stack)
-        roughness = _squared_roughness_to_linear(node.inputs["Roughness"], props, material,
-                                                 superluxcore_name, obj_name, group_node_stack)
+        roughness = _socket(node.inputs["Roughness"], props, material,
+                            obj_name, group_node_stack)
+        ior = _socket(node.inputs["IOR"], props, material, obj_name, group_node_stack)
 
-        definitions = {
-            "type": "glass" if roughness == 0 else "roughglass",
-            "kt": color,
-            "kr": color, # Nonsense, maybe leave white even if it breaks compatibility with Cycles?
-            "interiorior": _socket(node.inputs["IOR"], props, material, obj_name, group_node_stack),
-            "bumptex": _normal_input(node.inputs["Normal"], props, material, obj_name, group_node_stack),
-        }
-
-        if roughness != 0:
-            definitions["uroughness"] = roughness
-            definitions["vroughness"] = roughness
+        if roughness == 0:
+            definitions = {
+                "type": "glass",
+                "kt": color,
+                "kr": color,
+                "interiorior": ior,
+            }
+        else:
+            # Rough glass -> OpenPBR transmission: its GGX glass carries the
+            # multiscatter energy compensation (a white rough glass vanishes
+            # in a furnace like Cycles' MULTI_GGX); roughglass loses ~30% of
+            # the energy at roughness 0.8. Cycles' Glass Color tints both
+            # reflection and refraction.
+            definitions = {
+                "type": "openpbr",
+                "basecolor": [1.0, 1.0, 1.0],
+                "basemetalness": 0.0,
+                "specularroughness": roughness,
+                "specularior": ior,
+                "specularcolor": color,
+                "transmissionweight": 1.0,
+                "transmissioncolor": color,
+            }
+        definitions["bumptex"] = _normal_input(node.inputs["Normal"], props, material,
+                                               obj_name, group_node_stack)
     elif node.bl_idname == "ShaderNodeBsdfRefraction":
         prefix = "scene.materials."
         color = _socket(node.inputs["Color"], props, material, obj_name, group_node_stack)
-        roughness = _squared_roughness_to_linear(node.inputs["Roughness"], props, material,
-                                                 superluxcore_name, obj_name, group_node_stack)
+        # Perceptual roughness: roughglass's GGX path squares it (alpha = r^2)
+        roughness = _socket(node.inputs["Roughness"], props, material,
+                            obj_name, group_node_stack)
 
         definitions = {
             "type": "glass" if roughness == 0 else "roughglass",
@@ -1597,7 +1617,15 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
         if roughness != 0:
             definitions["uroughness"] = roughness
             definitions["vroughness"] = roughness
+            # Cycles glass is GGX; MULTI_GGX (the Glass default) is
+            # energy-conserving multiscatter
+            definitions["distribution"] = "ggx"
+            definitions["multibounce"] = 1 if getattr(node, "distribution", "GGX") == "MULTI_GGX" else 0
     elif node.bl_idname == "ShaderNodeBsdfAnisotropic":
+        # Blender 4+ merged Glossy and Anisotropic into this node (a new
+        # "ShaderNodeBsdfGlossy" is created as ShaderNodeBsdfAnisotropic):
+        # isotropic unless Anisotropy != 0. It used to be exported with a
+        # fixed vroughness of 0.05 - every Glossy BSDF got a sharp streak.
         prefix = "scene.materials."
 
         # Implicitly create a fresnelcolor texture with unique name
@@ -1609,17 +1637,41 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
         }
         props.Set(utils.luxutils.create_props(helper_prefix, helper_defs))
 
-        # TODO emulate actual anisotropy and rotation somehow ...
-        roughness = _squared_roughness_to_linear(node.inputs["Roughness"], props, material,
-                                                 superluxcore_name, obj_name, group_node_stack)
+        # Perceptual roughness: metal2's GGX path squares it
+        roughness = _socket(node.inputs["Roughness"], props, material,
+                            obj_name, group_node_stack)
+        uroughness = vroughness = roughness
+        aniso_socket = node.inputs.get("Anisotropy")
+        if aniso_socket is not None and (aniso_socket.is_linked or
+                                         aniso_socket.default_value != 0.0):
+            if aniso_socket.is_linked or isinstance(roughness, str):
+                SuperLuxCoreErrorLog.add_warning(
+                    f'Glossy node "{node.name}": textured anisotropy/roughness '
+                    "is approximated as isotropic", obj_name=obj_name)
+            else:
+                # Cycles: aspect = sqrt(1 - |a| * 0.9), alpha_t = r^2 / aspect,
+                # alpha_b = r^2 * aspect (axes swap for a < 0); metal2
+                # squares u/v, so scale the perceptual values by sqrt(aspect)
+                a = max(-1.0, min(1.0, aniso_socket.default_value))
+                aspect = math.sqrt(1.0 - abs(a) * 0.9)
+                ru = roughness / math.sqrt(aspect)
+                rv = roughness * math.sqrt(aspect)
+                uroughness, vroughness = (ru, rv) if a >= 0 else (rv, ru)
+                uroughness = min(1.0, uroughness)
+            rot = node.inputs.get("Rotation")
+            if rot is not None and (rot.is_linked or rot.default_value != 0.0):
+                SuperLuxCoreErrorLog.add_warning(
+                    f'Glossy node "{node.name}": anisotropy rotation is not '
+                    "supported", obj_name=obj_name)
 
         definitions = {
             "type": "metal2",
             "fresnel": tex_name,
-            "uroughness": roughness,
-            "vroughness": 0.05,
-            # Cycles Anisotropic BSDF is GGX-based
+            "uroughness": uroughness,
+            "vroughness": vroughness,
+            # GGX-based; MULTI_GGX (the default) is energy-conserving
             "distribution": "ggx",
+            "multibounce": 1 if getattr(node, "distribution", "MULTI_GGX") == "MULTI_GGX" else 0,
             "bumptex": _normal_input(node.inputs["Normal"], props, material, obj_name, group_node_stack),
         }
     elif node.bl_idname == "ShaderNodeBsdfMetallic":
@@ -1682,8 +1734,11 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
 
         definitions["uroughness"] = roughness
         definitions["vroughness"] = vroughness
-        # Blender's Metallic node is GGX-based
+        # Blender's Metallic node is GGX-based; MULTI_GGX (the default) is
+        # energy-conserving multiscatter (a white rough metal vanishes in a
+        # furnace instead of darkening to the single-scatter albedo)
         definitions["distribution"] = "ggx"
+        definitions["multibounce"] = 1 if getattr(node, "distribution", "MULTI_GGX") == "MULTI_GGX" else 0
         if node.inputs.get("Rotation") is not None and \
                 (node.inputs["Rotation"].is_linked or
                  node.inputs["Rotation"].default_value != 0.0):
