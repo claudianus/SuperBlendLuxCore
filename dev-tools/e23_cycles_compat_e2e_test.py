@@ -123,10 +123,23 @@ def img_stats(rgb):
     }
 
 
-def norm_rmse(stats_a, stats_b):
-    """RMSE of mean-normalised luminance (scale-free shape comparison)."""
-    a = stats_a["lum"] / max(stats_a["mean"], 1e-9)
-    b = stats_b["lum"] / max(stats_b["mean"], 1e-9)
+def _block_mean(lum, k):
+    """Average k x k pixel blocks (crops the remainder)."""
+    h, w = (lum.shape[0] // k) * k, (lum.shape[1] // k) * k
+    return lum[:h, :w].reshape(h // k, k, w // k, k).mean(axis=(1, 3))
+
+
+def norm_rmse(stats_a, stats_b, block=1):
+    """RMSE of mean-normalised luminance (scale-free shape comparison).
+
+    block > 1 compares k x k block means: a structure check that a few
+    caustic fireflies cannot dominate.
+    """
+    la, lb = stats_a["lum"], stats_b["lum"]
+    if block > 1:
+        la, lb = _block_mean(la, block), _block_mean(lb, block)
+    a = la / max(stats_a["mean"], 1e-9)
+    b = lb / max(stats_b["mean"], 1e-9)
     return float(np.sqrt(np.mean((a - b) ** 2)))
 
 
@@ -623,10 +636,11 @@ SCENES = [
          # disney approx + area-light fudge gain factor
          parity=2.5, rmse=0.8),
     dict(id="s03", name="s03_glass_sun", build=build_s03_glass_sun,
-         # glass IOR/caustic handling differs; loose bound only. 128 spp:
-         # the unbiased spectral projection adds chromatic noise to the
-         # dispersive caustic, which dominated the 32 spp structure RMSE.
-         parity=2.0, rmse=0.9, samples=128),
+         # glass IOR/caustic handling differs; loose bound only. The
+         # unbiased spectral projection gives the dispersive caustic
+         # firefly variance (per-pixel nRMSE 0.40-1.49 run to run at
+         # 128 spp): compare 4x4 block means for structure.
+         parity=2.0, rmse=0.9, samples=128, rmse_block=4),
     dict(id="s04", name="s04_emission", build=build_s04_emission,
          parity=2.0, rmse=0.9),
     dict(id="s05", name="s05_noise_ramp", build=build_s05_noise_ramp,
@@ -716,7 +730,7 @@ def run_scene(spec):
         lo = max(0.0, min(lux_stats["mean"], cyc_stats["mean"]))
         hi = max(lux_stats["mean"], cyc_stats["mean"])
         factor = hi / max(lo, 1e-9)
-        nrmse = norm_rmse(lux_stats, cyc_stats)
+        nrmse = norm_rmse(lux_stats, cyc_stats, spec.get("rmse_block", 1))
         check(f"{name} CYCLES non-black",
               cyc_stats["mean"] > 0.008 and cyc_stats["coverage"] > 0.2,
               f"mean={cyc_stats['mean']:.3f}")
