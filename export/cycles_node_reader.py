@@ -692,12 +692,49 @@ def _color_attribute_index(obj_name, attribute_name):
     return None
 
 
+def _mapping_3d_space(mapping_node, obj_name):
+    """(mapping.type, extra defs) for the coordinates feeding a 3D Mapping.
+
+    A Mapping node transforms whatever reaches its own Vector input; the
+    3D mapping block must evaluate that space, not always object space -
+    UV -> Mapping -> procedural texture was rendered in object coordinates.
+    """
+    link = utils_node.get_link(mapping_node.inputs["Vector"])
+    src = link.from_node if link else None
+    sock = link.from_socket.name if link else None
+    if src is not None and src.bl_idname == "ShaderNodeTexCoord" and sock == "UV":
+        return "uvmapping3d", {}
+    if src is not None and src.bl_idname == "ShaderNodeUVMap":
+        index = _uv_layer_index(obj_name, getattr(src, "uv_map", ""))
+        return "uvmapping3d", ({"mapping.uvindex": index} if index is not None else {})
+    return "localmapping3d", {}
+
+
 def _vector_mapping_defs(vector_socket, is_2d, flip_v, props, material, obj_name,
-                         group_node_stack):
+                         group_node_stack, post_matrix=None):
     """
     `mapping.*` definitions honoring the node linked to a texture's Vector
     input. Returns an empty dict when the engine default (UV mapping) applies.
+
+    post_matrix (3D only) is applied after the user transform - used to
+    remap Cycles coordinates into a legacy texture's expected range.
     """
+    defs = _vector_mapping_defs_impl(vector_socket, is_2d, flip_v, props,
+                                     material, obj_name, group_node_stack)
+    matrix = defs.pop("_matrix", None)
+    if post_matrix is None or is_2d:
+        return defs
+    if matrix is not None:
+        defs["mapping.transformation"] = utils.luxutils.matrix_to_list(
+            post_matrix @ matrix)
+    elif "mapping.transformation" not in defs:
+        defs.setdefault("mapping.type", "uvmapping3d")
+        defs["mapping.transformation"] = utils.luxutils.matrix_to_list(post_matrix)
+    return defs
+
+
+def _vector_mapping_defs_impl(vector_socket, is_2d, flip_v, props, material,
+                              obj_name, group_node_stack):
     link = utils_node.get_link(vector_socket)
     if link is None:
         return {}
@@ -708,11 +745,15 @@ def _vector_mapping_defs(vector_socket, is_2d, flip_v, props, material, obj_name
         if is_2d:
             return _mapping_uv_defs(location, rotation, scale, flip_v)
         # Note: chained Mapping nodes are not composed (single mapping block)
-        return {
-            "mapping.type": "localmapping3d",
-            "mapping.transformation": utils.luxutils.matrix_to_list(
-                _mapping_matrix(location, rotation, scale)),
+        map_type, extra = _mapping_3d_space(source, obj_name)
+        matrix = _mapping_matrix(location, rotation, scale)
+        defs = {
+            "mapping.type": map_type,
+            "mapping.transformation": utils.luxutils.matrix_to_list(matrix),
+            "_matrix": matrix,
         }
+        defs.update(extra)
+        return defs
 
     if source.bl_idname == "ShaderNodeUVMap":
         index = _uv_layer_index(obj_name, getattr(source, "uv_map", ""))
@@ -3320,9 +3361,18 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
             "progressiontype": progression_map.get(node.gradient_type, "linear"),
             "direction": "horizontal",
         }
+        # blender_blend is Blender's legacy blend texture: its linear,
+        # quadratic, easing and diagonal ramps expect coordinates in -1..1
+        # ((1 + x) / 2). Cycles' Gradient uses the raw coordinate, so map
+        # p -> 2p - 1 after the user transform. Spherical/radial/halo use
+        # the same formula in both and need no remap.
+        legacy_remap = None
+        if node.gradient_type in {"LINEAR", "QUADRATIC", "EASING", "DIAGONAL"}:
+            legacy_remap = (Matrix.Translation(Vector((-1.0, -1.0, -1.0))) @
+                            Matrix.Diagonal(Vector((2.0, 2.0, 2.0))).to_4x4())
         definitions.update(_vector_mapping_defs(
             node.inputs["Vector"], False, False, props, material, obj_name,
-            group_node_stack))
+            group_node_stack, post_matrix=legacy_remap))
     elif node.bl_idname == "ShaderNodeTexMagic":
         prefix = "scene.textures."
 
@@ -3838,6 +3888,21 @@ def _volume_asymmetry(anisotropy):
     return [anisotropy] * 3
 
 
+def _volume_transmit_to_absorb(color, name, props):
+    """Cycles volume colors are what SURVIVES: sigma_a = (1 - saturate(color)).
+
+    Using the color itself as the absorption coefficient renders the
+    complement (red wine -> green). Constants fold; textures get a
+    clamp + subtract helper pair.
+    """
+    if not _is_textured(color):
+        vec = list(color)[:3] if isinstance(color, (list, tuple)) else [color] * 3
+        return [1.0 - min(max(c, 0.0), 1.0) for c in vec]
+    clamped = _tex_helper(props, name + "_sat", {
+        "type": "clamp", "texture": color, "min": 0.0, "max": 1.0})
+    return _tex_binary("subtract", [1.0, 1.0, 1.0], clamped, name + "_inv", props)
+
+
 def _volume(node, output_socket, props, material, name_base, obj_name,
             group_node_stack=None):
     """
@@ -3854,12 +3919,14 @@ def _volume(node, output_socket, props, material, name_base, obj_name,
         return fallback if value is ERROR_VALUE else value
 
     if node.bl_idname == "ShaderNodeVolumeAbsorption":
-        # Pure absorption maps exactly onto a SuperLuxCore "clear" volume
+        # Pure absorption maps exactly onto a SuperLuxCore "clear" volume;
+        # Cycles: sigma_a = density * (1 - Color)
         density = coeff("Density", 1.0)
         color = coeff("Color", FALLBACK_COLOR)
+        absorb = _volume_transmit_to_absorb(color, name_base + "_abscolor", props)
         return {
             "type": "clear",
-            "absorption": _tex_binary("scale", color, density,
+            "absorption": _tex_binary("scale", absorb, density,
                                       name_base + "_absorption", props),
         }
 
@@ -3897,11 +3964,18 @@ def _volume(node, output_socket, props, material, name_base, obj_name,
                     "inputs are not supported", obj_name=obj_name)
                 break
 
+        # Cycles svm_node_principled_volume:
+        # sigma_a = density * (1 - Color) * (1 - Absorption Color)
+        absorb = _tex_binary(
+            "scale",
+            _volume_transmit_to_absorb(color, name_base + "_pvcolor", props),
+            _volume_transmit_to_absorb(coeff("Absorption Color", [0, 0, 0]),
+                                       name_base + "_pvabs", props),
+            name_base + "_pvabsprod", props)
         definitions = {
             "type": "homogeneous",
-            # Approximation: the absorption color is scaled by the density
-            "absorption": _tex_binary("scale", coeff("Absorption Color", [0, 0, 0]),
-                                      density, name_base + "_absorption", props),
+            "absorption": _tex_binary("scale", absorb, density,
+                                      name_base + "_absorption", props),
             "scattering": _tex_binary("scale", color, density,
                                       name_base + "_scattering", props),
             "asymmetry": _volume_asymmetry(coeff("Anisotropy", 0.0)),

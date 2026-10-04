@@ -79,6 +79,34 @@ def convert_light(exporter, obj, obj_key, depsgraph, superluxcore_scene, transfo
         return pysuperluxcore.Properties(), None
 
 
+def _blackbody_rgb(temperature):
+    """Luminance-normalized linear Rec.709 color of a blackbody at T kelvin.
+
+    Planck's law integrated against the CIE 1931 observer (Wyman-Sloan-
+    Shirley 2013 multi-lobe fit) and converted XYZ -> linear Rec.709, then
+    scaled to luminance 1 like Cycles' Blackbody node, so a light keeps its
+    brightness and only changes tint.
+    """
+    def g(x, mu, s1, s2):
+        t = (x - mu) / (s1 if x < mu else s2)
+        return math.exp(-0.5 * t * t)
+
+    X = Y = Z = 0.0
+    T = max(float(temperature), 1.0)
+    for nm in range(380, 781, 5):
+        lam = nm * 1e-9
+        planck = 1.0 / (lam ** 5 * (math.exp(0.0143877735 / (lam * T)) - 1.0))
+        X += planck * (1.056 * g(nm, 599.8, 37.9, 31.0) + 0.362 * g(nm, 442.0, 16.0, 26.7)
+                       - 0.065 * g(nm, 501.1, 20.4, 26.2))
+        Y += planck * (0.821 * g(nm, 568.8, 46.9, 40.5) + 0.286 * g(nm, 530.9, 16.3, 31.1))
+        Z += planck * (1.217 * g(nm, 437.0, 11.8, 36.0) + 0.681 * g(nm, 459.0, 26.0, 13.8))
+    r = max(0.0, 3.2406 * X - 1.5372 * Y - 0.4986 * Z)
+    gr = max(0.0, -0.9689 * X + 1.8758 * Y + 0.0415 * Z)
+    b = max(0.0, 0.0557 * X - 0.2040 * Y + 1.0570 * Z)
+    lum = 0.2126 * r + 0.7152 * gr + 0.0722 * b
+    return [r / lum, gr / lum, b / lum] if lum > 0 else [1.0, 1.0, 1.0]
+
+
 def _convert_cycles_light(exporter, obj, depsgraph, superluxcore_scene, transform, is_viewport_render,
                           superluxcore_name, scene, prefix):
     from . import cycles_compat
@@ -88,6 +116,9 @@ def _convert_cycles_light(exporter, obj, depsgraph, superluxcore_scene, transfor
     definitions = {}
 
     color = list(light.color)
+    if getattr(light, "use_temperature", False):
+        # Blender 4.5+ light color temperature multiplies Color
+        color = [c * t for c, t in zip(color, _blackbody_rgb(light.temperature))]
     gain = light.energy
 
     ies_blob = None
@@ -645,6 +676,15 @@ bpy.context.view_layer.objects.active = sph
 sph.select_set(True)
 
 bpy.ops.object.bake(type="ENVIRONMENT", margin=0)
+# The UV sphere's U runs opposite to Cycles' equirect convention (the sun
+# baked at u = 1 - u_cycles): flip so the EXR is a true Cycles equirect
+# and the TexEnvironment mirror fix applies unchanged.
+import numpy as np
+w, h = img.size
+px = np.empty(w * h * 4, dtype=np.float32)
+img.pixels.foreach_get(px)
+img.pixels.foreach_set(np.ascontiguousarray(px.reshape(h, w, 4)[:, ::-1]).ravel())
+img.update()
 img.filepath_raw = out_path
 img.file_format = "OPEN_EXR"
 img.save()
@@ -681,6 +721,9 @@ def _bake_sky_to_exr(sky_node, world_name):
         "ozone_density": float(sky_node.ozone_density),
         "turbidity": float(sky_node.turbidity),
         "ground_albedo": float(sky_node.ground_albedo),
+        # Bumped when the bake layout changes (2: u flipped to the Cycles
+        # equirect convention) so stale cached EXRs are not reused.
+        "bake_version": 2,
     }
 
     key = hashlib.sha1(json.dumps(params, sort_keys=True).encode()).hexdigest()[:16]
@@ -716,6 +759,45 @@ def _bake_sky_to_exr(sky_node, world_name):
         return None
     return out_path
 
+# Light Path outputs a world Mix Shader can branch on. "Is Camera Ray"
+# is the classic "dim lighting, brighter visible backdrop" setup.
+_WORLD_RAY_SWITCHES = {"Is Camera Ray"}
+
+
+def _resolve_world_mix_shader(node, world):
+    """Reduce a world Mix Shader to the Background that lights the scene.
+
+    LuxCore's world is a single light, so a Cycles world mix cannot be
+    reproduced exactly. With a Light Path "Is Camera Ray" factor the
+    non-camera branch (Factor = 0, first Shader input) is what every
+    lighting path sees and is exported; the backdrop seen directly by the
+    camera then shows that same branch. A constant factor keeps the
+    dominant input. Both cases warn; anything else is left to the caller.
+    """
+    while node is not None and node.bl_idname == "ShaderNodeMixShader":
+        fac_socket = node.inputs[0]
+        shader_a = utils_node.get_linked_node(node.inputs[1])
+        shader_b = utils_node.get_linked_node(node.inputs[2])
+        src = fac_socket.links[0].from_socket if fac_socket.is_linked else None
+        if (src is not None and src.node.bl_idname == "ShaderNodeLightPath"
+                and src.name in _WORLD_RAY_SWITCHES):
+            SuperLuxCoreErrorLog.add_warning(
+                'World: Mix Shader on Light Path "%s" - exporting the '
+                "lighting branch; the background seen by the camera uses "
+                "it too" % src.name, obj_name=world.name)
+            node = shader_a
+        elif src is None:
+            fac = fac_socket.default_value
+            SuperLuxCoreErrorLog.add_warning(
+                "World: Mix Shader (factor %.2f) - LuxCore has a single world "
+                "light; exporting the dominant input" % fac,
+                obj_name=world.name)
+            node = shader_b if fac >= 0.5 else shader_a
+        else:
+            return node
+    return node
+
+
 def _convert_cycles_world(exporter, scene, world, is_viewport_render):
     definitions = {
         "importance": world.superluxcore.importance,
@@ -745,6 +827,7 @@ def _convert_cycles_world(exporter, scene, world, is_viewport_render):
         return None
 
     surface_node = utils_node.get_linked_node(output_node.inputs["Surface"])
+    surface_node = _resolve_world_mix_shader(surface_node, world)
     if not surface_node:
         return None
 
