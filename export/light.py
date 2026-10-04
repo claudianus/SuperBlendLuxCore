@@ -204,10 +204,11 @@ def _convert_cycles_light(exporter, obj, depsgraph, superluxcore_scene, transfor
             # Cycles gives a sized spot a finite emitter (soft shadows).
             # SuperLuxCore's `spot` is a point source, so emit a small
             # disk meshlight instead: the disk radius gives the shadow
-            # penumbra width, and emission.theta caps the cone at the
-            # spot half-angle. The result is a hard-edged cosine cone -
-            # spot_blend's smoothstep penumbra has no analog here, so it
-            # is intentionally not applied on this path.
+            # penumbra width. Cycles' sized spot is a point light masked
+            # by the cone, so the engine's emission.spot profile makes the
+            # per-area intensity flat inside the cone (with the cos-space
+            # smoothstep blend); gain is the on-axis intensity per unit
+            # emitter area -> P / (4 pi) over the disk area.
             mat_name = superluxcore_name + "_SPOT_MAT"
             mat_prefix = "scene.materials." + mat_name + "."
             # Disk scale: shadow_soft_size is the emitter radius.
@@ -218,14 +219,12 @@ def _convert_cycles_light(exporter, obj, depsgraph, superluxcore_scene, transfor
                 "type": "matte",
                 "kd": [0, 0, 0],
                 "emission": color,
-                # Normalize emitted power to the disk's projected solid
-                # angle so brightness tracks the point-spot gain. The
-                # 0.06504 factor is the meshlight Cycles-match constant
-                # (same one the AREA path uses) - not the point-spot 0.07.
-                "emission.gain": [gain * 0.06504 / (light.shadow_soft_size ** 2)] * 3,
+                "emission.gain": [gain / (4.0 * math.pi * _disk_area(spot_transform))] * 3,
                 "emission.power": 0.0,
                 "emission.efficency": 0.0,
-                "emission.theta": cone_half_deg,
+                "emission.normalizebycolor": False,
+                "emission.spot.angle": light.spot_size,
+                "emission.spot.blend": light.spot_blend,
                 "emission.importance": light.superluxcore.importance,
                 "transparency.shadow": [1, 1, 1],
             }
@@ -259,8 +258,11 @@ def _convert_cycles_light(exporter, obj, depsgraph, superluxcore_scene, transfor
         spot_fix = Matrix.Rotation(math.radians(-90.0), 4, "Z")
         definitions["transformation"] = utils.luxutils.matrix_to_list(transform @ spot_fix)
 
-        # Multiplier to reach similar brightness as Cycles, found by eyeballing.
-        gain *= 0.07
+        # Cycles spot = point light masked by the cone: intensity P/(4 pi)
+        # (SuperLuxCore's spot intensity is its gain) without the legacy
+        # LuxCore 1/cos(axis angle) term.
+        gain /= 4.0 * math.pi
+        definitions["cosinecompensation"] = False
     elif light.type == "AREA":
         if getattr(light.cycles, "is_portal", False):
             # A Cycles light portal emits no light - it is a sampling
@@ -280,12 +282,11 @@ def _convert_cycles_light(exporter, obj, depsgraph, superluxcore_scene, transfor
         # A disk emits pi*sx*sy; the box-normalization below assumes the
         # quad's full area. Scale up by 4/pi so disk/ellipse flux matches
         # the quad path at equal size.
-        area_gain = gain / (scale.x * scale.y)
-        if light.shape in {"DISK", "ELLIPSE"}:
-            area_gain *= 4.0 / math.pi
-        # Multiplier to reach similar brightness as Cycles.
-        # Found through render comparisons, not super precise.
-        area_gain *= 0.06504
+        # Cycles: a Lambertian emitter of power P over area A has radiance
+        # P / (pi A). The exported quad spans 2x2 local units and the disk
+        # is a 32-gon of unit radius, both scaled by `scale`.
+        unit_area = _DISK_UNIT_AREA if light.shape in {"DISK", "ELLIPSE"} else 4.0
+        area_gain = gain / (math.pi * unit_area * scale.x * scale.y)
 
         # Material
         mat_name = superluxcore_name + "_AREA_LIGHT_MAT"
@@ -302,6 +303,11 @@ def _convert_cycles_light(exporter, obj, depsgraph, superluxcore_scene, transfor
             "emission.importance": light.superluxcore.importance,
             "transparency.shadow": [1, 1, 1],
         }
+        # Cycles soft-box "Spread": the engine builds the same angular
+        # profile (power preserving, a drop-in for the Lambertian lobe)
+        spread = getattr(light, "spread", math.pi)
+        if spread < math.pi - 1e-4:
+            mat_definitions["emission.spread"] = spread
 
         mat_props = utils.luxutils.create_props(mat_prefix, mat_definitions)
         props.Set(mat_props)
@@ -666,6 +672,12 @@ scn.cycles.samples = 8
 bpy.ops.mesh.primitive_uv_sphere_add(segments=96, ring_count=48, radius=100)
 sph = bpy.context.active_object
 img = bpy.data.images.new("skybake", width=1024, height=512, float_buffer=True)
+# Blender 5.x Image.save() writes a non-data float image display-encoded
+# (EXR colorInteropID "srgb_rec709_display": 4.0 -> 1.82) and decodes it
+# again on load, so only other readers see the damage. A Non-Color image
+# is written verbatim. Set before baking: changing the color space of a
+# generated image regenerates (clears) its buffer.
+img.colorspace_settings.name = "Non-Color"
 mat = bpy.data.materials.new("bakemat")
 mat.use_nodes = True
 tex_node = mat.node_tree.nodes.new("ShaderNodeTexImage")
@@ -722,8 +734,9 @@ def _bake_sky_to_exr(sky_node, world_name):
         "turbidity": float(sky_node.turbidity),
         "ground_albedo": float(sky_node.ground_albedo),
         # Bumped when the bake layout changes (2: u flipped to the Cycles
-        # equirect convention) so stale cached EXRs are not reused.
-        "bake_version": 2,
+        # equirect convention, 3: written scene-linear instead of display-
+        # encoded) so stale cached EXRs are not reused.
+        "bake_version": 4,
     }
 
     key = hashlib.sha1(json.dumps(params, sort_keys=True).encode()).hexdigest()[:16]
@@ -1099,7 +1112,17 @@ def _get_area_obj_name(superluxcore_name):
     return superluxcore_name + str(fake_material_index)
 
 
-def _disk_light_mesh(segments=32):
+_DISK_SEGMENTS = 32
+# Area of the unit-radius N-gon the disk meshlights are built from
+_DISK_UNIT_AREA = 0.5 * _DISK_SEGMENTS * math.sin(2.0 * math.pi / _DISK_SEGMENTS)
+
+
+def _disk_area(transform):
+    scale = transform.to_scale()
+    return _DISK_UNIT_AREA * abs(scale.x * scale.y)
+
+
+def _disk_light_mesh(segments=_DISK_SEGMENTS):
     """32-segment N-gon fan with -Z emission (matches Cycles' local axis
     and the quad's winding). A unit disk in local space - the caller's
     transform carries the size/size_y scaling."""

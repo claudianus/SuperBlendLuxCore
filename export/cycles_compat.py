@@ -514,16 +514,9 @@ def warn_cycles_light_flags(light, warned, obj_name):
                    "Per-light 'Multiple Importance Sampling' off is not "
                    "supported - light sampling strategy is global",
                    obj_name)
-    if getattr(light, "use_nodes", False):
-        _warn_once(warned, (obj_name, "lightnodes"),
-                   "Cycles light node trees are not supported - the "
-                   "light datablock settings are used", obj_name)
-    if (light.type == "AREA"
-            and getattr(light, "spread", math.pi) < math.pi - 1e-3):
-        _warn_once(warned, (obj_name, "spread"),
-                   "Area light 'Spread' directional limit is not "
-                   "supported - the light emits into the full "
-                   "hemisphere", obj_name)
+    # Light node trees: export/light.py folds an Emission node's Color /
+    # Strength (and IES) into the light and warns about anything else.
+    # Area light 'Spread' is exported as emission.spread.
 
 
 # ---------------------------------------------------------------------------
