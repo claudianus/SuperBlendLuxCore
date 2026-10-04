@@ -83,6 +83,14 @@ class SuperLuxCoreDenoiser(PropertyGroup):
                                       "denoising, in units of local robust sigma (0 disables). Useful for "
                                       "scenes with sparse fireflies; may flatten dense noise textures")
 
+    # Cycles writes the denoised image into Combined, so F12 saves and the
+    # compositor see the clean result; the raw render stays available by
+    # turning this off
+    to_combined: BoolProperty(name="Denoised Combined", default=True,
+                              description="Write the denoised result into the Combined pass, like "
+                              "Cycles (saved images and the compositor use it). The DENOISED pass "
+                              "is filled either way")
+
     # Periodic refresh during final renders (Corona-style progress preview)
     periodic_refresh: BoolProperty(name="Periodic Refresh", default=True,
                                    description="Refresh the denoised result periodically during final "

@@ -68,6 +68,8 @@ class SUPERLUXCORE_RENDER_PT_denoiser(RenderButtonsPanel, Panel):
             sub.prop(denoiser, "albedo_specular_passthrough_mode")
             sub.prop(denoiser, "prefilter_AOVs")
 
+        layout.prop(denoiser, "to_combined")
+
         sub = layout.column(align=True)
         sub.prop(denoiser, "periodic_refresh")
         row = sub.row()

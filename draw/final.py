@@ -162,10 +162,36 @@ class FrameBufferFinal:
             self._refresh_denoiser(
                 engine, session, scene, render_layer, render_stopped
             )
+            self._denoised_to_combined(engine, scene, render_layer)
 
         engine.end_result(result)
         # Reset the refresh button
         SuperLuxCoreDisplaySettings.refresh = False
+
+    def _denoised_to_combined(self, engine, scene, render_layer):
+        """Cycles parity: once the denoiser has produced a result, Combined
+        carries it (saved images, compositor). Before the first run the raw
+        image stays so the render does not show black."""
+        if (not engine.has_denoiser()
+                or not scene.superluxcore.denoiser.to_combined
+                or self.denoiser_last_samples == 0):
+            return
+        try:
+            denoised = render_layer.passes[engine.DENOISED_OUTPUT_NAME]
+        except KeyError:
+            return
+        combined = render_layer.passes["Combined"]
+        size = self._width * self._height
+        channels = denoised.channels
+        src = np.empty(size * channels, dtype=np.float32)
+        denoised.rect.foreach_get(src)
+        if channels == 4:
+            combined.rect.foreach_set(src)
+            return
+        dst = np.empty([size, 4], dtype=np.float32)
+        combined.rect.foreach_get(dst.ravel())
+        dst[:, :3] = src.reshape(size, channels)[:, :3]
+        combined.rect.foreach_set(dst.ravel())
 
     def _import_aov(
         self,
