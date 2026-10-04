@@ -48,8 +48,13 @@ import bpy
 import numpy as np
 from mathutils import Vector
 
-_EXT_DIR = os.path.expanduser(
-    "~/Library/Application Support/Blender/5.2/extensions/user_default")
+# Honor an isolated profile (BLENDER_USER_RESOURCES) so the suite tests
+# the add-on installed there, not whatever the default profile holds
+_EXT_DIR = (os.path.join(os.environ["BLENDER_USER_RESOURCES"],
+                         "extensions", "user_default")
+            if os.environ.get("BLENDER_USER_RESOURCES") else
+            os.path.expanduser(
+                "~/Library/Application Support/Blender/5.2/extensions/user_default"))
 if _EXT_DIR not in sys.path:
     sys.path.insert(0, _EXT_DIR)
 
@@ -363,9 +368,17 @@ def build_s05_noise_ramp(scene):
     ramp = nt.nodes.new("ShaderNodeValToRGB")
     ramp.color_ramp.elements[0].color = (0.05, 0.15, 0.8, 1.0)
     ramp.color_ramp.elements[1].color = (0.9, 0.15, 0.1, 1.0)
+    # Normalized Cycles FBM stays near 0.5 (it rarely reaches 0 or 1):
+    # pull the end stops in so both ramp extremes show up
+    ramp.color_ramp.elements[0].position = 0.4
+    ramp.color_ramp.elements[1].position = 0.6
     mid = ramp.color_ramp.elements.new(0.5)
     mid.color = (0.9, 0.8, 0.1, 1.0)
     diff = nt.nodes.new("ShaderNodeBsdfDiffuse")
+    # Object coordinates span many noise cells; the default Generated
+    # range (0..1 over the plane) is too small for the ramp extremes
+    tc = nt.nodes.new("ShaderNodeTexCoord")
+    nt.links.new(tc.outputs["Object"], noise.inputs["Vector"])
     nt.links.new(noise.outputs["Fac"], ramp.inputs["Fac"])
     nt.links.new(ramp.outputs["Color"], diff.inputs["Color"])
     nt.links.new(diff.outputs["BSDF"], out.inputs["Surface"])
@@ -817,7 +830,9 @@ def check_stale_clamp():
 
 def main():
     t_start = time.time()
-    print("[E23-TEST] addon:", ensure_superluxcore())
+    print("[E23-TEST] addon:", ensure_superluxcore(),
+          sys.modules.get("superluxcore").__file__
+          if sys.modules.get("superluxcore") else "?")
 
     for spec in SCENES:
         run_scene(spec)

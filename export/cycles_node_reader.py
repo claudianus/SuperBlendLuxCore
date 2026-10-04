@@ -1242,7 +1242,7 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
             emission = _tex_binary("scale", emission_strength, emission_color,
                                    superluxcore_name + "emission_col", props)
         transparency = _socket(node.inputs["Alpha"], props, material, obj_name, group_node_stack)
-        bump = _socket(node.inputs["Normal"], props, material, obj_name, group_node_stack)
+        bump = _normal_input(node.inputs["Normal"], props, material, obj_name, group_node_stack)
 
         if use_coating:
             # Wrap the base in a real dielectric coat layer (glossycoating):
@@ -1440,7 +1440,7 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
         definitions = {
             "type": "matte",
             "kd": _socket(node.inputs["Color"], props, material, obj_name, group_node_stack),
-            "bumptex": _socket(node.inputs["Normal"], props, material, obj_name, group_node_stack),
+            "bumptex": _normal_input(node.inputs["Normal"], props, material, obj_name, group_node_stack),
         }
     elif node.bl_idname == "ShaderNodeBsdfGlossy":
         prefix = "scene.materials."
@@ -1464,7 +1464,7 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
             "vroughness": roughness,
             # Cycles Glossy BSDF is GGX-based
             "distribution": "ggx",
-            "bumptex": _socket(node.inputs["Normal"], props, material, obj_name, group_node_stack),
+            "bumptex": _normal_input(node.inputs["Normal"], props, material, obj_name, group_node_stack),
         }
     elif node.bl_idname == "ShaderNodeTexImage":
         if node.image:
@@ -1569,7 +1569,7 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
             "kt": color,
             "kr": color, # Nonsense, maybe leave white even if it breaks compatibility with Cycles?
             "interiorior": _socket(node.inputs["IOR"], props, material, obj_name, group_node_stack),
-            "bumptex": _socket(node.inputs["Normal"], props, material, obj_name, group_node_stack),
+            "bumptex": _normal_input(node.inputs["Normal"], props, material, obj_name, group_node_stack),
         }
 
         if roughness != 0:
@@ -1586,7 +1586,7 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
             "kt": color,
             "kr": [0, 0, 0],
             "interiorior": _socket(node.inputs["IOR"], props, material, obj_name, group_node_stack),
-            "bumptex": _socket(node.inputs["Normal"], props, material, obj_name, group_node_stack),
+            "bumptex": _normal_input(node.inputs["Normal"], props, material, obj_name, group_node_stack),
         }
 
         if roughness != 0:
@@ -1615,7 +1615,7 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
             "vroughness": 0.05,
             # Cycles Anisotropic BSDF is GGX-based
             "distribution": "ggx",
-            "bumptex": _socket(node.inputs["Normal"], props, material, obj_name, group_node_stack),
+            "bumptex": _normal_input(node.inputs["Normal"], props, material, obj_name, group_node_stack),
         }
     elif node.bl_idname == "ShaderNodeBsdfMetallic":
         prefix = "scene.materials."
@@ -1686,7 +1686,7 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
                 f'Metallic node "{node.name}": anisotropy rotation is not '
                 "supported", obj_name=obj_name)
         if node.inputs.get("Normal") is not None:
-            definitions["bumptex"] = _socket(node.inputs["Normal"], props,
+            definitions["bumptex"] = _normal_input(node.inputs["Normal"], props,
                                              material, obj_name, group_node_stack)
         if node.inputs.get("Thin Film Thickness") is not None and \
                 (node.inputs["Thin Film Thickness"].is_linked or
@@ -1767,7 +1767,7 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
             # TODO kt and kr don't really match Cycles result yet
             "kt": [1, 1, 1],
             "kr": _socket(node.inputs["Color"], props, material, obj_name, group_node_stack),
-            "bumptex": _socket(node.inputs["Normal"], props, material, obj_name, group_node_stack),
+            "bumptex": _normal_input(node.inputs["Normal"], props, material, obj_name, group_node_stack),
         }
     elif node.bl_idname == "ShaderNodeBsdfTransparent":
         prefix = "scene.materials."
@@ -2215,15 +2215,15 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
 
         strength_socket = node.inputs["Strength"]
         if strength_socket.is_linked:
-            # Use scale texture because normalmap scale can't be textured
-            # Here we need to insert a helper texture *after* the current texture
-            props.Set(utils.luxutils.create_props(prefix + superluxcore_name + ".", definitions))
-            definitions = {
-                "type": "scale",
-                "texture1": superluxcore_name,
-                "texture2": _socket(strength_socket, props, material, obj_name, group_node_stack),
-            }
-            superluxcore_name = superluxcore_name + "strength"
+            # Cycles Strength s interpolates from the unperturbed normal:
+            # in tangent-space color that is flat + s * (color - flat).
+            # (A scale texture around the normal map went through the
+            # height-field product rule and produced garbage normals.)
+            definitions["texture"] = _tex_mix(
+                _FLAT_NORMAL_COLOR, definitions["texture"],
+                _socket(strength_socket, props, material, obj_name, group_node_stack),
+                superluxcore_name + "_strength", props)
+            definitions["scale"] = 1.0
         else:
             definitions["scale"] = strength_socket.default_value
     elif node.bl_idname == "ShaderNodeBump":
@@ -2480,7 +2480,7 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
             if anisotropy is not None and anisotropy != ERROR_VALUE:
                 definitions["subsurfaceanisotropy"] = anisotropy
         if node.inputs.get("Normal") is not None:
-            definitions["bumptex"] = _socket(node.inputs["Normal"], props, material,
+            definitions["bumptex"] = _normal_input(node.inputs["Normal"], props, material,
                                              obj_name, group_node_stack)
     elif node.bl_idname == "ShaderNodeBsdfVelvet":
         prefix = "scene.materials."
@@ -2499,7 +2499,7 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
             "sheenroughness": sigma,
         }
         if node.inputs.get("Normal") is not None:
-            definitions["bumptex"] = _socket(node.inputs["Normal"], props, material,
+            definitions["bumptex"] = _normal_input(node.inputs["Normal"], props, material,
                                              obj_name, group_node_stack)
     elif node.bl_idname == "ShaderNodeBsdfSheen":
         prefix = "scene.materials."
@@ -2521,7 +2521,7 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
             "sheenroughness": roughness,
         }
         if node.inputs.get("Normal") is not None:
-            definitions["bumptex"] = _socket(node.inputs["Normal"], props, material,
+            definitions["bumptex"] = _normal_input(node.inputs["Normal"], props, material,
                                              obj_name, group_node_stack)
     elif node.bl_idname == "ShaderNodeBsdfToon":
         prefix = "scene.materials."
@@ -2536,7 +2536,7 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
             "kd": _socket(node.inputs["Color"], props, material, obj_name, group_node_stack),
         }
         if node.inputs.get("Normal") is not None:
-            definitions["bumptex"] = _socket(node.inputs["Normal"], props, material,
+            definitions["bumptex"] = _normal_input(node.inputs["Normal"], props, material,
                                              obj_name, group_node_stack)
     elif node.bl_idname == "ShaderNodeFresnel":
         prefix = "scene.textures."
@@ -2903,33 +2903,62 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
                 node, "Mapping node without a Vector input; returning a zero "
                 "vector", FALLBACK_VECTOR, obj_name)
 
-        # SuperLuxCore has no standalone "mapping" texture: each texture carries its
-        # own "mapping.*" block. Re-emit the upstream node under this node's name
-        # and attach the transform to it (works for texture types that parse a
-        # mapping block, e.g. uv, imagemap and the procedural textures).
-        result = _node(link.from_node, link.from_socket, props, material,
-                       superluxcore_name, obj_name, group_node_stack)
-        if result == ERROR_VALUE or not _is_textured(result):
+        # Exact affine transform as a vector texture: out_i = dot(v, row_i) +
+        # t_i (three dotproducts into a raw makefloat3), so it composes with
+        # any vector source and any consumer.
+        vec = _socket(node.inputs["Vector"], props, material, obj_name,
+                      group_node_stack)
+        if vec == ERROR_VALUE or not _is_textured(vec):
             return _warn_unsupported(
                 node, "cannot map a non-texture input; returning a zero vector",
                 FALLBACK_VECTOR, obj_name)
 
-        is_2d = link.from_socket.name == "UV" or \
-            link.from_node.bl_idname in {"ShaderNodeTexImage", "ShaderNodeUVMap"}
         location, rotation, scale = _mapping_node_values(node, obj_name)
-        if is_2d:
-            mapping_defs = _mapping_uv_defs(location, rotation, scale, False)
+        rot = Euler(rotation).to_matrix()
+        mtype = getattr(node, "vector_type", "POINT")
+        if mtype == "TEXTURE":
+            # inverse(T R S): (R^-1 (v - loc)) / scale
+            inv_s = Matrix.Diagonal(Vector(
+                [1.0 / s if s != 0.0 else 0.0 for s in scale]))
+            linear = inv_s @ rot.transposed()
+            offset = -(linear @ Vector(location))
+        elif mtype in {"VECTOR", "NORMAL"}:
+            if mtype == "NORMAL":
+                # R (v / scale), the result normalization is not applied
+                linear = rot @ Matrix.Diagonal(Vector(
+                    [1.0 / s if s != 0.0 else 0.0 for s in scale]))
+                SuperLuxCoreErrorLog.add_warning(
+                    f'Mapping node "{node.name}": Normal type output is not '
+                    "re-normalized", obj_name=obj_name)
+            else:
+                linear = rot @ Matrix.Diagonal(Vector(scale))
+            offset = Vector((0.0, 0.0, 0.0))
         else:
-            # vector_type NORMAL/VECTOR would need a direction transform; the
-            # full TRS matrix is an approximation here
-            mapping_defs = {
-                "mapping.type": "localmapping3d",
-                "mapping.transformation": utils.luxutils.matrix_to_list(
-                    _mapping_matrix(location, rotation, scale)),
-            }
-        props.Set(utils.luxutils.create_props(
-            "scene.textures." + result + ".", mapping_defs))
-        return result
+            linear = rot @ Matrix.Diagonal(Vector(scale))
+            offset = Vector(location)
+
+        rows = []
+        for i in range(3):
+            component = _tex_helper(props, f"{superluxcore_name}_row{i}", {
+                "type": "dotproduct",
+                "texture1": vec,
+                "texture2": list(linear[i]),
+            })
+            if offset[i] != 0.0:
+                component = _tex_helper(props, f"{superluxcore_name}_off{i}", {
+                    "type": "add",
+                    "texture1": component,
+                    "texture2": float(offset[i]),
+                })
+            rows.append(component)
+        prefix = "scene.textures."
+        definitions = {
+            "type": "makefloat3",
+            "texture1": rows[0],
+            "texture2": rows[1],
+            "texture3": rows[2],
+            "color": False,
+        }
     elif node.bl_idname == "ShaderNodeNormal":
         # The "Normal" output is the fixed direction set in the node widget
         try:
@@ -3158,46 +3187,58 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
     elif node.bl_idname == "ShaderNodeTexNoise":
         prefix = "scene.textures."
 
-        # Closest match: blender_distortednoise is the only engine texture with
-        # a distortion amount like Cycles' Noise. Divergences: monochrome result
-        # (Color == Fac) and no roughness/lacunarity parameters.
-        if node.noise_dimensions != "3D":
-            SuperLuxCoreErrorLog.add_warning(
-                f'Noise node "{node.name}": {node.noise_dimensions} mode is '
-                "approximated by 3D (extra inputs ignored)", obj_name=obj_name)
+        # Exact: cyclesnoise is a port of the Cycles Noise kernel (hash,
+        # Perlin, fractal types, normalize, distortion and Color seeds).
+        dims = {"1D": 1, "2D": 2, "3D": 3, "4D": 4}.get(node.noise_dimensions, 3)
 
-        scale_socket = node.inputs["Scale"]
-        if scale_socket.is_linked:
-            SuperLuxCoreErrorLog.add_warning(
-                f'Noise node "{node.name}": textured scale is not supported',
-                obj_name=obj_name)
-            noisesize = 0.25
+        vector_socket = node.inputs["Vector"]
+        if vector_socket.is_linked:
+            vec_tex = _socket(vector_socket, props, material, obj_name,
+                              group_node_stack)
         else:
-            noisesize = 1.0 / max(scale_socket.default_value, 1e-6)
+            # Cycles' default texture coordinate is Generated
+            vec_tex = node.name + "::noisegenerated"
+            props.Set(utils.luxutils.create_props(
+                f"{prefix}{vec_tex}.", {"type": "hitpoint",
+                                        "channel": "generated"}))
 
-        detail_socket = node.inputs["Detail"]
-        noisedepth = 2 if detail_socket.is_linked else \
-            max(0, min(25, round(detail_socket.default_value)))
+        def _fin(name, default):
+            sk = node.inputs.get(name)
+            if sk is None or not sk.enabled:
+                return default
+            return _socket(sk, props, material, obj_name, group_node_stack)
 
-        distortion_socket = node.inputs["Distortion"]
-        distortion = 0.0 if distortion_socket.is_linked else \
-            distortion_socket.default_value
-        if distortion_socket.is_linked:
-            SuperLuxCoreErrorLog.add_warning(
-                f'Noise node "{node.name}": textured distortion is not supported',
-                obj_name=obj_name)
+        color_output = output_socket.name == "Color"
+        # The Color output is authored RGB unless it only drives vector
+        # inputs (e.g. a distortion offset), where it must stay raw under
+        # spectral rendering
+        links = list(getattr(output_socket, "links", []) or [])
+        is_color = not (links and all(l.to_socket.type == "VECTOR"
+                                      for l in links))
 
         definitions = {
-            "type": "blender_distortednoise",
-            "noisebasis": "blender_original",
-            "noise_distortion": "blender_original",
-            "noisesize": noisesize,
-            "noisedepth": noisedepth,
-            "distortion": distortion,
+            "type": "cyclesnoise",
+            "vector": vec_tex,
+            "w": _fin("W", 0.0),
+            "scale": _fin("Scale", 5.0),
+            "detail": _fin("Detail", 2.0),
+            "roughness": _fin("Roughness", 0.5),
+            "lacunarity": _fin("Lacunarity", 2.0),
+            "offset": _fin("Offset", 0.0),
+            "gain": _fin("Gain", 1.0),
+            "distortion": _fin("Distortion", 0.0),
+            "noisetype": {
+                "FBM": "fbm",
+                "MULTIFRACTAL": "multifractal",
+                "HYBRID_MULTIFRACTAL": "hybrid_multifractal",
+                "RIDGED_MULTIFRACTAL": "ridged_multifractal",
+                "HETERO_TERRAIN": "hetero_terrain",
+            }.get(getattr(node, "noise_type", "FBM"), "fbm"),
+            "dimensions": dims,
+            "normalize": bool(getattr(node, "normalize", True)),
+            "output": "color" if color_output else "fac",
+            "color": is_color,
         }
-        definitions.update(_vector_mapping_defs(
-            node.inputs["Vector"], False, False, props, material, obj_name,
-            group_node_stack))
     elif node.bl_idname == "ShaderNodeTexWhiteNoise":
         prefix = "scene.textures."
 
@@ -3908,6 +3949,57 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
         })
 
     return result_texture
+
+
+# Tangent-space color of the unperturbed normal (0, 0, 1)
+_FLAT_NORMAL_COLOR = [0.5, 0.5, 1.0]
+
+
+def _normal_input(socket, props, material, obj_name, group_node_stack):
+    """Convert a shader Normal input, recognizing normal-map blends.
+
+    Mix(Vector, fac, A, B) where one side is a Normal Map and the other the
+    unperturbed Geometry/Texture Coordinate normal (the classic "flat in
+    puddles" setup) is a normal map whose tangent-space color is lerped
+    toward flat. The engine mix texture would bump it as a height field
+    (a (t2 - t1) * grad(fac) term between a normal map and a normal
+    vector), turning a mirror puddle into noise.
+    """
+    link = utils_node.get_link(socket)
+    mix = link.from_node if link is not None else None
+    if (mix is not None and mix.bl_idname == "ShaderNodeMix" and
+            getattr(mix, "data_type", "") == "VECTOR" and
+            getattr(mix, "factor_mode", "UNIFORM") == "UNIFORM"):
+        def src(i):
+            l = mix.inputs[i].links[0] if mix.inputs[i].is_linked else None
+            return (l.from_node, l.from_socket.name) if l else (None, None)
+
+        def is_flat(node_sock):
+            n, sock = node_sock
+            return n is not None and (
+                (n.bl_idname == "ShaderNodeNewGeometry" and sock == "Normal") or
+                (n.bl_idname == "ShaderNodeTexCoord" and sock == "Normal"))
+
+        a, b = src(4), src(5)
+        nm_first = a[0] is not None and a[0].bl_idname == "ShaderNodeNormalMap" and is_flat(b)
+        nm_second = b[0] is not None and b[0].bl_idname == "ShaderNodeNormalMap" and is_flat(a)
+        if nm_first or nm_second:
+            nm = a[0] if nm_first else b[0]
+            if nm.space == "TANGENT":
+                name = utils.sanitize_superluxcore_name(
+                    material.name + mix.name + "_nmix")
+                color = _socket(nm.inputs["Color"], props, material, obj_name, group_node_stack)
+                strength = _socket(nm.inputs["Strength"], props, material, obj_name, group_node_stack)
+                color = _tex_mix(_FLAT_NORMAL_COLOR, color, strength, name + "_str", props)
+                fac = _socket(mix.inputs[0], props, material, obj_name, group_node_stack)
+                # lerp(A, B, fac): weight of the normal map is (1 - fac)
+                # when it is A, fac when it is B
+                color = (_tex_mix(color, _FLAT_NORMAL_COLOR, fac, name + "_fac", props)
+                         if nm_first else
+                         _tex_mix(_FLAT_NORMAL_COLOR, color, fac, name + "_fac", props))
+                return _tex_helper(props, name, {
+                    "type": "normalmap", "texture": color, "scale": 1.0})
+    return _socket(socket, props, material, obj_name, group_node_stack)
 
 
 def _squared_roughness_to_linear(socket, props, material, superluxcore_name, obj_name, group_node):
