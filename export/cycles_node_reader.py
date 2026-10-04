@@ -1521,6 +1521,27 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
                 del definitions["mapping.uvscale"]
                 del definitions["mapping.rotation"]
                 del definitions["mapping.uvdelta"]
+            elif (getattr(node, "projection", "FLAT") == "BOX" and
+                    node.inputs.get("Vector") is not None and
+                    node.inputs["Vector"].is_linked):
+                # Box projection: Cycles picks the dominant axis of the
+                # surface normal and samples the image with that plane's
+                # coordinates of the linked Vector (object/generated
+                # space). The engine's triplanar texture projects the 3D
+                # mapping onto the three planes and writes the planar
+                # coordinates as the UV the image map reads (n^4 blend).
+                # Sampling the mesh UV instead stretched box-mapped
+                # asphalt/stone textures into streaks.
+                image_tex = _tex_helper(props, superluxcore_name + "_box", definitions)
+                definitions = {
+                    "type": "triplanar",
+                    "texture1": image_tex,
+                    "texture2": image_tex,
+                    "texture3": image_tex,
+                }
+                definitions.update(_vector_mapping_defs(
+                    node.inputs["Vector"], False, False, props, material,
+                    obj_name, group_node_stack))
             elif getattr(node, "projection", "FLAT") not in ("FLAT",):
                 SuperLuxCoreErrorLog.add_warning(
                     f'Image Texture node "{node.name}": projection '
@@ -1531,7 +1552,7 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
             # A linked Vector input (e.g. a Mapping node) overrides the default
             # UV flip mapping
             vector_input = node.inputs.get("Vector")
-            if vector_input is not None:
+            if vector_input is not None and definitions.get("type") == "imagemap":
                 definitions.update(_vector_mapping_defs(
                     vector_input, True, True, props, material, obj_name,
                     group_node_stack))
