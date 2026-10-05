@@ -107,6 +107,18 @@ def _apply_bump_filter_width(node_tree, props):
         props.Set(pysuperluxcore.Property(key[:-len("bumptex")] + "bumpfilterwidth", fw))
 
 
+def _set_two_sided_emission(props, superluxcore_name):
+    """Cycles' emission closure is two-sided (|N.w|): a mesh emitter lights
+    and shows the same radiance from both faces. Flag every material this
+    conversion produced (a mix material's emission is read on the
+    top-level material). Light objects are exported elsewhere and stay
+    one-sided like Cycles area lights."""
+    prefix = "scene.materials." + superluxcore_name
+    for key in props.GetAllNames(prefix):
+        if key.endswith(".type"):
+            props.Set(pysuperluxcore.Property(key[:-len("type")] + "emission.twosided", True))
+
+
 def convert(material, props, superluxcore_name, obj_name=""):
     # print("Converting Cycles node tree of material", material.name_full)
     output = material.node_tree.get_output_node("CYCLES")
@@ -136,6 +148,7 @@ def convert(material, props, superluxcore_name, obj_name=""):
         }))
 
     _apply_bump_filter_width(material.node_tree, props)
+    _set_two_sided_emission(props, superluxcore_name)
 
     if volume_link is not None:
         volume_defs = _volume(volume_link.from_node, volume_link.from_socket,
