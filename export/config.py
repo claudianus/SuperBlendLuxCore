@@ -372,8 +372,14 @@ def convert(exporter, scene, context=None, engine=None):
             # Auto pays the scene scan only where a cache can build:
             # every final engine owns a PhotonGI caustic pass except
             # RTPATHCPU (RT lattice, and viewport-only anyway).
+            # Cycles Filter Glossy blurs the eye path's glossy/glass lobes
+            # after low-pdf bounces; the caustic photons are traced
+            # unblurred and the cache replaces those eye paths, so auto
+            # keeps it off under the filter (the sharp caustic would come
+            # back several times brighter than the Cycles reference).
             caustic_on = (not is_viewport_render and
                     superluxcore_engine != "RTPATHCPU" and
+                    config.path.cycles_filter_glossy <= 0 and
                     _scene_has_transmissive(scene))
 
         if (config.photongi.enabled or caustic_on) and not is_viewport_render:
@@ -405,6 +411,8 @@ def convert(exporter, scene, context=None, engine=None):
             definitions["path.clamping.cycles.direct"] = config.path.cycles_clamp_direct
         if config.path.cycles_clamp_indirect > 0:
             definitions["path.clamping.cycles.indirect"] = config.path.cycles_clamp_indirect
+        if config.path.cycles_filter_glossy > 0:
+            definitions["path.filterglossy"] = config.path.cycles_filter_glossy
 
         if (
             use_clamping

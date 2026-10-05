@@ -442,6 +442,17 @@ class SuperLuxCoreConfigPath(PropertyGroup):
                     "bounces): limit on the RGB sum of each contribution. "
                     "0 disables it"
     )
+    # path.filterglossy - Cycles' Light Paths > Caustics > Filter Glossy
+    # (blur_glossy): after a low-probability bounce every glossy lobe gets
+    # a roughness floor, trading sharp indirect glossy/caustics for noise
+    # (Cycles default 1.0). 0 renders glossy lobes exactly as authored.
+    cycles_filter_glossy: FloatProperty(
+        name="Filter Glossy", default=0.0, min=0.0, soft_max=10.0,
+        description="Cycles-style glossy filter: blur glossy and sharp "
+                    "glass/metal lobes reached after diffuse or rough "
+                    "bounces (larger = blurrier). 0 disables it. Set by "
+                    "Import Cycles Settings"
+    )
     # This should only be set in the engine code after export. Only show a read-only label to the user.
     suggested_clamping_value: FloatProperty(name="", default=-1)
     # Fingerprint of the scene's light/emission content at the time the

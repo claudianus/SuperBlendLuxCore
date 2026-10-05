@@ -8,6 +8,15 @@ from ..utils.errorlog import SuperLuxCoreErrorLog
 from . import named_attributes
 from .image import ImageExporter
 import math
+
+
+def _filter_glossy_active():
+    """Cycles Filter Glossy is exported (path.filterglossy): sharp glass
+    must stay a microfacet lobe the engine can blur."""
+    try:
+        return bpy.context.scene.superluxcore.config.path.cycles_filter_glossy > 0
+    except Exception:
+        return False
 from math import degrees, log
 from mathutils import Euler, Matrix, Vector
 
@@ -1611,7 +1620,10 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
                             obj_name, group_node_stack)
         ior = _socket(node.inputs["IOR"], props, material, obj_name, group_node_stack)
 
-        if roughness == 0:
+        # Under Filter Glossy a sharp Cycles glass is a microfacet lobe
+        # the filter blurs after diffuse bounces: keep it a (near-delta)
+        # GGX lobe instead of the delta glass material
+        if roughness == 0 and not _filter_glossy_active():
             definitions = {
                 "type": "glass",
                 "kt": color,
@@ -1643,15 +1655,16 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
         roughness = _socket(node.inputs["Roughness"], props, material,
                             obj_name, group_node_stack)
 
+        sharp = roughness == 0 and not _filter_glossy_active()
         definitions = {
-            "type": "glass" if roughness == 0 else "roughglass",
+            "type": "glass" if sharp else "roughglass",
             "kt": color,
             "kr": [0, 0, 0],
             "interiorior": _socket(node.inputs["IOR"], props, material, obj_name, group_node_stack),
             "bumptex": _normal_input(node.inputs["Normal"], props, material, obj_name, group_node_stack),
         }
 
-        if roughness != 0:
+        if not sharp:
             definitions["uroughness"] = roughness
             definitions["vroughness"] = roughness
             # Cycles glass is GGX; MULTI_GGX (the Glass default) is

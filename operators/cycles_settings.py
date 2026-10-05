@@ -104,18 +104,19 @@ class SUPERLUXCORE_OT_import_cycles_settings(bpy.types.Operator):
             slc.config.path.auto_clamping = False
             changed.append(f"clamp direct={cd:g} indirect={ci:g}")
 
-        # --- Filter Glossy -> path-space regularization -----------------
-        # Filter Glossy 0 renders every glossy lobe exactly as authored;
-        # the engine's auto-seeded PSR would still blur secondary glossy
-        # vertices on caustic-capable scenes (biased, decaying with spp).
+        # --- Filter Glossy ------------------------------------------------
+        # The engine runs Cycles' own filter (path.filterglossy); the
+        # auto-seeded path-space regularization is a different blur
+        # (biased, decaying with spp) and goes off either way.
         try:
-            blur_glossy = float(cyc.blur_glossy)
+            blur_glossy = max(0.0, float(cyc.blur_glossy))
         except Exception:
             blur_glossy = None
-        if blur_glossy == 0.0 and (slc.config.psr_auto or slc.config.psr_sigma > 0):
+        if blur_glossy is not None:
+            slc.config.path.cycles_filter_glossy = blur_glossy
             slc.config.psr_auto = False
             slc.config.psr_sigma = 0.0
-            changed.append("filter_glossy=off")
+            changed.append(f"filter_glossy={blur_glossy:g}")
 
         # --- transparent film ------------------------------------------
         try:
