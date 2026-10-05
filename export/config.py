@@ -399,6 +399,13 @@ def convert(exporter, scene, context=None, engine=None):
                 use_clamping = True
                 clamping_value = config.path.suggested_clamping_value
 
+        # Cycles-style per-contribution clamp (independent of the
+        # variance clamp below)
+        if config.path.cycles_clamp_direct > 0:
+            definitions["path.clamping.cycles.direct"] = config.path.cycles_clamp_direct
+        if config.path.cycles_clamp_indirect > 0:
+            definitions["path.clamping.cycles.indirect"] = config.path.cycles_clamp_indirect
+
         if (
             use_clamping
             and not in_material_shading_mode

@@ -87,6 +87,23 @@ class SUPERLUXCORE_OT_import_cycles_settings(bpy.types.Operator):
             slc.config.shadow_terminator = "CONTY"
             changed.append("shadow_terminator=conty")
 
+        # --- clamping ---------------------------------------------------
+        # Cycles clamps each sample contribution (RGB sum) against
+        # sample_clamp_direct / _indirect; SuperLuxCore's own variance
+        # clamp has no Cycles counterpart, so it goes off and the Cycles
+        # limits map 1:1 (0 = off on both sides).
+        try:
+            cd = max(0.0, float(cyc.sample_clamp_direct))
+            ci = max(0.0, float(cyc.sample_clamp_indirect))
+        except Exception:
+            cd = ci = None
+        if cd is not None:
+            slc.config.path.cycles_clamp_direct = cd
+            slc.config.path.cycles_clamp_indirect = ci
+            slc.config.path.use_clamping = False
+            slc.config.path.auto_clamping = False
+            changed.append(f"clamp direct={cd:g} indirect={ci:g}")
+
         # --- Filter Glossy -> path-space regularization -----------------
         # Filter Glossy 0 renders every glossy lobe exactly as authored;
         # the engine's auto-seeded PSR would still blur secondary glossy

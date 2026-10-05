@@ -426,6 +426,22 @@ class SuperLuxCoreConfigPath(PropertyGroup):
                     "margin. Lower values suppress outliers more "
                     "aggressively; higher values are more conservative"
     )
+    # path.clamping.cycles.direct / .indirect - Cycles' Light Paths >
+    # Clamping (sample_clamp_direct / _indirect): every emission or direct
+    # light contribution is scaled so its RGB sum stays under the limit.
+    # Independent of Clamp Output above; set by Import Cycles Settings.
+    cycles_clamp_direct: FloatProperty(
+        name="Cycles Direct Light", default=0.0, min=0.0, soft_max=100.0,
+        description="Cycles-style sample clamp for direct light (first "
+                    "bounce): limit on the RGB sum of each contribution. "
+                    "0 disables it"
+    )
+    cycles_clamp_indirect: FloatProperty(
+        name="Cycles Indirect Light", default=0.0, min=0.0, soft_max=100.0,
+        description="Cycles-style sample clamp for indirect light (deeper "
+                    "bounces): limit on the RGB sum of each contribution. "
+                    "0 disables it"
+    )
     # This should only be set in the engine code after export. Only show a read-only label to the user.
     suggested_clamping_value: FloatProperty(name="", default=-1)
     # Fingerprint of the scene's light/emission content at the time the

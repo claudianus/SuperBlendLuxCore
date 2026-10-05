@@ -266,6 +266,10 @@ class SUPERLUXCORE_RENDER_PT_lightpaths_clamping(RenderButtonsPanel, Panel):
         if not config.path.use_clamping:
             layout.prop(config.path, "auto_clamping")
 
+        col = layout.column(align=True)
+        col.prop(config.path, "cycles_clamp_direct", text="Cycles Direct")
+        col.prop(config.path, "cycles_clamp_indirect", text="Cycles Indirect")
+
         if config.path.suggested_clamping_value == -1:
             # Optimal clamp value not yet found, need to start a render first
             if config.path.use_clamping:
