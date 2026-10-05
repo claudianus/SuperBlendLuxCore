@@ -925,6 +925,10 @@ def _principled_openpbr(node, base_color, metallic, transmission,
         "transmissionweight": transmission,
         # Cycles tints transmission by the base color
         "transmissioncolor": base_color,
+        # Cycles keeps the base specular IOR against the exterior under a
+        # coat (OpenPBR's specular_ior_ratio would make an IOR-1.5 base
+        # under an IOR-1.5 coat reflect nothing: coated surfaces 0.56x)
+        "coataffectsbaseior": False,
     }
 
     diffuse_roughness = s("Diffuse Roughness")
