@@ -777,7 +777,46 @@ def _bake_sky_to_exr(sky_node, world_name):
 _WORLD_RAY_SWITCHES = {"Is Camera Ray"}
 
 
-def _resolve_world_mix_shader(node, world):
+def _same_background_color(bg_a, bg_b):
+    """True when two Background nodes take their Color from the same place
+    (the same linked output, or equal constant colours)."""
+    ca, cb = bg_a.inputs["Color"], bg_b.inputs["Color"]
+    if ca.is_linked and cb.is_linked:
+        la, lb = ca.links[0], cb.links[0]
+        return la.from_node == lb.from_node and la.from_socket.identifier == lb.from_socket.identifier
+    if not ca.is_linked and not cb.is_linked:
+        return all(abs(x - y) < 1e-6 for x, y in zip(ca.default_value, cb.default_value))
+    return False
+
+
+def _world_camera_gain(node):
+    """Camera-ray backdrop multiplier of a world Mix on Light Path "Is
+    Camera Ray" whose two Backgrounds share the colour source and differ
+    only in Strength (the classic "dim lighting, bright backdrop" setup).
+    None when the mix is something else."""
+    if node is None or node.bl_idname != "ShaderNodeMixShader":
+        return None
+    fac = node.inputs[0]
+    if not fac.is_linked:
+        return None
+    src = fac.links[0].from_socket
+    if src.node.bl_idname != "ShaderNodeLightPath" or src.name != "Is Camera Ray":
+        return None
+    bg_a = utils_node.get_linked_node(node.inputs[1])
+    bg_b = utils_node.get_linked_node(node.inputs[2])
+    if not (bg_a and bg_b and bg_a.bl_idname == "ShaderNodeBackground"
+            and bg_b.bl_idname == "ShaderNodeBackground"):
+        return None
+    if bg_a.inputs["Strength"].is_linked or bg_b.inputs["Strength"].is_linked:
+        return None
+    if not _same_background_color(bg_a, bg_b):
+        return None
+    sa = bg_a.inputs["Strength"].default_value
+    sb = bg_b.inputs["Strength"].default_value
+    return (sb / sa) if sa > 0 else None
+
+
+def _resolve_world_mix_shader(node, world, camera_gain_handled=False):
     """Reduce a world Mix Shader to the Background that lights the scene.
 
     LuxCore's world is a single light, so a Cycles world mix cannot be
@@ -794,10 +833,11 @@ def _resolve_world_mix_shader(node, world):
         src = fac_socket.links[0].from_socket if fac_socket.is_linked else None
         if (src is not None and src.node.bl_idname == "ShaderNodeLightPath"
                 and src.name in _WORLD_RAY_SWITCHES):
-            SuperLuxCoreErrorLog.add_warning(
-                'World: Mix Shader on Light Path "%s" - exporting the '
-                "lighting branch; the background seen by the camera uses "
-                "it too" % src.name, obj_name=world.name)
+            if not camera_gain_handled:
+                SuperLuxCoreErrorLog.add_warning(
+                    'World: Mix Shader on Light Path "%s" - exporting the '
+                    "lighting branch; the background seen by the camera uses "
+                    "it too" % src.name, obj_name=world.name)
             node = shader_a
         elif src is None:
             fac = fac_socket.default_value
@@ -840,7 +880,9 @@ def _convert_cycles_world(exporter, scene, world, is_viewport_render):
         return None
 
     surface_node = utils_node.get_linked_node(output_node.inputs["Surface"])
-    surface_node = _resolve_world_mix_shader(surface_node, world)
+    camera_gain = _world_camera_gain(surface_node)
+    surface_node = _resolve_world_mix_shader(surface_node, world,
+                                             camera_gain is not None)
     if not surface_node:
         return None
 
@@ -899,10 +941,16 @@ def _convert_cycles_world(exporter, scene, world, is_viewport_render):
                             mapping_matrix = cycles_compat.mapping_node_matrix(
                                 mapping_node, obj_name=world.name)
 
-                        transformation = infinite_fix @ (
+                        # Cycles looks the texture up at Mp*d and the
+                        # engine's equirect is the X mirror of Cycles':
+                        # mirror * T^-1 = Mp  ->  T = Mp^-1 * mirror
+                        # (mirror * Mp^-1 turned a Z rotation the wrong
+                        # way: a 120-degree HDRI rotation lit 021 from
+                        # the wrong side, backdrop correlation 0.20)
+                        transformation = (
                             mapping_matrix.inverted()
                             if mapping_matrix is not None
-                            else Matrix.Identity(4))
+                            else Matrix.Identity(4)) @ infinite_fix
 
                         definitions["transformation"] = utils.luxutils.matrix_to_list(transformation)
                     except OSError as image_missing:
@@ -957,6 +1005,9 @@ def _convert_cycles_world(exporter, scene, world, is_viewport_render):
         return None
 
     definitions["gain"] = [gain] * 3
+    if camera_gain is not None and abs(camera_gain - 1.0) > 1e-6:
+        # Camera rays see the backdrop with the camera branch's strength
+        definitions["cameragain"] = [camera_gain] * 3
     return definitions
 
 
