@@ -87,6 +87,19 @@ class SUPERLUXCORE_OT_import_cycles_settings(bpy.types.Operator):
             slc.config.shadow_terminator = "CONTY"
             changed.append("shadow_terminator=conty")
 
+        # --- Filter Glossy -> path-space regularization -----------------
+        # Filter Glossy 0 renders every glossy lobe exactly as authored;
+        # the engine's auto-seeded PSR would still blur secondary glossy
+        # vertices on caustic-capable scenes (biased, decaying with spp).
+        try:
+            blur_glossy = float(cyc.blur_glossy)
+        except Exception:
+            blur_glossy = None
+        if blur_glossy == 0.0 and (slc.config.psr_auto or slc.config.psr_sigma > 0):
+            slc.config.psr_auto = False
+            slc.config.psr_sigma = 0.0
+            changed.append("filter_glossy=off")
+
         # --- transparent film ------------------------------------------
         try:
             if bool(cyc.film_transparent):
