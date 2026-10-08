@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Cycles 장면 가져오기 — SuperLuxCore</title><style>
+:root{--bg:#0b0d10;--panel:#12161b;--line:#20262e;--txt:#e8edf2;
+--dim:#97a4b1;--acc:#5fd3a5;--acc2:#7aa7ff;
+--mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--txt);
+font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;line-height:1.6}
+a{color:var(--acc2)} a:hover{text-decoration:underline}
+.wrap{max-width:860px;margin:0 auto;padding:36px 24px}
+nav{border-bottom:1px solid var(--line);padding:14px 24px;background:var(--panel)}
+nav a{color:var(--dim);margin-right:18px;font-size:14px}
+h1{font-size:30px;margin:0 0 8px} h2{font-size:20px;margin:32px 0 10px}
+p,li{color:var(--dim)}
+code{font-family:var(--mono);background:#0e1216;padding:1px 6px;border-radius:5px;font-size:.92em}
+pre{background:#0e1216;border:1px solid var(--line);border-radius:8px;padding:14px;overflow-x:auto}
+pre code{background:none;padding:0}
+table{width:100%;border-collapse:collapse;font-size:14px;margin:12px 0}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--txt);font-weight:600}
+ul{line-height:1.9}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:18px;margin:14px 0}
+</style></head><body><nav><a href="../index.html">SuperLuxCore</a><a href="index.html">SuperLuxCore 사용 설명서</a><a href="install.html">설치</a><a href="quickstart.html">첫 렌더</a><a href="engines.html">렌더 엔진과 장치</a><a href="materials.html">재질과 텍스처</a><a href="cycles-import.html">Cycles 장면 가져오기</a><a href="properties.html">렌더 설정</a><a href="denoise.html">노이즈 제거</a><a href="caustics.html">코스틱과 광선 추적</a><a href="troubleshooting.html">문제 해결</a></nav><main class="wrap"><p><b>한국어</b> · <a lang="en" hreflang="en" href="../../manual/cycles-import.html">English</a></p><h1>Cycles 장면 가져오기</h1><h2>설정 가져오기</h2><p>Import Cycles Settings로 지원되는 샘플, 깊이, 노이즈 제거와 필름 설정을 가져옵니다. Box, Gaussian, Blackman–Harris 필터의 이름뿐 아니라 폭의 의미도 비교합니다. Filter Glossy와 간접광 클램프는 사용자가 선택한 설정을 기준으로 다룹니다.</p><h2>2.11.13에서 수정한 차이</h2><ul><li>범프 차분의 정밀도 보호를 광선 충돌 오차에서 분리했습니다.</li><li>Bump Strength의 법선 혼합을 CPU와 GPU에 구현했습니다.</li><li>카메라 앞의 불투명 물체에 가려진 볼륨 경계까지 조사하여 시작 매질을 찾습니다.</li><li>참조 오브젝트 좌표와 원근·직교 Camera/Window 좌표를 변환합니다.</li></ul><h2>검증</h2><p>범프 합성 12개와 Beer–Lambert 카메라 흡수 8개 조건이 CPU와 Metal에서 통과했습니다. 1280×720 모래 장면의 Cycles 대비 평균 밝기는 가까운 영역 0.985배, 중간 영역 0.936배였습니다. 잔여 차이가 있으므로 모든 범프 장면의 동등함을 선언하지 않습니다.</p><h2>제한</h2><p>정확히 겹치는 볼륨 경계와 표면, 연결된 Bump 입력, 일부 절차적 노드, 변위, 복합 재질과 GPU 광선 연결 추정기는 추가 검증이 필요합니다. 베이킹과 사용자 OSL은 현재 작업의 완료 범위에 포함하지 않습니다. 경고를 숨기거나 미지원 기능을 완전 지원으로 취급하지 마십시오.</p></main></body></html>

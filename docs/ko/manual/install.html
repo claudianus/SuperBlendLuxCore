@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>설치 — SuperLuxCore</title><style>
+:root{--bg:#0b0d10;--panel:#12161b;--line:#20262e;--txt:#e8edf2;
+--dim:#97a4b1;--acc:#5fd3a5;--acc2:#7aa7ff;
+--mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--txt);
+font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;line-height:1.6}
+a{color:var(--acc2)} a:hover{text-decoration:underline}
+.wrap{max-width:860px;margin:0 auto;padding:36px 24px}
+nav{border-bottom:1px solid var(--line);padding:14px 24px;background:var(--panel)}
+nav a{color:var(--dim);margin-right:18px;font-size:14px}
+h1{font-size:30px;margin:0 0 8px} h2{font-size:20px;margin:32px 0 10px}
+p,li{color:var(--dim)}
+code{font-family:var(--mono);background:#0e1216;padding:1px 6px;border-radius:5px;font-size:.92em}
+pre{background:#0e1216;border:1px solid var(--line);border-radius:8px;padding:14px;overflow-x:auto}
+pre code{background:none;padding:0}
+table{width:100%;border-collapse:collapse;font-size:14px;margin:12px 0}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--txt);font-weight:600}
+ul{line-height:1.9}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:18px;margin:14px 0}
+</style></head><body><nav><a href="../index.html">SuperLuxCore</a><a href="index.html">SuperLuxCore 사용 설명서</a><a href="install.html">설치</a><a href="quickstart.html">첫 렌더</a><a href="engines.html">렌더 엔진과 장치</a><a href="materials.html">재질과 텍스처</a><a href="cycles-import.html">Cycles 장면 가져오기</a><a href="properties.html">렌더 설정</a><a href="denoise.html">노이즈 제거</a><a href="caustics.html">코스틱과 광선 추적</a><a href="troubleshooting.html">문제 해결</a></nav><main class="wrap"><p><b>한국어</b> · <a lang="en" hreflang="en" href="../../manual/install.html">English</a></p><h1>설치</h1><h2>요구 사항</h2><p>Blender 5.2 이상과 Python 3.13에 맞는 확장 ZIP을 사용합니다. macOS Apple silicon은 macos_arm64, Intel은 macos_x64, Windows는 windows_x64, Linux는 linux_x64를 선택합니다. Metal은 Apple silicon과 지원되는 macOS에서 사용합니다.</p><h2>배포 패키지 설치</h2><ol><li><a href="https://github.com/claudianus/SuperBlendLuxCore/releases">GitHub 배포 목록</a>에서 운영체제에 맞는 ZIP을 받습니다.</li><li>Blender의 Edit → Preferences → Get Extensions 메뉴에서 Install from Disk를 선택합니다.</li><li>ZIP을 설치하고 SuperLuxCore를 활성화합니다. 엔진 wheel이 포함되어 별도 pip 설치는 필요하지 않습니다.</li><li>Render Engine을 SuperLuxCore로 바꾸고 첫 렌더를 수행합니다.</li></ol><p>이 설명서는 2.11.13 소스 변경을 설명합니다. 배포 ZIP의 공개 상태와 검증 결과는 해당 GitHub 릴리스 기록을 확인하십시오. 확장과 엔진 버전이 다르면 먼저 같은 배포물로 다시 설치하십시오.</p><h2>버전 확인</h2><pre><code>import pysuperluxcore
+print(pysuperluxcore.Version())</code></pre><p>첫 GPU 렌더는 커널 컴파일로 오래 걸릴 수 있습니다. 같은 장면의 두 번째 렌더와 구별하십시오. 새 버전 테스트는 기존 개발 설치가 섞이지 않은 별도 Blender 프로필에서 수행하는 것이 좋습니다.</p></main></body></html>

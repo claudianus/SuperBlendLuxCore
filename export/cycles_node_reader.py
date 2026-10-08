@@ -648,6 +648,18 @@ def _vtransform_matrix(cfrom, cto, obj_name):
     return m_to.inverted_safe() @ m_from
 
 
+def _point_transform_channels(matrix, name, props, rows=(0, 1, 2)):
+    """월드 히트 위치에 행렬을 적용해 필요한 동차 좌표 채널을 만든다."""
+    position = _tex_helper(props, name + "_world", {"type": "hitpoint", "channel": "worldpos"})
+    result = []
+    for row in rows:
+        value = _tex_helper(props, f"{name}_dot{row}", {
+            "type": "dotproduct", "texture1": position,
+            "texture2": [matrix[row][i] for i in range(3)]})
+        result.append(_tex_binary("add", value, matrix[row][3], f"{name}_offset{row}", props))
+    return result
+
+
 def _blend_rgb(node, blend_type, fac, tex1, tex2, superluxcore_name, props, obj_name):
     """
     Shared implementation for ShaderNodeMixRGB and the RGBA variant of the
@@ -2357,28 +2369,22 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
 
         prefix = "scene.textures."
 
-        # Cycles displaces by Height * Distance (world units) and blends
-        # the bumped normal with Strength. The engine bump texture is a
-        # world-space height, so fold Distance in; Strength scales the
-        # height (equal to Cycles' normal blend for gentle slopes).
-        # Without Distance (default 0.1) bumps were 10-20x too steep.
+        # Distance는 높이 미분에 적용하고 Strength는 정규화된 법선을 혼합한다.
+        # 높이에 Strength를 곱하면 큰 기울기에서 Cycles와 다른 법선이 된다.
         distance = node.inputs["Distance"].default_value
         strength = _socket(node.inputs["Strength"], props, material, obj_name, group_node_stack)
-        definitions = {
-            "type": "scale",
-            "texture1": _socket(node.inputs["Height"], props, material, obj_name, group_node_stack),
-            "texture2": _tex_binary("scale", strength, distance,
-                                    superluxcore_name + "_bumpscale", props),
-        }
-
+        height = _socket(node.inputs["Height"], props, material, obj_name, group_node_stack)
         if node.invert:
-            props.Set(utils.luxutils.create_props(prefix + superluxcore_name + ".", definitions))
-            definitions = {
-                "type": "scale",
-                "texture1": superluxcore_name,
-                "texture2": -1,
-            }
-            superluxcore_name = superluxcore_name + "invert"
+            distance = -distance
+        scaled_height = _tex_binary("scale", height, distance,
+                                    superluxcore_name + "_height", props)
+        definitions = {
+            "type": "mix",
+            "texture1": 0.0,
+            "texture2": scaled_height,
+            "amount": strength,
+            "bumpnormal": True,
+        }
     elif node.bl_idname == "ShaderNodeNewGeometry":
         prefix = "scene.textures."
         definitions = {}
@@ -2973,10 +2979,9 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
             definitions = {"type": "shadingnormal"}
         elif coord == "Object":
             if getattr(node, "object", None) is not None:
-                SuperLuxCoreErrorLog.add_warning(
-                    f'Texture Coordinate node "{node.name}": coordinates relative to '
-                    "another object are not supported, using own object space",
-                    obj_name=obj_name)
+                values = _point_transform_channels(node.object.matrix_world.inverted_safe(),
+                                                    superluxcore_name, props)
+                return _combine3(*values, superluxcore_name + "_object", props)
             # object-space hit point - Cycles' Object output
             definitions = {
                 "type": "hitpoint",
@@ -2995,10 +3000,29 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
                 "type": "hitpoint",
                 "channel": "reflection",
             }
-        elif coord == "Window":
-            return _warn_unsupported(
-                node, "'Window' (screen space) coordinates are not supported; "
-                "using the screen center", [0.5, 0.5, 0.0], obj_name)
+        elif coord in {"Camera", "Window"}:
+            scene = bpy.context.scene
+            camera = scene.camera
+            if camera is None or camera.data.type not in {"PERSP", "ORTHO"}:
+                return _warn_unsupported(node, "현재 카메라에서 좌표 투영을 지원하지 않습니다",
+                                         FALLBACK_VECTOR, obj_name)
+            world_to_camera = camera.matrix_world.normalized().inverted_safe()
+            if coord == "Camera":
+                # Cycles의 카메라 좌표는 전방이 +Z이며 Blender 카메라는 -Z이다.
+                transform = Matrix.Diagonal((1., 1., -1., 1.)) @ world_to_camera
+                values = _point_transform_channels(transform, superluxcore_name, props)
+                return _combine3(*values, superluxcore_name + "_camera", props)
+            projection = camera.calc_matrix_camera(bpy.context.evaluated_depsgraph_get(),
+                x=scene.render.resolution_x, y=scene.render.resolution_y,
+                scale_x=scene.render.pixel_aspect_x, scale_y=scene.render.pixel_aspect_y)
+            x, y, w = _point_transform_channels(projection @ world_to_camera,
+                                                superluxcore_name, props, (0, 1, 3))
+            values = []
+            for i, value in enumerate((x, y)):
+                value = _tex_binary("divide", value, w, f"{superluxcore_name}_divide{i}", props)
+                value = _tex_binary("scale", value, .5, f"{superluxcore_name}_half{i}", props)
+                values.append(_tex_binary("add", value, .5, f"{superluxcore_name}_ndc{i}", props))
+            return _combine3(values[0], values[1], 0., superluxcore_name + "_window", props)
         else:
             # "Camera" and any future outputs
             return _warn_unsupported(

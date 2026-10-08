@@ -22,7 +22,8 @@ th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);verti
 <body>
 <nav><a href="index.html">&larr; Manual</a></nav>
 <div class="wrap">
-<h1>Importing a Cycles scene</h1>
+<p><b>English</b> · <a lang="ko" hreflang="ko" href="../ko/manual/cycles-import.html">한국어</a></p>
+<h1>Importing a Cycles scene</h1><h2>2.11.13 compatibility corrections</h2><p>Bump finite differences no longer use ray-intersection epsilon as their minimum step. Bump Strength blends the original and perturbed unit normals on CPU and GPU. Camera volume detection searches past opaque foreground surfaces. Reference-object coordinates and Camera/Window coordinates for perspective and orthographic cameras are now transformed explicitly. Linked Bump Normal/Distance, panoramic Window coordinates and moving coordinate spaces remain outside this validation.</p><p>The 1280×720 sand comparison measured Cycles-relative mean brightness of 0.985 near and 0.936 mid-frame. Twelve bump-composition and eight analytic Beer–Lambert conditions passed on CPU and Metal. These scoped results do not establish 99% compatibility across all Cycles features.</p>
 
 <h2>One-click settings</h2>
 <p>Open a .blend authored for Cycles, switch <em>Render Engine</em> to
@@ -51,8 +52,8 @@ not nearest rounding: <code>Snap(1.75, 1) = 1</code> and
 a zero increment produces zero in that component. Linked inputs and the
 Math node's Clamp option are supported on CPU and GPU.</p>
 <p>Texture Coordinate UV, Normal, Generated, Object and Reflection outputs
-are routed separately from Vector Math. Window and Camera outputs still
-report their documented unsupported-coordinate warnings.</p>
+are routed separately from Vector Math. Window and Camera outputs
+have explicit transforms in 2.11.13 for perspective and orthographic cameras; other camera modes report unsupported-coordinate warnings.</p>
 <p>Generated uses Blender's authored whole-mesh texture space before
 splitting geometry by material, including custom location/size, translation,
 rotation, nonuniform scale and instances. Live rotation/translation edits,

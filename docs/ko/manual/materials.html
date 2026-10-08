@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>재질과 텍스처 — SuperLuxCore</title><style>
+:root{--bg:#0b0d10;--panel:#12161b;--line:#20262e;--txt:#e8edf2;
+--dim:#97a4b1;--acc:#5fd3a5;--acc2:#7aa7ff;
+--mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--txt);
+font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;line-height:1.6}
+a{color:var(--acc2)} a:hover{text-decoration:underline}
+.wrap{max-width:860px;margin:0 auto;padding:36px 24px}
+nav{border-bottom:1px solid var(--line);padding:14px 24px;background:var(--panel)}
+nav a{color:var(--dim);margin-right:18px;font-size:14px}
+h1{font-size:30px;margin:0 0 8px} h2{font-size:20px;margin:32px 0 10px}
+p,li{color:var(--dim)}
+code{font-family:var(--mono);background:#0e1216;padding:1px 6px;border-radius:5px;font-size:.92em}
+pre{background:#0e1216;border:1px solid var(--line);border-radius:8px;padding:14px;overflow-x:auto}
+pre code{background:none;padding:0}
+table{width:100%;border-collapse:collapse;font-size:14px;margin:12px 0}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--txt);font-weight:600}
+ul{line-height:1.9}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:18px;margin:14px 0}
+</style></head><body><nav><a href="../index.html">SuperLuxCore</a><a href="index.html">SuperLuxCore 사용 설명서</a><a href="install.html">설치</a><a href="quickstart.html">첫 렌더</a><a href="engines.html">렌더 엔진과 장치</a><a href="materials.html">재질과 텍스처</a><a href="cycles-import.html">Cycles 장면 가져오기</a><a href="properties.html">렌더 설정</a><a href="denoise.html">노이즈 제거</a><a href="caustics.html">코스틱과 광선 추적</a><a href="troubleshooting.html">문제 해결</a></nav><main class="wrap"><p><b>한국어</b> · <a lang="en" hreflang="en" href="../../manual/materials.html">English</a></p><h1>재질과 텍스처</h1><h2>Cycles 재질</h2><p>Principled BSDF는 엔진의 OpenPBR 계열 재질로 변환됩니다. Base Color, Metallic, Roughness, IOR, Transmission, Coat, Subsurface 등 각 입력이 옮겨지지만 모든 셰이더의 수치적 동일함을 의미하지 않습니다. 유리, 금속, 확산, 발광, 머리카락은 장면별로 확인하십시오.</p><h2>범프</h2><p>2.11.13은 Bump의 Distance와 Strength를 분리합니다. 먼저 Distance로 표면 기울기를 만들고 원래 법선과 결과 법선을 Strength로 혼합합니다. Invert는 거리 부호에 적용합니다. 연결된 Distance/Normal과 실제 변위는 추가 제한이 있으므로 경고와 영상을 확인하십시오.</p><h2>좌표</h2><p>UV, Generated, Object, Normal과 Reflection을 지원합니다. 2.11.13에는 참조 오브젝트가 있는 Object 좌표와 원근·직교 카메라의 Camera/Window 좌표 변환이 추가되었습니다. 파노라마 Window, 카메라가 다른 뷰포트, 시간에 따라 움직이는 좌표 공간은 이 검증에 포함되지 않았습니다.</p><h2>색과 스펙트럼</h2><p>스펙트럼 렌더링과 RGB 비교는 별도의 기준입니다. 색 관리와 스펙트럼 변환 차이를 재질 오류와 혼동하지 마십시오. 음수 발광은 물리적 렌더 경로에서 제한되므로 좌표 검증용 색은 양수로 옮겨 비교합니다.</p></main></body></html>
