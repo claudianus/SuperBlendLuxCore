@@ -118,6 +118,25 @@ class SUPERLUXCORE_OT_import_cycles_settings(bpy.types.Operator):
             slc.config.psr_sigma = 0.0
             changed.append(f"filter_glossy={blur_glossy:g}")
 
+        # --- 픽셀 필터 ------------------------------------------------
+        # Cycles의 종류별 샘플링 지지 구간을 엔진의 반지름으로 변환한다.
+        # Gaussian은 폭을 3배 확장하므로 감쇠 계수는 8 / 폭²이다.
+        try:
+            ftype = str(cyc.pixel_filter_type)
+            fwidth = float(cyc.filter_width)
+        except Exception:
+            ftype = None
+        filter_map = {"BOX": "BOX", "GAUSSIAN": "GAUSSIAN",
+                      "BLACKMAN_HARRIS": "BLACKMANHARRIS"}
+        if ftype in filter_map:
+            slc.config.filter_enabled = True
+            slc.config.filter = filter_map[ftype]
+            radius_scale = {"BOX": 0.5, "GAUSSIAN": 1.5, "BLACKMAN_HARRIS": 1.0}
+            slc.config.filter_width = max(0.005, fwidth * radius_scale[ftype])
+            if ftype == "GAUSSIAN":
+                slc.config.gaussian_alpha = max(0.1, 8.0 / max(fwidth, 0.01) ** 2)
+            changed.append(f"filter={filter_map[ftype]} {slc.config.filter_width:g}px")
+
         # --- transparent film ------------------------------------------
         try:
             if bool(cyc.film_transparent):

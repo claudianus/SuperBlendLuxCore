@@ -1003,9 +1003,9 @@ class SuperLuxCoreConfig(PropertyGroup):
     ]
     filter: EnumProperty(name="Filter", items=filters, default="BLACKMANHARRIS",
                           description=FILTER_DESC)
-    filter_width: FloatProperty(name="Filter Width", default=2.0, min=0.5, soft_max=3,
+    filter_width: FloatProperty(name="Filter Width", default=2.0, min=0.005, soft_min=0.5, soft_max=3,
                                  description=FILTER_WIDTH_DESC, subtype="PIXEL")
-    gaussian_alpha: FloatProperty(name="Gaussian Filter Alpha", default=2, min=0.1, max=10,
+    gaussian_alpha: FloatProperty(name="Gaussian Filter Alpha", default=2, min=0.1, max=80000, soft_max=10,
                                    description="Gaussian rate of falloff. Lower values give blurrier images")
     sinc_tau: FloatProperty(name="Sinc Filter Tau", default=1, min=0.01, max=8)
 

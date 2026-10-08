@@ -35,7 +35,8 @@ LIB_DIR="$SUPERLUXCORE_REPO/out/install/Release/lib"
 BLENDER_VER="${BLENDER_VER:-5.2}"
 EXT_ID="${EXT_ID:-superluxcore}"
 
-EXT_BASE="$HOME/Library/Application Support/Blender/$BLENDER_VER/extensions"
+# 격리 검증은 사용자 프로필 대신 지정한 확장 디렉터리에 설치한다.
+EXT_BASE="${SUPERLUXCORE_EXT_BASE:-$HOME/Library/Application Support/Blender/$BLENDER_VER/extensions}"
 EXT_DIR="$EXT_BASE/user_default/$EXT_ID"
 SITE_PKG="$EXT_BASE/.local/lib/python3.13/site-packages"
 WHEELS_DIR="$EXT_DIR/wheels"
@@ -171,7 +172,7 @@ os.replace(tmp, dev_wheel)
 print(f"== dev wheel updated: {dev_wheel}")
 PYEOF
     # Point the loader's LOCAL wheel source at the stable dev wheel
-    SETTINGS="$HOME/Library/Application Support/Blender/$BLENDER_VER/config/superluxcore/blc_settings.json"
+    SETTINGS="$(dirname "$EXT_BASE")/config/superluxcore/blc_settings.json"
     mkdir -p "$(dirname "$SETTINGS")"
     python3 - "$SETTINGS" "$DEV_WHEEL" <<'PYEOF'
 import json, sys
