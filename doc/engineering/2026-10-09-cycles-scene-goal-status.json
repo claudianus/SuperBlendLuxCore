@@ -947,8 +947,17 @@
     "baseline_version": "2.11.23",
     "cpu_failed_conditions": 4,
     "scope": "Geometry Backfacing color and emission Strength consumers front/back",
-    "fixed": false,
+    "fixed": true,
     "public_fixed": false,
-    "diagnostic_in_progress": true
+    "diagnostic_in_progress": false,
+    "metal_failed_conditions": 4,
+    "verified_private": true,
+    "main_merged": true,
+    "native_sha256": "0833c117bcdeb517c5d5c1eff9eb03202557e255aca23919a548e3e5896643e8",
+    "checks_per_backend": 14,
+    "total_targeted_checks": 28,
+    "comparison_sheets_reviewed": 4,
+    "evidence": "2026-10-10-cycles-backfacing.md",
+    "engine_source": "684e94c3ff26bf1dfa7f3b0671ebf847af384ced"
   }
 }

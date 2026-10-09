@@ -72,9 +72,13 @@ cfg.denoiser.enabled = False
 s.camera.data.superluxcore.imagepipeline.tonemapper.enabled = False
 records = []
 for condition in ('emission', 'add_emission_sum', 'add_transparent_emission',
-                  'nested_transparent_emission', 'mix_transparent_emission'):
+                  'nested_transparent_emission', 'mix_transparent_emission',
+                  'frontface_color', 'backface_color',
+                  'frontface_strength', 'backface_strength'):
     if os.environ.get('SUPERLUXCORE_AUDIT_CASES') and condition not in os.environ['SUPERLUXCORE_AUDIT_CASES'].split(','):
         continue
+    emitter.rotation_euler.y = 0.0 if condition.startswith('backface_') else math.pi
+    bpy.context.view_layer.update()
     nodes, links = material.node_tree.nodes, material.node_tree.links
     nodes.clear()
 
@@ -91,6 +95,17 @@ for condition in ('emission', 'add_emission_sum', 'add_transparent_emission',
         return node.outputs[0]
 
     surface = emission(.4)
+    if condition.startswith(('frontface_', 'backface_')):
+        geometry = nodes.new('ShaderNodeNewGeometry')
+        target = next(node for node in nodes if node.bl_idname == 'ShaderNodeEmission')
+        if condition.endswith('_color'):
+            links.new(geometry.outputs['Backfacing'], target.inputs['Color'])
+        else:
+            multiply = nodes.new('ShaderNodeMath')
+            multiply.operation = 'MULTIPLY'
+            multiply.inputs[1].default_value = .4
+            links.new(geometry.outputs['Backfacing'], multiply.inputs[0])
+            links.new(multiply.outputs[0], target.inputs['Strength'])
     if condition == 'add_emission_sum':
         surface = add(emission(.2), emission(.2))
     if condition in {'add_transparent_emission', 'nested_transparent_emission'}:
@@ -137,7 +152,9 @@ for condition in ('emission', 'add_emission_sum', 'add_transparent_emission',
            'relative_mean_error': abs(actual - reference) / max(reference, 1e-8),
            'pixel_mae': float(np.abs(pixels['CYCLES'] - pixels['SUPERLUXCORE']).mean()),
            'errors': [e.message for e in log.errors], 'warnings': [w.message for w in log.warnings]}
-    rec['passed'] = rec['finite'] and not rec['errors'] and reference > 1e-4 and rec['relative_mean_error'] < .03 and all(
+    energy_passed = (reference < 1e-4 and actual < 1e-4) if condition.startswith('frontface_') else (
+        reference > 1e-4 and rec['relative_mean_error'] < .03)
+    rec['passed'] = rec['finite'] and not rec['errors'] and energy_passed and all(
         w == 'Light-probe-volume backface culling is Eevee-only - ignored' for w in rec['warnings'])
     records.append(rec)
     (folder / 'metrics.json').write_text(json.dumps(records, indent=2) + '\n')
