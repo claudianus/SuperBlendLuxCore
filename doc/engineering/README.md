@@ -53,3 +53,5 @@ docs live alongside in `doc/`.
 - [Verified 2.11.20 public ZIP and actual Blender deployment](2026-10-09-deployment-2.11.20.md)
 
 - [Cycles Principled lobe normals and independent Coat Normal](2026-10-10-cycles-lobe-normals.md)
+
+- [Verified 2.11.21 public ZIP and actual Blender deployment](2026-10-10-deployment-2.11.21.md)

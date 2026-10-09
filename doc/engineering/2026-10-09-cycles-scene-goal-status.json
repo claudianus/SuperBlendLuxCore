@@ -2,7 +2,7 @@
   "goal": "기존 Cycles 씬의 무변환 시각·논리 의미 호환",
   "complete": false,
   "target_version": "2.11.21",
-  "public_package_verified": false,
+  "public_package_verified": true,
   "baseline": "2026-10-09-remaining-issues.json",
   "node_census": {
     "conditions": 1023,
@@ -238,22 +238,24 @@
       "priority": "P1",
       "scope": "벡터 변위",
       "status": "미완료",
-      "remaining": "Midlevel을 읽지 않고 offset=0이다. Tangent/World 공간을 Object로 대체한다. 객체 변환·Normal 기준까지 실제 영상 검증이 필요하다."
+      "remaining": "Object/Tangent/World 및 연결 Scale·Midlevel의 720p 진단 3개가 실패했다. 공통 표면 깊이 MAE 0.669–0.805, 형상 IoU 0.338–0.370이다. Midlevel 누락, 공간 혼동, 연결 Scale 무시 및 BUMP/BOTH의 벡터 범프 미지원이 남아 있다. 객체 변환·원래 Normal/접선·변위 전 좌표 의미를 구현하고 CPU·Metal 실제 영상으로 검증해야 한다.",
+      "evidence": "2026-10-10-deployment-2.11.21.md"
     },
     {
       "id": "C30",
       "priority": "P1",
       "scope": "Bump 연결·합성",
       "status": "부분 구현·검증",
-      "remaining": "전용 cyclesbump 후보에서 연결·공간 Distance, linked Normal, Bump 연쇄, Vector Math/Mix 방향 데이터 및 노드별 Filter Width를 구현. CPU/Metal 720p 평면 48조건·곡면 10조건 통과. 출력 변위 합성과 임의 closure, 실제 viewport/F12·제작 씬, 최종 공개 패키지 검증은 남아 있다.",
-      "evidence": "2026-10-09-cycles-bump-direction.md"
+      "remaining": "전용 cyclesbump 후보에서 연결·공간 Distance, linked Normal, Bump 연쇄, Vector Math/Mix 방향 데이터 및 노드별 Filter Width를 구현. CPU/Metal 720p 평면 48조건·곡면 10조건 통과. 출력 변위 합성과 임의 closure, 실제 viewport/F12·제작 씬, 넓은 제작 조합 검증은 남아 있다.",
+      "evidence": "2026-10-09-cycles-bump-direction.md",
+      "public_regression_evidence": "2026-10-10-deployment-2.11.21.md"
     },
     {
       "id": "C31",
       "priority": "P1",
       "scope": "일반 Normal 벡터",
       "status": "부분 구현·검증",
-      "remaining": "로브별 법선·재질별 반사 보정·확산 보정·뒤면 누수 방지·영벡터 fallback을 CPU/Metal 720p의 50조건, 선택 에너지 gate 및 표적 BIDIR에서 검증했다. 강한 투과 법선, 제작 조합·GUI·타 플랫폼·최종 공개 패키지와 flat-metal grazing 약 1% 에너지 차이는 남아 있다.",
+      "remaining": "2.11.21 공개 CI·최종 ZIP·실제 설치의 CPU/Metal에서 로브별 법선·재질별 반사/확산 보정·뒤면 누수 방지·영벡터 fallback과 표적 BIDIR를 검증했다. 강한 투과 법선, 제작 조합·GUI·타 플랫폼 및 flat-metal grazing 약 1% 에너지 차이는 남아 있다.",
       "evidence": "2026-10-10-cycles-lobe-normals.md"
     },
     {
@@ -261,7 +263,7 @@
       "priority": "P1",
       "scope": "Principled Tangent·Coat Normal",
       "status": "부분 구현·검증",
-      "remaining": "독립 Coat Normal·연결 Bump와 기저·코트·fuzz 프레임 분리를 CPU·Metal 720p 및 실제 구형 장면에서 검증했다. Principled Tangent, 넓은 코트/박막/SSS 조합과 최종 공개 패키지 검증은 남아 있다.",
+      "remaining": "독립 Coat Normal·연결 Bump와 기저·코트·fuzz 프레임 분리를 2.11.21 공개 CI·최종 ZIP·실제 설치의 CPU/Metal 720p 및 재질 장면에서 검증했다. Principled Tangent, 넓은 코트/박막/SSS 조합과 제작·GUI·타 플랫폼 검수는 남아 있다.",
       "evidence": "2026-10-10-cycles-lobe-normals.md"
     },
     {
@@ -269,7 +271,7 @@
       "priority": "P1",
       "scope": "Principled Thin Wall·분기",
       "status": "미완료",
-      "remaining": "정확히 full transmission·sharp일 때만 archglass다. 혼합 투과 OpenPBR는 Thin Wall을 사용하지 않으며 해당 분기에서 경고도 없다. 유리 최적화 분기와 코트·SSS·sheen 결합을 다시 검증해야 한다."
+      "remaining": "정확히 full transmission·sharp일 때만 archglass다. 혼합 투과 OpenPBR는 Thin Wall을 사용하지 않으며 해당 분기에서 경고도 없다. 유리 최적화 분기와 코트·SSS·sheen 결합을 다시 검증해야 한다. 강한 mapped transmission의 밝기·색 차이는 2.11.21 로브 법선 배포에서 해결 완료로 세지 않는다."
     },
     {
       "id": "C34",
@@ -283,7 +285,7 @@
       "priority": "P1",
       "scope": "Diffuse Roughness",
       "status": "부분 구현·검증",
-      "remaining": "상수·연결 Roughness 720p 16조건 통과. 백색로 CPU PDF 방향·광원 코사인·뒤집힌 면 계약을 수정하여 표준 스펙트럼 PATH CPU/Metal 앞·뒷면 및 BIDIR CPU 10조건 중앙 평균 1% 에너지 검증을 통과했다. 색·입사각 전범위 및 복합 클로저 제작 씬은 미검증. BIDIR matte/roughmatte 공통 실루엣 검은 테두리는 별도 잔여 문제다. 새 수정 소스의 CI·배포본 검증 후 공개한다.",
+      "remaining": "상수·연결 Roughness 720p 16조건 통과. 백색로 CPU PDF 방향·광원 코사인·뒤집힌 면 계약을 수정하여 표준 스펙트럼 PATH CPU/Metal 앞·뒷면 및 BIDIR CPU 10조건 중앙 평균 1% 에너지 검증을 통과했다. 색·입사각 전범위 및 복합 클로저 제작 씬은 미검증. BIDIR matte/roughmatte 공통 실루엣 검은 테두리는 별도 잔여 문제다. 기록된 수정은 공개 배포본 회귀를 통과했으며, 위 미검증 범위를 별도로 유지한다.",
       "evidence": "2026-10-09-diffuse-roughness.md"
     },
     {
@@ -473,18 +475,18 @@
       "evidence": "cycles-scene-goal-phase1/workflow"
     }
   ],
-  "public_version": "2.11.20",
+  "public_version": "2.11.21",
   "withdrawn_candidate": {
     "version": "2.11.14",
     "reason": "네 플랫폼 C++ 빌드는 성공했지만 공통 UV payload의 u_int가 실제 Metal shader 컴파일에 실패하여 엔진 후보를 초안으로 회수했다. Blender 확장은 미공개다."
   },
   "public_release": {
-    "version": "2.11.20",
-    "engine_source": "2f0304832ea144a7069718a1cf0a6dcdb13dea73",
-    "addon_source": "6a8c14837fae8428aaec459ad26ef4423f5ec9a7",
+    "version": "2.11.21",
+    "engine_source": "00a3afb7205d856327b0f16f76f94dbad1967105",
+    "addon_source": "84f93cce73087062c73708249097a1c3fe14d5f1",
     "installed_in_user_blender": true,
     "verified": true,
-    "evidence": "2026-10-09-deployment-2.11.20.md"
+    "evidence": "2026-10-10-deployment-2.11.21.md"
   },
   "vector_divide": {
     "version": "2.11.16",
@@ -573,23 +575,31 @@
     "public_runtime_native_sha256": "79b47dca82b4692aba120aa32adaf339457bfc49c5f822ca1f0f2b7dd83b6324",
     "public_evidence": "2026-10-09-deployment-2.11.20.md"
   },
-  "deployed_version": "2.11.20",
+  "deployed_version": "2.11.21",
   "deployment": {
-    "version": "2.11.20",
+    "version": "2.11.21",
+    "engine_source": "00a3afb7205d856327b0f16f76f94dbad1967105",
+    "addon_source": "84f93cce73087062c73708249097a1c3fe14d5f1",
+    "installed_in_user_blender": true,
+    "verified": true,
+    "evidence": "2026-10-10-deployment-2.11.21.md",
     "actual_installed": true,
-    "engine_source": "2f0304832ea144a7069718a1cf0a6dcdb13dea73",
-    "addon_source": "6a8c14837fae8428aaec459ad26ef4423f5ec9a7",
-    "ci_conditions": 125,
-    "final_zip_conditions": 48,
-    "actual_profile_conditions": 38,
-    "total_checks": 211,
-    "comparison_sheets_inspected": 14,
-    "beauty_images_inspected": 6,
+    "ci_conditions": 112,
+    "final_zip_conditions": 40,
+    "actual_profile_conditions": 40,
+    "total_checks": 192,
+    "independent_production_scene_count": false,
+    "comparison_sheets_inspected": 6,
+    "native_beauty_images_inspected": 6,
+    "cycles_reference_beauty_images_inspected": 1,
     "public_package_verified": true,
-    "native_sha256": "79b47dca82b4692aba120aa32adaf339457bfc49c5f822ca1f0f2b7dd83b6324",
-    "evidence": "2026-10-09-deployment-2.11.20.md",
+    "native_sha256": "0f61daf90d3ad2cb6082d59f837e73fea657133fce39983f82d303b4d985d295",
+    "addon_python_source_files": 367,
     "fresh_process_registration_diagnostics": 0,
-    "gui_hot_reload_verified": false
+    "upgrade_cli_registration_diagnostics": 3,
+    "gui_hot_reload_verified": false,
+    "actual_metal_gpu_verified": true,
+    "intel_ci_runtime_smoke": "skipped_gpu_unavailable"
   },
   "add_shader": {
     "version": "2.11.20",
@@ -627,17 +637,19 @@
     "compatibility_gate_passed": false,
     "implementation_complete": false,
     "evidence": "2026-10-09-reflection-normal-audit.md",
-    "remaining": "Strongly tilted mapped Principled reflection/diffuse; per-material correction flag; Coat Normal; per-lobe PDF/frame/terminator handling; flat-metal grazing white-furnace excess energy"
+    "remaining": "Historical failed baseline; follow-up 2.11.21 fixes imported reflection/diffuse, per-material correction and independent Coat Normal. Flat-metal grazing excess, mapped transmission and broader lobe combinations remain open.",
+    "baseline_version": "2.11.20",
+    "follow_up": "2026-10-10-cycles-lobe-normals.md"
   },
   "lobe_normal_candidate": {
     "version": "2.11.21",
     "private_native_sha256": "4631c64817a7e44d36437c7a3f25ae93040938a0fc3e6045f6ad9ed6f8edb745",
     "validation_in_progress": false,
-    "public_package_verified": false,
-    "installed_in_user_blender": false,
+    "public_package_verified": true,
+    "installed_in_user_blender": true,
     "complete": false,
     "evidence": "2026-10-10-cycles-lobe-normals.md",
-    "remaining": "Four-platform CI and public wheel/ZIP/actual install; mapped transmission, Tangent, curve, broad SSS/coat/thin-film, mixed legacy/light-path, production and GUI/platform acceptance",
+    "remaining": "Mapped transmission, Tangent, curve, broad SSS/coat/thin-film, mixed legacy/light-path, production and GUI/platform acceptance",
     "verified_private": true,
     "conditions_per_backend": 25,
     "mean_energy_conditions_per_backend": 11,
@@ -649,6 +661,40 @@
     "comparison_sheets_inspected": 4,
     "engine_source": "00a3afb7205d856327b0f16f76f94dbad1967105",
     "ci_run": 37955453896,
-    "ci_status": "in_progress"
+    "ci_status": "success",
+    "bundle_ci_run": 37961431687,
+    "bundle_ci_status": "success",
+    "public_runtime_native_sha256": "0f61daf90d3ad2cb6082d59f837e73fea657133fce39983f82d303b4d985d295",
+    "public_checks": 192,
+    "public_evidence": "2026-10-10-deployment-2.11.21.md",
+    "public_mean_energy_max_relative_error": {
+      "CPU": 0.01030279,
+      "Metal": 0.01015726
+    }
+  },
+  "previous_public_release": {
+    "version": "2.11.20",
+    "engine_source": "2f0304832ea144a7069718a1cf0a6dcdb13dea73",
+    "addon_source": "6a8c14837fae8428aaec459ad26ef4423f5ec9a7",
+    "installed_in_user_blender": true,
+    "verified": true,
+    "evidence": "2026-10-09-deployment-2.11.20.md"
+  },
+  "previous_deployment": {
+    "version": "2.11.20",
+    "actual_installed": true,
+    "engine_source": "2f0304832ea144a7069718a1cf0a6dcdb13dea73",
+    "addon_source": "6a8c14837fae8428aaec459ad26ef4423f5ec9a7",
+    "ci_conditions": 125,
+    "final_zip_conditions": 48,
+    "actual_profile_conditions": 38,
+    "total_checks": 211,
+    "comparison_sheets_inspected": 14,
+    "beauty_images_inspected": 6,
+    "public_package_verified": true,
+    "native_sha256": "79b47dca82b4692aba120aa32adaf339457bfc49c5f822ca1f0f2b7dd83b6324",
+    "evidence": "2026-10-09-deployment-2.11.20.md",
+    "fresh_process_registration_diagnostics": 0,
+    "gui_hot_reload_verified": false
   }
 }

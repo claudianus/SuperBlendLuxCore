@@ -12,9 +12,9 @@
 
 설치된 Blender 5.2.1 LTS와 같은 소스 `9e2066aef7ef7e20c142ad7bd3303138a4304c93`를 바탕화면의 Blender 소스에서 확인했다. 주요 근거는 `intern/cycles/kernel/svm/closure.h`, `kernel/closure/bsdf.h`, `bsdf_util.h`, `bsdf_oren_nayar.h`다.
 
-## 고정 소스 검증 결과
+## 고정 private 소스 검증 결과
 
-후보는 2.11.21이며 private native SHA-256은 `4631c64817a7e44d36437c7a3f25ae93040938a0fc3e6045f6ad9ed6f8edb745`다. CPU와 Metal은 따로 초기화한 프로필과 고정된 전체 wheel을 사용한다. 최종 후보의 공개 패키지나 실제 사용자 설치를 뜻하지 않는다. 현재 검증된 공개·사용자 설치 버전은 2.11.20이다.
+공개 전 2.11.21 private native SHA-256은 `4631c64817a7e44d36437c7a3f25ae93040938a0fc3e6045f6ad9ed6f8edb745`다. 아래 private 결과는 CPU와 Metal을 따로 초기화한 프로필과 고정된 전체 wheel로 검사했다. 현재 공개·사용자 설치 버전은 2.11.21이며, 서로 다른 빌드의 해시와 검수 결과를 별도로 기록한다.
 
 `dev-tools/cycles-reflection-normal-test.py`는 CPU·Metal의 각각 25개 조건을 1280×720으로 비교한다. Cycles 64 samples와 native 기본 분광 128 samples, noise halt 비활성화 조건이다. 보정 켜기/끄기, diffuse roughness, 금속, 독립 코트 벡터·Bump, grazing normal, 앞/뒤면, 두 Principled의 Mix, 영벡터 fallback 및 투과를 포함한다. 금속·확산·코트 등 선택한 11개 조건은 평균 에너지 차이 2.5% gate도 적용한다. 투과의 전체 시각 호환을 그 gate의 통과 수로 세지 않는다.
 
@@ -35,8 +35,14 @@
 
 원본 EXR/PNG, metrics, build/설치/렌더 로그와 소스 fingerprint는 workspace `test-scenes/validation-2026-10-09/phase18/lobe-normal-candidate-2.11.21`에 보존한다. 검사에서 허용한 장면 경고는 기본 Eevee light-probe-volume 옵션을 무시한다는 진단뿐이며, 법선 검수 50조건에는 경고·렌더러 오류가 없다.
 
-엔진 소스 `00a3afb7205d856327b0f16f76f94dbad1967105`는 main에 반영했다. [네 플랫폼 wheel CI](https://github.com/claudianus/SuperLuxCore/actions/runs/37955453896)는 이 소스를 빌드 중이다. 별도의 legacy nested releaser 호출은 작업 생성 전 `startup_failure`였고, 2.11.20에서 성공한 standalone wheel-builder 경로로 진행한다. 최종 공개 패키지 검증은 아직 완료되지 않았다.
+## 공개 CI·최종 ZIP·실제 설치 검증
+
+엔진 소스 `00a3afb7205d856327b0f16f76f94dbad1967105`와 확장 소스 `84f93cce73087062c73708249097a1c3fe14d5f1`는 main에 반영했고 2.11.21로 공개했다. [네 플랫폼 wheel CI](https://github.com/claudianus/SuperLuxCore/actions/runs/37955453896)와 [최종 ZIP CI](https://github.com/claudianus/SuperBlendLuxCore/actions/runs/37961431687)는 성공했다. 모든 wheel/ZIP의 해시·서명·고정 소스·런타임 파일을 검사했고, 각 ZIP의 367개 Python 파일이 확장 소스와 같다. Intel Mac runtime smoke는 GPU 없는 runner에서 생략되므로 네 플랫폼의 Blender 실렌더를 의미하지 않는다.
+
+공개 ARM native SHA-256은 `0f61daf90d3ad2cb6082d59f837e73fea657133fce39983f82d303b4d985d295`다. 이 모듈로 CI 112개, 최종 ZIP CPU·Metal 40개, 실제 사용자 설치 CPU·Metal 40개를 통과했다. CI 법선 50조건의 선택 에너지 gate 최대 차이는 CPU 1.030279%, Metal 1.015726%다. 총 192개는 회귀·설치·작은 수치 검사이며 독립 제작 씬 수나 전체 호환률이 아니다. 공개 모듈의 비교 시트 6개, 720p native 장면 6개와 Cycles 기준 장면 1개를 직접 검수했다.
+
+현재 실제 Blender 5.2.1 LTS 프로필은 최종 ZIP의 Python·manifest와 공개 ARM 모듈을 사용하며 번들 wheel 설정이다. 새 프로세스의 등록 진단은 없고 실제 Metal GPU 사용도 로그로 확인했다. 업그레이드 CLI의 RNA 등록 진단 3개와 GUI 핫리로드 미검증은 따로 기록한다. [배포 기록](2026-10-10-deployment-2.11.21.md)에 공개 릴리스, 실제 설치, 플랫폼 범위 및 보존 증거가 있다. 별도의 legacy nested releaser는 작업 생성 전 `startup_failure`였고 성공한 standalone builder로 배포했다.
 
 ## 남은 범위
 
-Principled Tangent, 커브 전용 보정 경계, 넓은 굴절·SSS·박막·코트 조합, legacy/Null과의 Mix 및 모든 BIDIR/VCM/light-tracing 경로, viewport/F12와 제작 씬·타 플랫폼 실행은 남아 있다. Flat metal grazing 백색로의 약 1% 에너지 초과 및 mapped transmission 밝기 차이도 별도 문제로 유지한다. 공개 wheel/최종 ZIP 및 사용자 설치 검증이 끝나기 전에는 배포 완료로 표시하지 않는다.
+Principled Tangent, 커브 전용 보정 경계, 넓은 굴절·SSS·박막·코트 조합, legacy/Null과의 Mix 및 모든 BIDIR/VCM/light-tracing 경로, viewport/F12와 제작 씬·타 플랫폼 실행은 남아 있다. Flat metal grazing 백색로의 약 1% 에너지 초과 및 mapped transmission 밝기 차이도 별도 문제로 유지한다. 공개 wheel·최종 ZIP·실제 사용자 설치의 위 검증은 완료했으며, 이 잔여 의미·제작 검수 범위를 배포 완료와 구분한다.
