@@ -1143,6 +1143,12 @@ def _socket(socket, props, material, obj_name, group_node, superluxcore_name=Non
         # top-level node returning the name it was given)
         value = _node(link.from_node, link.from_socket, props, material,
                       superluxcore_name, obj_name, group_node)
+        if socket.type == "RGBA" and link.from_socket.type == "VECTOR" and _is_textured(value):
+            # 벡터를 색으로 연결하면 데이터 RGB를 한 번만 스펙트럼으로 변환한다.
+            channels = [_split_chan(value, i, value + f"_color_channel{i}", props) for i in range(3)]
+            return _tex_helper(props, value + "_to_color_vector", {
+                "type": "makefloat3", "color": True,
+                **{f"texture{i+1}": channel for i, channel in enumerate(channels)}})
         if socket.type == "VALUE" and link.from_socket.type in {"VECTOR", "RGBA"}:
             weights = (list(ocio.GetCurrentConfig().getDefaultLumaCoefs())
                        if link.from_socket.type == "RGBA" else [1. / 3.] * 3)
@@ -1381,6 +1387,45 @@ def _principled_disney_warnings(node, transmission, thin_wall_on, obj_name):
             node, "Thin Wall is not supported by SuperLuxCore's Disney material; "
             "transmission refracts as a solid volume (total internal "
             "reflection and interior volumes apply)", None, obj_name)
+
+
+def _output_reaches_render(socket, group_node_stack=None):
+    """미사용 그룹·음소거 분기를 제외하고 실제 최종 출력 연결을 찾는다."""
+    pending = [(socket, tuple(group_node_stack or []))]
+    seen = set()
+    while pending:
+        output, stack = pending.pop()
+        key = (output.as_pointer(), tuple(n.as_pointer() for n in stack))
+        if key in seen:
+            continue
+        seen.add(key)
+        for link in output.links:
+            if (not link.is_valid or getattr(link, "is_muted", False)
+                    or not getattr(link.to_socket, "enabled", True)):
+                continue
+            target = link.to_node
+            if target.bl_idname in {"ShaderNodeOutputMaterial", "ShaderNodeOutputWorld",
+                                    "ShaderNodeOutputLight", "ShaderNodeOutputAOV"}:
+                if getattr(target, "is_active_output", True):
+                    return True
+            elif target.bl_idname == "NodeGroupOutput":
+                if stack and target.is_active_output:
+                    parent_output = _group_socket(stack[-1].outputs, link.to_socket)
+                    if parent_output is not None:
+                        pending.append((parent_output, stack[:-1]))
+            elif target.mute:
+                for bypass in target.internal_links:
+                    if bypass.from_socket == link.to_socket:
+                        pending.append((bypass.to_socket, stack))
+            elif target.bl_idname == "ShaderNodeGroup" and target.node_tree:
+                for child in target.node_tree.nodes:
+                    if child.bl_idname == "NodeGroupInput":
+                        child_output = _group_socket(child.outputs, link.to_socket)
+                        if child_output is not None:
+                            pending.append((child_output, stack + (target,)))
+            else:
+                pending.extend((out, stack) for out in target.outputs if out.enabled)
+    return False
 
 
 def _node(node, output_socket, props, material, superluxcore_name=None, obj_name="", group_node_stack=None):
@@ -1776,6 +1821,8 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
         }
     elif node.bl_idname == "ShaderNodeTexImage":
         if node.image:
+            if output_socket == node.outputs["Alpha"] and node.image.alpha_mode == "NONE":
+                return 1.0
             if node.image.source == "TILED":
                 SuperLuxCoreErrorLog.add_warning(
                     f'Image texture node "{node.name}": UDIM tiled images '
@@ -1808,8 +1855,8 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
                 "file": filepath,
                 "wrap": extension_map[node.extension],
                 "channel": "alpha" if output_socket == node.outputs["Alpha"] else "rgb",
-                # Crude approximation, not sure if we can do better
-                "gamma": 2.2 if node.image.colorspace_settings.name == "sRGB" else 1,
+                **ImageExporter.cycles_colorspace(node.image, output_socket == node.outputs["Alpha"],
+                                                   _output_reaches_render(node.outputs["Alpha"], group_node_stack)),
                 "gain": 1,
                 "filter": _imagemap_filter(node, obj_name),
 
@@ -3476,74 +3523,23 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
     elif node.bl_idname == "ShaderNodeTexVoronoi":
         prefix = "scene.textures."
 
-        if node.voronoi_dimensions != "3D":
-            SuperLuxCoreErrorLog.add_warning(
-                f'Voronoi node "{node.name}": {node.voronoi_dimensions} mode is '
-                "approximated by 3D (extra inputs ignored)", obj_name=obj_name)
-
-        scale_socket = node.inputs["Scale"]
-        if scale_socket.is_linked:
-            SuperLuxCoreErrorLog.add_warning(
-                f'Voronoi node "{node.name}": textured scale is not supported',
-                obj_name=obj_name)
-            noisesize = 0.25
-        else:
-            noisesize = 1.0 / max(scale_socket.default_value, 1e-6)
-
-        # Blender voronoi returns a weighted sum of feature distances
-        # (w1..w4 = F1..F4 weights); approximate the Cycles features:
-        #   F1 -> w1, F2 -> w2, DISTANCE_TO_EDGE ~ F2 - F1
-        if node.feature == "F2":
-            weights = (0.0, 1.0, 0.0, 0.0)
-        elif node.feature == "DISTANCE_TO_EDGE":
-            weights = (-1.0, 1.0, 0.0, 0.0)
-        else:
-            if node.feature in {"SMOOTH_F1", "N_SPHERE_RADIUS"}:
-                SuperLuxCoreErrorLog.add_warning(
-                    f'Voronoi node "{node.name}": feature "{node.feature}" is '
-                    "approximated by plain F1", obj_name=obj_name)
-            weights = (1.0, 0.0, 0.0, 0.0)
-
-        distance_map = {
-            "EUCLIDEAN": "actual_distance",
-            "MANHATTAN": "manhattan",
-            "CHEBYCHEV": "chebychev",
-            "MINKOWSKI": "minkowski",
-        }
-        distmetric = distance_map.get(node.distance, "actual_distance")
-
-        exponent_socket = node.inputs.get("Exponent")
-        exponent = exponent_socket.default_value if exponent_socket is not None else 2.0
+        def voronoi_input(label, fallback):
+            socket = node.inputs.get(label)
+            return _socket(socket, props, material, obj_name, group_node_stack) if socket is not None and socket.enabled else fallback
 
         definitions = {
-            "type": "blender_voronoi",
-            "intensity": 1,
-            "exponent": exponent,
-            "distmetric": distmetric,
-            "w1": weights[0],
-            "w2": weights[1],
-            "w3": weights[2],
-            "w4": weights[3],
-            "noisesize": noisesize,
+            "type": "cyclesnoise", "noisetype": "voronoi",
+            "dimensions": int(node.voronoi_dimensions[0]),
+            "vector": _texture_coordinates(node, props, material, obj_name, group_node_stack, superluxcore_name + "_vector"),
+            "w": voronoi_input("W", 0.), "scale": voronoi_input("Scale", 5.),
+            "detail": voronoi_input("Detail", 0.), "roughness": voronoi_input("Roughness", .5),
+            "lacunarity": voronoi_input("Lacunarity", 2.),
+            "offset": voronoi_input("Smoothness", 1.), "gain": voronoi_input("Exponent", .5),
+            "distortion": voronoi_input("Randomness", 1.),
+            "feature": node.feature.lower(), "metric": node.distance.lower(),
+            "normalize": bool(node.normalize), "output": output_socket.name.lower(),
+            "color": output_socket.name == "Color" and _output_is_color(output_socket),
         }
-        vector_socket = node.inputs.get("Vector")
-        if vector_socket is not None:
-            definitions.update(_vector_mapping_defs(vector_socket, False, False, props, material, obj_name, group_node_stack))
-        else:
-            return _warn_unsupported(node, "1D Voronoi는 W 기반 거리 평가 경로가 필요함", FALLBACK_FLOAT, obj_name)
-
-        if output_socket.name not in {"Distance", "Color"}:
-            return _warn_unsupported(
-                node, f'Voronoi output "{output_socket.name}" is not supported; '
-                "returning a neutral value",
-                FALLBACK_VECTOR if output_socket.name == "Position" else FALLBACK_FLOAT,
-                obj_name)
-        if output_socket.name == "Color":
-            # Approximation: blender_voronoi is monochrome; the distance value
-            # stands in for the per-cell random color
-            SuperLuxCoreErrorLog.add_warning(
-                f'Voronoi node "{node.name}": the Color output is approximated by '
-                "the monochrome distance texture", obj_name=obj_name)
     elif node.bl_idname == "ShaderNodeTexNoise":
         prefix = "scene.textures."
 
@@ -3601,24 +3597,16 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
         }
     elif node.bl_idname == "ShaderNodeTexWhiteNoise":
         prefix = "scene.textures."
-
-        # 고유한 결정적 해시를 사용하며 차원에서 제외된 입력을 제거한다.
-        if node.noise_dimensions == "4D":
-            SuperLuxCoreErrorLog.add_warning(
-                f'White Noise "{node.name}": 4D W 입력 평가 경로가 필요함', obj_name=obj_name)
-
         vector_socket = node.inputs.get("Vector")
-        if vector_socket is None:
-            seed_tex = _socket(node.inputs["W"], props, material, obj_name, group_node_stack)
-        else:
-            seed_tex = _socket(vector_socket, props, material, obj_name, group_node_stack)
-        if node.noise_dimensions == "2D":
-            seed_tex = _combine3(_split_chan(seed_tex, 0, superluxcore_name + "_x", props),
-                                 _split_chan(seed_tex, 1, superluxcore_name + "_y", props),
-                                 0., superluxcore_name + "_xy", props)
+        w_socket = node.inputs.get("W")
         definitions = {
-            "type": "whitenoise",
-            "texture": seed_tex,
+            "type": "cyclesnoise", "noisetype": "white",
+            "dimensions": int(node.noise_dimensions[0]),
+            # White Noise의 비연결 Vector는 Generated가 아닌 저장된 소켓 값이다.
+            "vector": _socket(vector_socket, props, material, obj_name, group_node_stack) if vector_socket else [0., 0., 0.],
+            "w": _socket(w_socket, props, material, obj_name, group_node_stack) if w_socket else 0.,
+            "output": "color" if output_socket.name == "Color" else "fac",
+            "color": _output_is_color(output_socket),
         }
     elif node.bl_idname == "ShaderNodeTexGabor":
         prefix = "scene.textures."
@@ -3867,7 +3855,7 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
                 "file": filepath,
                 "wrap": "repeat",
                 "channel": "rgb",
-                "gamma": 2.2 if node.image.colorspace_settings.name == "sRGB" else 1,
+                **ImageExporter.cycles_colorspace(node.image),
                 "gain": 1,
                 "filter": _imagemap_filter(node, obj_name),
             }

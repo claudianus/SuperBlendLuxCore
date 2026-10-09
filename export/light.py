@@ -923,7 +923,7 @@ def _convert_cycles_world(exporter, scene, world, is_viewport_render):
                         image_missing = False
                         definitions["type"] = "infinite"
                         definitions["file"] = filepath
-                        definitions["gamma"] = 2.2 if image.colorspace_settings.name == "sRGB" else 1
+                        definitions.update(ImageExporter.cycles_colorspace(image))
                         definitions["cdfdim"] = world.superluxcore.cdfdim
 
                         # Transformation: the mirror fix matches Cycles'

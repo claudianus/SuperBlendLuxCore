@@ -46,6 +46,17 @@ cases += [('ramp_linked_hsv', 0), ('curve_linked', 0), ('vector_sign_mixed', 0)]
 cases += [('rgba_blend', mode) for mode in ('MULTIPLY', 'DIVIDE', 'OVERLAY', 'DARKEN', 'LIGHTEN', 'DIFFERENCE', 'EXCLUSION', 'DODGE', 'BURN', 'SOFT_LIGHT', 'LINEAR_LIGHT', 'HUE', 'SATURATION', 'COLOR', 'VALUE')]
 cases += [('rgb_curve', .25)]
 cases += [('maprange_mode', mode) for mode in ('LINEAR', 'STEPPED', 'SMOOTHSTEP', 'SMOOTHERSTEP')]
+cases += [('white_dimensions', (dim, output, w)) for dim in ('1D', '2D', '3D', '4D') for output in ('Value', 'Color') for w in (-.37, .87)]
+
+# 셀 난수의 픽셀 일치는 요구하지 않는다. 정규 격자는 거리·출력 수치를 별도로 확인한다.
+cases += [('voronoi_grid', (dim, feature, output)) for dim in ('1D', '2D', '3D', '4D')
+          for feature, output in (('F1', 'Distance'), ('F2', 'Distance'), ('SMOOTH_F1', 'Distance'),
+                                  ('DISTANCE_TO_EDGE', 'Distance'), ('N_SPHERE_RADIUS', 'Radius'),
+                                  ('F1', 'W' if dim == '1D' else 'Position'))]
+cases += [('voronoi_w', feature) for feature in ('F1', 'F2')]
+cases += [('voronoi_metric', metric) for metric in ('EUCLIDEAN', 'MANHATTAN', 'CHEBYCHEV', 'MINKOWSKI')]
+cases += [('voronoi_fractal', (feature, normalize)) for feature in ('F1', 'F2', 'SMOOTH_F1', 'DISTANCE_TO_EDGE') for normalize in (False, True)]
+cases += [('voronoi_cells', output) for output in ('Distance', 'Color', 'Position')]
 
 def graph(kind, arg):
     n = m.node_tree.nodes
@@ -131,6 +142,46 @@ def graph(kind, arg):
         node.inputs['Color'].default_value = (.2, .4, .7, 1)
         node.inputs['Gamma'].default_value = arg
         source = node.outputs[0]
+    elif kind.startswith('voronoi_'):
+        node = n.new('ShaderNodeTexVoronoi')
+        if kind == 'voronoi_grid':
+            dim, feature, output = arg
+        elif kind == 'voronoi_w':
+            dim, feature, output = '4D', arg, 'W'
+        else:
+            dim = '3D'
+            feature = arg[0] if kind == 'voronoi_fractal' else 'F1'
+            output = arg if kind == 'voronoi_cells' else 'Distance'
+        node.voronoi_dimensions = dim
+        node.feature = feature
+        node.normalize = arg[1] if kind == 'voronoi_fractal' else False
+        node.distance = arg if kind == 'voronoi_metric' else 'EUCLIDEAN'
+        if node.inputs.get('Detail') and node.inputs['Detail'].enabled:
+            node.inputs['Detail'].default_value = 2.3 if kind == 'voronoi_fractal' else 0.
+        if node.inputs.get('Smoothness') and node.inputs['Smoothness'].enabled:
+            node.inputs['Smoothness'].default_value = .4
+        if node.inputs.get('Exponent') and node.inputs['Exponent'].enabled:
+            node.inputs['Exponent'].default_value = 1.5
+        scale = n.new('ShaderNodeValue')
+        scale.outputs[0].default_value = 80. if kind == 'voronoi_cells' else 2.
+        l.new(scale.outputs[0], node.inputs['Scale'])
+        randomness = n.new('ShaderNodeValue')
+        randomness.outputs[0].default_value = .8 if kind == 'voronoi_cells' else 0.
+        l.new(randomness.outputs[0], node.inputs['Randomness'])
+        if node.inputs.get('Vector'):
+            if kind == 'voronoi_cells':
+                texcoord = n.new('ShaderNodeTexCoord')
+                l.new(texcoord.outputs['UV'], node.inputs['Vector'])
+            else:
+                vector = n.new('ShaderNodeCombineXYZ')
+                for socket, value in zip(vector.inputs, (.13, .27, .39)):
+                    socket.default_value = value
+                l.new(vector.outputs[0], node.inputs['Vector'])
+        if node.inputs.get('W'):
+            value = n.new('ShaderNodeValue')
+            value.outputs[0].default_value = .41 if kind == 'voronoi_w' else .23
+            l.new(value.outputs[0], node.inputs['W'])
+        source = node.outputs[output]
     elif kind == 'noise1d':
         node = n.new('ShaderNodeTexNoise')
         node.noise_dimensions = '1D'
@@ -154,6 +205,20 @@ def graph(kind, arg):
         next(v for v in node.inputs if v.name == 'A' and v.enabled).default_value = (.8, .2, .4, 1)
         next(v for v in node.inputs if v.name == 'B' and v.enabled).default_value = (.1, .7, .35, 1) if kind == 'rgba_blend' else (.7, .7, .7, 1)
         source = next(v for v in node.outputs if v.enabled)
+    elif kind == 'white_dimensions':
+        node = n.new('ShaderNodeTexWhiteNoise')
+        dim, output, w = arg
+        node.noise_dimensions = dim
+        vec = n.new('ShaderNodeCombineXYZ')
+        for sock, val in zip(vec.inputs, (.1, -.2, .3)):
+            sock.default_value = val
+        if node.inputs.get('Vector'):
+            l.new(vec.outputs[0], node.inputs['Vector'])
+        if node.inputs.get('W'):
+            value = n.new('ShaderNodeValue')
+            value.outputs[0].default_value = w
+            l.new(value.outputs[0], node.inputs['W'])
+        source = node.outputs[output]
     elif kind == 'white3d':
         node = n.new('ShaderNodeTexWhiteNoise')
         vec = n.new('ShaderNodeCombineXYZ')

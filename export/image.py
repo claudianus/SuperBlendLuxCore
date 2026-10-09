@@ -2,6 +2,8 @@
 
 import tempfile
 import os
+import bpy
+import PyOpenColorIO as ocio
 from .. import utils
 
 
@@ -15,6 +17,7 @@ class ImageExporter:
     # loads them from files itself, so Blender's decoded pixel buffers
     # can be released for the duration of the render.
     used_images = set()
+    _cycles_ocio_configs = {}
 
     @classmethod
     def _save_to_temp_file(cls, image):
@@ -180,6 +183,32 @@ class ImageExporter:
             f"Unsupported image source '{image.source}' "
             f"in image '{image.name}'"
         )
+
+    @classmethod
+    def cycles_colorspace(cls, image, alpha=False, unassociate=False):
+        """Blender의 이미지 입력 색 공간을 선형 작업 공간으로 전달한다."""
+        if alpha or image.colorspace_settings.is_data:
+            return {"colorspace": "nop"}
+        override = os.environ.get("OCIO", "")
+        config_path = override if os.path.isfile(override) else bpy.utils.system_resource(
+            "DATAFILES", path="colormanagement/config.ocio")
+        if not config_path or not os.path.isfile(config_path):
+            raise OSError("Blender 이미지 입력의 OCIO 설정 파일을 찾을 수 없습니다")
+        config_path = os.path.abspath(config_path)
+        name = image.colorspace_settings.name
+        key = (config_path, os.stat(config_path).st_mtime_ns)
+        config = cls._cycles_ocio_configs.get(key)
+        if config is None:
+            if len(cls._cycles_ocio_configs) > 4:
+                cls._cycles_ocio_configs.clear()
+            config = ocio.Config.CreateFromFile(config_path)
+            cls._cycles_ocio_configs[key] = config
+        if config.getColorSpace(name) is None:
+            raise OSError(f'OCIO 설정에 이미지 색 공간 "{name}"이 없습니다')
+        return {"colorspace": "opencolorio", "colorspace.config": config_path,
+                "colorspace.name": name, "storage": "float",
+                "premultiplyalpha": image.alpha_mode == "STRAIGHT" and not unassociate,
+                "unpremultiplyalpha": image.alpha_mode == "PREMUL" and unassociate}
 
     @classmethod
     def export_cycles_node_reader(cls, image):

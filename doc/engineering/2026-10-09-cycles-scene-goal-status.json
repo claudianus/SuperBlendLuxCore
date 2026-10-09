@@ -1,0 +1,466 @@
+{
+  "goal": "기존 Cycles 씬의 무변환 시각·논리 의미 호환",
+  "complete": false,
+  "target_version": "2.11.14",
+  "public_package_verified": false,
+  "baseline": "2026-10-09-remaining-issues.json",
+  "node_census": {
+    "conditions": 1023,
+    "exceptions": 0,
+    "warning_conditions": 257
+  },
+  "issues": [
+    {
+      "id": "C01",
+      "priority": "P0",
+      "scope": "Magic Texture",
+      "status": "표적 실렌더 검증 완료",
+      "remaining": "미검증 조합은 전체 씬/플랫폼 검증에서 계속 확인한다",
+      "evidence": "2026-10-09-cycles-scene-goal.md"
+    },
+    {
+      "id": "C02",
+      "priority": "P0",
+      "scope": "Noise 1D",
+      "status": "표적 실렌더 검증 완료",
+      "remaining": "미검증 조합은 전체 씬/플랫폼 검증에서 계속 확인한다",
+      "evidence": "2026-10-09-cycles-scene-goal.md"
+    },
+    {
+      "id": "C03",
+      "priority": "P0",
+      "scope": "Voronoi 1D",
+      "status": "표적 실렌더 검증 완료",
+      "remaining": "미검증 조합은 전체 씬/플랫폼 검증에서 계속 확인한다",
+      "evidence": "2026-10-09-cycles-scene-goal.md"
+    },
+    {
+      "id": "C04",
+      "priority": "P0",
+      "scope": "White Noise 1D",
+      "status": "표적 실렌더 검증 완료",
+      "remaining": "미검증 조합은 전체 씬/플랫폼 검증에서 계속 확인한다",
+      "evidence": "2026-10-09-cycles-scene-goal.md"
+    },
+    {
+      "id": "C05",
+      "priority": "P0",
+      "scope": "벡터 Map Range",
+      "status": "표적 실렌더 검증 완료",
+      "remaining": "미검증 조합은 전체 씬/플랫폼 검증에서 계속 확인한다",
+      "evidence": "2026-10-09-cycles-scene-goal.md"
+    },
+    {
+      "id": "C06",
+      "priority": "P1",
+      "scope": "Layer Weight Fresnel",
+      "status": "표적 실렌더 검증 완료",
+      "remaining": "미검증 조합은 전체 씬/플랫폼 검증에서 계속 확인한다",
+      "evidence": "2026-10-09-cycles-scene-goal.md"
+    },
+    {
+      "id": "C07",
+      "priority": "P1",
+      "scope": "Layer Weight Facing",
+      "status": "표적 실렌더 검증 완료",
+      "remaining": "미검증 조합은 전체 씬/플랫폼 검증에서 계속 확인한다",
+      "evidence": "2026-10-09-cycles-scene-goal.md"
+    },
+    {
+      "id": "C08",
+      "priority": "P1",
+      "scope": "Hue/Saturation Factor",
+      "status": "표적 실렌더 검증 완료",
+      "remaining": "미검증 조합은 전체 씬/플랫폼 검증에서 계속 확인한다",
+      "evidence": "2026-10-09-cycles-scene-goal.md"
+    },
+    {
+      "id": "C09",
+      "priority": "P1",
+      "scope": "ColorRamp Alpha",
+      "status": "표적 실렌더 검증 완료",
+      "remaining": "미검증 조합은 전체 씬/플랫폼 검증에서 계속 확인한다",
+      "evidence": "2026-10-09-cycles-scene-goal.md"
+    },
+    {
+      "id": "C10",
+      "priority": "P1",
+      "scope": "ColorRamp 색 공간·보간",
+      "status": "표적 실렌더 검증 완료",
+      "remaining": "미검증 조합은 전체 씬/플랫폼 검증에서 계속 확인한다",
+      "evidence": "2026-10-09-cycles-scene-goal.md"
+    },
+    {
+      "id": "C11",
+      "priority": "P1",
+      "scope": "Float Curve",
+      "status": "표적 실렌더 검증 완료",
+      "remaining": "미검증 조합은 전체 씬/플랫폼 검증에서 계속 확인한다",
+      "evidence": "2026-10-09-cycles-scene-goal.md"
+    },
+    {
+      "id": "C12",
+      "priority": "P1",
+      "scope": "Vector Curve",
+      "status": "표적 실렌더 검증 완료",
+      "remaining": "미검증 조합은 전체 씬/플랫폼 검증에서 계속 확인한다",
+      "evidence": "2026-10-09-cycles-scene-goal.md"
+    },
+    {
+      "id": "C13",
+      "priority": "P1",
+      "scope": "RGB Curve",
+      "status": "표적 실렌더 검증 완료",
+      "remaining": "미검증 조합은 전체 씬/플랫폼 검증에서 계속 확인한다",
+      "evidence": "2026-10-09-cycles-scene-goal.md"
+    },
+    {
+      "id": "C14",
+      "priority": "P1",
+      "scope": "Gamma",
+      "status": "표적 실렌더 검증 완료",
+      "remaining": "미검증 조합은 전체 씬/플랫폼 검증에서 계속 확인한다",
+      "evidence": "2026-10-09-cycles-scene-goal.md"
+    },
+    {
+      "id": "C15",
+      "priority": "P1",
+      "scope": "RGBA Mix 클램프·외삽",
+      "status": "표적 실렌더 검증 완료",
+      "remaining": "미검증 조합은 전체 씬/플랫폼 검증에서 계속 확인한다",
+      "evidence": "2026-10-09-cycles-scene-goal.md"
+    },
+    {
+      "id": "C16",
+      "priority": "P1",
+      "scope": "RGB 혼합 14개 모드",
+      "status": "표적 실렌더 검증 완료",
+      "remaining": "미검증 조합은 전체 씬/플랫폼 검증에서 계속 확인한다",
+      "evidence": "2026-10-09-cycles-scene-goal.md"
+    },
+    {
+      "id": "C17",
+      "priority": "P1",
+      "scope": "Vector Math POWER/SIGN",
+      "status": "표적 실렌더 검증 완료",
+      "remaining": "미검증 조합은 전체 씬/플랫폼 검증에서 계속 확인한다",
+      "evidence": "2026-10-09-cycles-scene-goal.md"
+    },
+    {
+      "id": "C18",
+      "priority": "P1",
+      "scope": "Map Range 보간·클램프",
+      "status": "표적 실렌더 검증 완료",
+      "remaining": "미검증 조합은 전체 씬/플랫폼 검증에서 계속 확인한다",
+      "evidence": "2026-10-09-cycles-scene-goal.md"
+    },
+    {
+      "id": "C19",
+      "priority": "P1",
+      "scope": "흡수+산란 볼륨 Add/Mix",
+      "status": "부분 구현·검증",
+      "remaining": "자식 중 clear가 있으면 합성도 clear로 지정한다. scattering 값이 있어도 엔진 ClearVolume은 SigmaS=0이다.",
+      "evidence": "2026-10-09-cycles-scene-goal.md"
+    },
+    {
+      "id": "C20",
+      "priority": "P1",
+      "scope": "한쪽이 빈 볼륨 Mix",
+      "status": "부분 구현·검증",
+      "remaining": "자식이 하나면 Factor를 적용하지 않고 그대로 반환한다. Factor=.25인 산란 입력도 전체 농도로 반환된다.",
+      "evidence": "2026-10-09-cycles-scene-goal.md"
+    },
+    {
+      "id": "C21",
+      "priority": "P1",
+      "scope": "Principled Volume 흑체",
+      "status": "부분 구현·검증",
+      "remaining": "Blackbody Intensity=1, Temperature=1500의 상수 발광도 무시하며 경고가 없다. 연결 Temperature/Tint 일부에만 경고한다.",
+      "evidence": "2026-10-09-cycles-scene-goal.md"
+    },
+    {
+      "id": "C22",
+      "priority": "P1",
+      "scope": "Principled Volume 속성",
+      "status": "미완료",
+      "remaining": "Density/Color/Temperature Attribute 문자열을 계수에 연결하지 않는다. VDB 재질의 기본 density 이름만으로 밀도 격자를 읽는 경로와 Volume Info를 구분해야 한다."
+    },
+    {
+      "id": "C23",
+      "priority": "P1",
+      "scope": "투명 필름 설정 가져오기",
+      "status": "표적 실렌더 검증 완료",
+      "remaining": "미검증 조합은 전체 씬/플랫폼 검증에서 계속 확인한다",
+      "evidence": "2026-10-09-cycles-scene-goal.md"
+    },
+    {
+      "id": "C24",
+      "priority": "P1",
+      "scope": "바운스 수 가져오기",
+      "status": "부분 구현·검증",
+      "remaining": "0 total/diffuse/glossy를 건너뛴다. transparent_bounces 대신 transparent_max_bounces를 읽어야 하며 투명·투과 깊이 분리도 필요하다.",
+      "evidence": "2026-10-09-cycles-scene-goal.md"
+    },
+    {
+      "id": "C25",
+      "priority": "P1",
+      "scope": "컴포지터 패스 연결",
+      "status": "부분 구현·검증",
+      "remaining": "Cycles 플래그로 필름 출력은 일부 생성되지만 update_render_passes는 Combined만 등록하고 _add_passes도 Cycles 패스를 추가하지 않는다. Depth/Albedo는 필름 생성 루프에서도 제외된다.",
+      "evidence": "2026-10-09-cycles-scene-goal.md"
+    },
+    {
+      "id": "C26",
+      "priority": "P1",
+      "scope": "패스 의미·식별자",
+      "status": "부분 구현·검증",
+      "remaining": "Diffuse/Glossy/Transmission Color를 모두 ALBEDO로 합친다. Object Index는 Blender pass_index와 다른 해시 ID이며 재질 ID도 직접 보존 경로가 없다. Cycles 패스 이름과 엔진 이름의 연결도 필요하다.",
+      "evidence": "2026-10-09-cycles-scene-goal.md"
+    },
+    {
+      "id": "C27",
+      "priority": "P1",
+      "scope": "무수정 모션 블러 전환",
+      "status": "표적 실렌더 검증 완료",
+      "remaining": "미검증 조합은 전체 씬/플랫폼 검증에서 계속 확인한다",
+      "evidence": "2026-10-09-cycles-scene-goal.md"
+    },
+    {
+      "id": "C28",
+      "priority": "P1",
+      "scope": "진짜 변위·범프 모드",
+      "status": "미완료",
+      "remaining": "재질 displacement_method에 따른 BUMP/DISPLACEMENT/BOTH를 존중하지 않고 출력 링크만으로 모양을 감싼다. 직접 높이 출력의 범프 대체, 연결 Normal·Scale·Midlevel, 월드 공간과 적응 세분화가 제한된다."
+    },
+    {
+      "id": "C29",
+      "priority": "P1",
+      "scope": "벡터 변위",
+      "status": "미완료",
+      "remaining": "Midlevel을 읽지 않고 offset=0이다. Tangent/World 공간을 Object로 대체한다. 객체 변환·Normal 기준까지 실제 영상 검증이 필요하다."
+    },
+    {
+      "id": "C30",
+      "priority": "P1",
+      "scope": "Bump 연결·합성",
+      "status": "미완료",
+      "remaining": "연결 Distance/Normal을 무시한다. Filter Width는 노드별 기본값 대신 트리 최대 기본값을 모든 bumped 재질에 적용한다. 다중 범프 체인 의미는 실행 검증이 필요하다. Blender도 Filter Width를 컴파일 시 값으로 사용하므로 연결 폭 자체의 차이는 확정하지 않는다."
+    },
+    {
+      "id": "C31",
+      "priority": "P1",
+      "scope": "일반 Normal 벡터",
+      "status": "미완료",
+      "remaining": "_normal_input의 일반 벡터 결과를 높이 bumptex로 전달한다. NormalMap·Bump 전용 경로 외의 임의 벡터 법선 의미, 앞/뒷면·비균일 변환을 별도 검증해야 한다."
+    },
+    {
+      "id": "C32",
+      "priority": "P1",
+      "scope": "Principled Tangent·Coat Normal",
+      "status": "미완료",
+      "remaining": "OpenPBR 경로는 Tangent를 읽지 않고 Coat Normal을 경고 후 무시한다. 코트와 기저 법선을 분리한 장면은 일치하지 않는다."
+    },
+    {
+      "id": "C33",
+      "priority": "P1",
+      "scope": "Principled Thin Wall·분기",
+      "status": "미완료",
+      "remaining": "정확히 full transmission·sharp일 때만 archglass다. 혼합 투과 OpenPBR는 Thin Wall을 사용하지 않으며 해당 분기에서 경고도 없다. 유리 최적화 분기와 코트·SSS·sheen 결합을 다시 검증해야 한다."
+    },
+    {
+      "id": "C34",
+      "priority": "P2",
+      "scope": "Principled 모델·SSS",
+      "status": "미완료",
+      "remaining": "distribution/subsurface_method를 OpenPBR 경로에서 선택하지 않는다. Random Walk/Burley/Skin, SSS IOR, fuzz·coat tint 및 박막의 실제 수치 동등성은 별도 판정이 필요하다."
+    },
+    {
+      "id": "C35",
+      "priority": "P1",
+      "scope": "Diffuse Roughness",
+      "status": "미완료",
+      "remaining": "Roughness 입력을 경고 없이 무시하고 항상 matte를 만든다."
+    },
+    {
+      "id": "C36",
+      "priority": "P2",
+      "scope": "Glass·Refraction 분포·박막",
+      "status": "미완료",
+      "remaining": "Glass의 Thin Film 입력을 읽지 않는다. sharp/rough/OpenPBR 분기와 Beckmann/GGX/Multiscatter 선택이 Blender의 전체 분포와 동등한지 미검증이다."
+    },
+    {
+      "id": "C37",
+      "priority": "P2",
+      "scope": "Anisotropic·Metallic",
+      "status": "미완료",
+      "remaining": "연결 anisotropy/roughness를 등방성으로 대체하고 rotation/tangent 및 Metallic F82 Edge Tint·박막을 지원하지 않는다."
+    },
+    {
+      "id": "C38",
+      "priority": "P2",
+      "scope": "Principled Hair",
+      "status": "미완료",
+      "remaining": "Coat·Random Roughness·Random Color 및 lobe weight 제어를 읽지 않는다. 연결 melanin은 상수 대체이며 Chiang/Huang 모델 이름 매핑만으로 영상 동등함을 판정할 수 없다."
+    },
+    {
+      "id": "C39",
+      "priority": "P1",
+      "scope": "일반 Add Shader",
+      "status": "미완료",
+      "remaining": "표면 closure 두 개를 50/50 Mix로 바꿔 에너지를 절반으로 만든다. Transparent가 들어간 Add는 그 자식을 제거한다. 발광 특례와 일반 합성을 구분해야 한다."
+    },
+    {
+      "id": "C40",
+      "priority": "P2",
+      "scope": "Toon·Ray Portal·AO·Tangent",
+      "status": "미완료",
+      "remaining": "Toon은 matte, Ray Portal은 transparent, AO는 비차폐 색/1, Tangent는 0이다. 기존 지원 표의 AO/Tangent 설명은 현재 변환과 다르다."
+    },
+    {
+      "id": "C41",
+      "priority": "P2",
+      "scope": "Voronoi 전체 의미",
+      "status": "표적 실렌더 검증 완료",
+      "remaining": "미검증 조합은 전체 씬/플랫폼 검증에서 계속 확인한다",
+      "evidence": "2026-10-09-cycles-scene-goal.md"
+    },
+    {
+      "id": "C42",
+      "priority": "P1",
+      "scope": "White Noise 해시",
+      "status": "표적 실렌더 검증 완료",
+      "remaining": "미검증 조합은 전체 씬/플랫폼 검증에서 계속 확인한다",
+      "evidence": "2026-10-09-cycles-scene-goal.md"
+    },
+    {
+      "id": "C43",
+      "priority": "P2",
+      "scope": "Brick·Checker·Gabor",
+      "status": "미완료",
+      "remaining": "Brick 색·배치·mortar smoothing·squash·연결 치수를 근사한다. Checker 연결 Scale은 경고 없이 무시한다. Gabor 3D·연결 파라미터·Orientation이 제한된다."
+    },
+    {
+      "id": "C44",
+      "priority": "P1",
+      "scope": "텍스처 Vector 소비 경로",
+      "status": "부분 구현·검증",
+      "remaining": "좌표 출력 자체와 텍스처 입력 매핑을 구분해야 한다. 다수 legacy texture의 임의 Vector·Generated·참조 Object 경로가 UV/local 기본값으로 대체된다. 좌표 단독 회귀 통과로 전체 재질을 보장할 수 없다.",
+      "evidence": "2026-10-09-cycles-scene-goal.md"
+    },
+    {
+      "id": "C45",
+      "priority": "P2",
+      "scope": "좌표·Mapping·인스턴스",
+      "status": "미완료",
+      "remaining": "chained Mapping, 연결 TRS, Texture/Normal 타입, 인스턴스 공간, 변형 전 ORCO와 움직이는 reference/camera 공간 및 다른 뷰포트 카메라에 제한이 있다."
+    },
+    {
+      "id": "C46",
+      "priority": "P2",
+      "scope": "Normal Map",
+      "status": "미완료",
+      "remaining": "Tangent 외 공간을 지원하지 않는다. uv_map 이름을 이 분기에서 읽지 않으며 연결 Strength는 엔진 Mix 클램프를 거친다. 음수·1 초과 및 여러 UV 층은 별도 영상 검증이 필요하다."
+    },
+    {
+      "id": "C47",
+      "priority": "P1",
+      "scope": "이미지 색 공간",
+      "status": "표적 실렌더 검증 완료",
+      "remaining": "미검증 조합은 전체 씬/플랫폼 검증에서 계속 확인한다",
+      "evidence": "2026-10-09-cycles-scene-goal.md"
+    },
+    {
+      "id": "C48",
+      "priority": "P2",
+      "scope": "이미지 투영·필터·시퀀스",
+      "status": "미완료",
+      "remaining": "Cubic/Smart→Linear, Mirror→Repeat, UDIM 한 타일, Movie/Sequence 전용 Cycles 경로 제한, BOX/SPHERE/TUBE 투영과 blend가 다르다. 이미지 있는 실제 변환 조건을 별도 집계했다."
+    },
+    {
+      "id": "C49",
+      "priority": "P2",
+      "scope": "Geometry·Object·Particle·Point 입력",
+      "status": "미완료",
+      "remaining": "Pointiness/Random per Island/Tangent, Object Color/Alpha, Particle Age/Lifetime/Velocity 등, Point 중심/Radius, Hair Length/Thickness/Tangent Normal의 부족을 기록한다."
+    },
+    {
+      "id": "C50",
+      "priority": "P2",
+      "scope": "속성·절차 기하 데이터",
+      "status": "미완료",
+      "remaining": "edge/string domain과 채널 예산 초과를 지원하지 않는다. Pointcloud는 구 인스턴스이며 Geometry Nodes가 생성한 인메모리 Volume은 지원하지 않는다."
+    },
+    {
+      "id": "C51",
+      "priority": "P1",
+      "scope": "공간 볼륨·위상·경계",
+      "status": "미완료",
+      "remaining": "복합 볼륨 asymmetry는 산란 계수 가중 대신 단순 혼합이다. 텍스처 world volume은 구간당 한 번 평가하며 material step/interpolation/sampling과 겹친 경계가 다르다."
+    },
+    {
+      "id": "C52",
+      "priority": "P2",
+      "scope": "월드·조명 그래프",
+      "status": "부분 구현·검증",
+      "remaining": "월드는 제한된 Background/환경/Sky 체인, Mix Shader 주 입력 선택, 연결 Strength와 Vector 변환만 처리한다. 일반 조명 색·강도 그래프, Light Falloff·material IES/Sky는 동일하지 않다.",
+      "evidence": "2026-10-09-cycles-scene-goal.md"
+    },
+    {
+      "id": "C53",
+      "priority": "P2",
+      "scope": "빛 연결·가시성·섀도",
+      "status": "미완료",
+      "remaining": "Shadow Linking 없음, receiver group 예산 제한, Glossy/Transmission/Volume visibility 세분화 부족, per-light max bounce/MIS/caustic 태그 및 shadow-off 제한이다."
+    },
+    {
+      "id": "C54",
+      "priority": "P2",
+      "scope": "DOF·파노라마·스테레오",
+      "status": "미완료",
+      "remaining": "Blender DOF blades/ratio/rotation이 전용 bokeh로 복사되지 않는다. 파노라마 longitude 시작 오프셋·latitude·fisheye와 spherical stereo가 제한된다."
+    },
+    {
+      "id": "C55",
+      "priority": "P2",
+      "scope": "시간·토폴로지·뷰포트",
+      "status": "미완료",
+      "remaining": "rolling shutter/시간 위치·per-object steps·면광원 변환 제한, 셔터 중 topology/strand layout 변경은 static 대체다. 실시간 normal/vector/data 변경·다른 뷰 카메라 일치와 취소 응답은 GUI 재검증이 필요하다."
+    },
+    {
+      "id": "C56",
+      "priority": "P2",
+      "scope": "AOV·Cryptomatte·Light Groups·노이즈 제거",
+      "status": "미완료",
+      "remaining": "Shader AOV·Crypto Asset/Accurate·Environment/Mist/SSS 패스 및 Cycles lightgroup 이름 연결을 지원표와 구분한다. Cycles denoiser 종류·품질·시간 처리·적응 샘플 기준을 동일하게 가져오지 않는다."
+    },
+    {
+      "id": "C57",
+      "priority": "P2",
+      "scope": "제작 장면 수렴·물리 모델",
+      "status": "미완료",
+      "remaining": "멩거·모래 및 향수병의 밝은 노이즈/국소 차이, 감실 coplanar 경계와 화이트 퍼니스 개별 SSS·유리·박막 차이는 이전 720p 보고서에 남아 있다. 이번 단일 노드 검수로 해결되었다고 세지 않는다."
+    },
+    {
+      "id": "C58",
+      "priority": "P2",
+      "scope": "OSL·베이킹·Eevee 전용 기능",
+      "status": "기존 유보 범위",
+      "remaining": "사용자 OSL·베이킹은 별도 범위. Eevee 전용 기능은 Cycles의 원래 의미를 기준으로 분리한다"
+    },
+    {
+      "id": "C59",
+      "priority": "P2",
+      "scope": "그룹·특성 조합·플랫폼",
+      "status": "미완료",
+      "remaining": "기본 그룹 생성은 출력이 없어서 호출되지 않았다. 중첩·muted graph·shader/volume 경계 조합, 모든 모드의 모든 연결 조합, Windows/Linux/Intel GPU와 GUI 전수 실행은 별도 검증이 필요하다."
+    },
+    {
+      "id": "C60",
+      "priority": "P1",
+      "scope": "그룹의 중복 표시 이름",
+      "status": "변환 검증 완료",
+      "remaining": "중첩·음소거·출력 조합은 추가 제작 검증이 필요하다",
+      "evidence": "cycles-scene-goal-phase1/workflow"
+    }
+  ]
+}
