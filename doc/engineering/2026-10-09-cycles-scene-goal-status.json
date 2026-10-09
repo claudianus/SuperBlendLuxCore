@@ -229,8 +229,9 @@
       "id": "C28",
       "priority": "P1",
       "scope": "진짜 변위·범프 모드",
-      "status": "미완료",
-      "remaining": "재질 displacement_method에 따른 BUMP/DISPLACEMENT/BOTH를 존중하지 않고 출력 링크만으로 모양을 감싼다. 직접 높이 출력의 범프 대체, 연결 Normal·Scale·Midlevel, 월드 공간과 적응 세분화가 제한된다."
+      "status": "부분 구현·검증",
+      "remaining": "BUMP/DISPLACEMENT/BOTH의 상수·UV 기울기, 연결 Scale/Midlevel은 CPU·Metal 720p 기본 스펙트럼에서 검증했다. World 공간·연결 Normal·적응 세분화와 BOTH의 변위 전 3D 좌표 복원이 남아 있다.",
+      "evidence": "2026-10-09-cycles-scene-goal.md"
     },
     {
       "id": "C29",
@@ -351,8 +352,9 @@
       "id": "C45",
       "priority": "P2",
       "scope": "좌표·Mapping·인스턴스",
-      "status": "미완료",
-      "remaining": "chained Mapping, 연결 TRS, Texture/Normal 타입, 인스턴스 공간, 변형 전 ORCO와 움직이는 reference/camera 공간 및 다른 뷰포트 카메라에 제한이 있다."
+      "status": "부분 구현·검증",
+      "remaining": "Texture Coordinate/UV Map의 원본 UV·음수·정수 타일·UV=1 경계를 CPU·Metal 720p로 검증했다. chained Mapping, 연결 TRS, Texture/Normal 타입, 인스턴스 공간, 변형 전 ORCO와 시간에 따른 공간은 남아 있다.",
+      "evidence": "2026-10-09-cycles-scene-goal.md"
     },
     {
       "id": "C46",

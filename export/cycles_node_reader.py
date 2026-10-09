@@ -128,9 +128,7 @@ def convert(material, props, superluxcore_name, obj_name=""):
     link = utils_node.get_link(output.inputs["Surface"])
     volume_link = utils_node.get_link(output.inputs["Volume"]) if "Volume" in output.inputs else None
 
-    # Note: the Displacement output is not handled here — it is a mesh-level
-    # effect exported by the object cache as a SuperLuxCore "displacement" shape
-    # (see get_displacement_link / export_displacement below).
+    # 출력 변위는 여기서 범프를 적용하고 오브젝트 캐시에서 실제 메시 변위를 적용한다.
 
     if link is None and volume_link is None:
         return black(superluxcore_name)
@@ -146,6 +144,30 @@ def convert(material, props, superluxcore_name, obj_name=""):
         props.Set(utils.luxutils.create_props("scene.materials." + superluxcore_name + ".", {
             "type": "null",
         }))
+
+    # BUMP/BOTH의 출력 변위는 표면 법선에도 적용하며 진짜 변위와 구분한다.
+    displacement = get_displacement_link(material)
+    if displacement is not None and getattr(material, "displacement_method", "BUMP") in {"BUMP", "BOTH"}:
+        disp_node = displacement.from_node
+        if disp_node.bl_idname == "ShaderNodeDisplacement":
+            height = _socket(disp_node.inputs["Height"], props, material, obj_name, None)
+            midlevel = _socket(disp_node.inputs["Midlevel"], props, material, obj_name, None)
+            scale = _socket(disp_node.inputs["Scale"], props, material, obj_name, None)
+            bump_height = _tex_binary("scale", _tex_binary("subtract", height, midlevel,
+                superluxcore_name + "_disp_offset", props), scale, superluxcore_name + "_disp_bump", props)
+        elif displacement.from_socket.type == "VALUE":
+            bump_height = _node(disp_node, displacement.from_socket, props, material,
+                                obj_name=obj_name)
+        else:
+            bump_height = None
+            SuperLuxCoreErrorLog.add_warning("출력 벡터 변위의 범프 변환은 추가 구현이 필요합니다", obj_name=obj_name)
+        if bump_height is not None:
+            bump_key = "scene.materials." + superluxcore_name + ".bumptex"
+            if props.IsDefined(bump_key):
+                previous = props.Get(bump_key).Get()
+                previous = previous[0] if len(previous) == 1 else previous
+                bump_height = _tex_binary("add", previous, bump_height, superluxcore_name + "_disp_composed", props)
+            props.Set(pysuperluxcore.Property(bump_key, bump_height))
 
     _apply_bump_filter_width(material.node_tree, props)
     _set_two_sided_emission(props, superluxcore_name)
@@ -230,16 +252,13 @@ def export_displacement(link, props, material, obj_name):
         height = _socket(node.inputs["Height"], props, material, obj_name, None)
         if height == ERROR_VALUE:
             return None
-        scale = _scalar_or_warn(node.inputs["Scale"], 1.0, node, obj_name)
-        midlevel = _scalar_or_warn(node.inputs["Midlevel"], 0.5, node, obj_name)
-        # SuperLuxCore: disp = (map * scale + offset) * N
-        # Cycles:  disp = (height - midlevel) * scale * N
-        return {
-            "map": height,
-            "map.type": "height",
-            "scale": scale,
-            "offset": -midlevel * scale,
-        }
+        scale = _socket(node.inputs["Scale"], props, material, obj_name, None)
+        midlevel = _socket(node.inputs["Midlevel"], props, material, obj_name, None)
+        # 연결 Scale·Midlevel도 높이 텍스처에 포함한다.
+        name = str(node.as_pointer()) + "_shape_displacement"
+        height = _tex_binary("scale", _tex_binary("subtract", height, midlevel,
+            name + "_offset", props), scale, name, props)
+        return {"map": height, "map.type": "height", "scale": 1.0, "offset": 0.0}
 
     if node.bl_idname == "ShaderNodeVectorDisplacement":
         if getattr(node, "space", "OBJECT") != "OBJECT":
@@ -3233,7 +3252,7 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
         prefix = "scene.textures."
         coord = output_socket.name
         if coord == "UV":
-            definitions = {"type": "uv"}
+            definitions = {"type": "uv", "wrap": False}
         elif coord == "Normal":
             definitions = {"type": "shadingnormal"}
         elif coord == "Object":
@@ -3289,7 +3308,7 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
                 "returning a zero vector", FALLBACK_VECTOR, obj_name)
     elif node.bl_idname == "ShaderNodeUVMap":
         prefix = "scene.textures."
-        definitions = {"type": "uv"}
+        definitions = {"type": "uv", "wrap": False}
 
         uv_map = getattr(node, "uv_map", "")
         if uv_map:

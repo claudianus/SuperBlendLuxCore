@@ -178,6 +178,9 @@ def _apply_cycles_displacement(shape, obj, mat_index, depsgraph, scene_props):
     mat = get_material(obj, mat_index, depsgraph)
     if mat is None:
         return shape
+    # Blender의 기본 BUMP는 지오메트리를 움직이지 않는다.
+    if getattr(mat.original, "displacement_method", "BUMP") == "BUMP":
+        return shape
     link = cycles_node_reader.get_displacement_link(mat.original)
     if link is None:
         return shape
@@ -201,7 +204,9 @@ def _apply_cycles_displacement(shape, obj, mat_index, depsgraph, scene_props):
     scene_props.Set(pysuperluxcore.Property(prefix + "map.type", disp["map.type"]))
     scene_props.Set(pysuperluxcore.Property(prefix + "scale", disp["scale"]))
     scene_props.Set(pysuperluxcore.Property(prefix + "offset", disp["offset"]))
-    scene_props.Set(pysuperluxcore.Property(prefix + "normalsmooth", True))
+    # BOTH의 범프는 원래 표면 법선을 기준으로 평가하여 기울기를 두 번 적용하지 않는다.
+    scene_props.Set(pysuperluxcore.Property(prefix + "normalsmooth",
+        getattr(mat.original, "displacement_method", "BUMP") != "BOTH"))
     return disp_shape
 
 
