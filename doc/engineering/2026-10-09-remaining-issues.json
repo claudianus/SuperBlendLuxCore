@@ -1,0 +1,482 @@
+[
+  {
+    "id": "C01",
+    "priority": "P0",
+    "scope": "Magic Texture",
+    "status": "실행 예외",
+    "finding": "Depth는 소켓이 아니라 tex_depth 속성이다. 존재하지 않는 입력 조회로 회색 대체 재질이 된다.",
+    "evidence": "reader 3621; Blender node_shader_tex_magic.cc; 720p CPU·Metal"
+  },
+  {
+    "id": "C02",
+    "priority": "P0",
+    "scope": "Noise 1D",
+    "status": "실행 예외",
+    "finding": "1D에서 Vector 입력이 제거되는데 무조건 조회한다. W를 받기 전에 실패한다.",
+    "evidence": "reader 3362; Blender node_shader_tex_noise.cc; 720p CPU·Metal"
+  },
+  {
+    "id": "C03",
+    "priority": "P0",
+    "scope": "Voronoi 1D",
+    "status": "실행 예외",
+    "finding": "Vector 입력이 없는 1D에서 무조건 조회한다. Distance/Color/W 출력 검사에서 예외가 난다.",
+    "evidence": "reader 3341; 노드 전수 변환"
+  },
+  {
+    "id": "C04",
+    "priority": "P0",
+    "scope": "White Noise 1D",
+    "status": "실행 예외",
+    "finding": "없는 Vector 입력을 조회한다. W 기반 1D 해시 경로가 없다.",
+    "evidence": "reader 3428; 노드 전수 변환"
+  },
+  {
+    "id": "C05",
+    "priority": "P0",
+    "scope": "벡터 Map Range",
+    "status": "실행 예외",
+    "finding": "Vector 모드에서 없는 Value 입력을 조회한다. 비영 입력의 실제 렌더는 검게 나온다.",
+    "evidence": "reader 2551; 720p CPU·Metal"
+  },
+  {
+    "id": "C06",
+    "priority": "P1",
+    "scope": "Layer Weight Fresnel",
+    "status": "영상 불일치",
+    "finding": "Blend를 무시하고 고정 IOR 1.45를 사용한다. Cycles는 eta=max(1-Blend,1e-5)와 앞/뒷면 조건을 적용한다.",
+    "evidence": "reader 2713; Blender svm/fresnel.h; 720p CPU·Metal"
+  },
+  {
+    "id": "C07",
+    "priority": "P1",
+    "scope": "Layer Weight Facing",
+    "status": "영상 불일치",
+    "finding": "Cycles의 Blend 구간별 지수 변환과 1-pow(abs(dot),지수)를 재현하지 않는다. 연결 Blend·Normal도 지원하지 않는다.",
+    "evidence": "reader 2724; Blender svm/fresnel.h; 720p CPU·Metal"
+  },
+  {
+    "id": "C08",
+    "priority": "P1",
+    "scope": "Hue/Saturation Factor",
+    "status": "영상 불일치",
+    "finding": "Factor를 읽고 최종 HSV 변환 결과와 원색을 혼합하지 않는다. Factor=0에서도 색이 바뀐다.",
+    "evidence": "reader 2082; Blender svm/hsv.h; 720p CPU·Metal"
+  },
+  {
+    "id": "C09",
+    "priority": "P1",
+    "scope": "ColorRamp Alpha",
+    "status": "영상 불일치",
+    "finding": "Alpha 출력을 구분하지 않고 RGB band를 반환한다. 알파 값은 저장하지 않는다.",
+    "evidence": "reader 2154; Blender svm/ramp.h; 720p CPU·Metal"
+  },
+  {
+    "id": "C10",
+    "priority": "P1",
+    "scope": "ColorRamp 색 공간·보간",
+    "status": "영상 불일치",
+    "finding": "HSV/HSL와 색상 보간 방향을 무시한다. Ease/Cardinal/B-Spline을 한 cubic 경로로 합친다. RGB Linear/Constant 지원과 구분해야 한다.",
+    "evidence": "reader 2159; 720p HSV·Ease CPU·Metal"
+  },
+  {
+    "id": "C11",
+    "priority": "P1",
+    "scope": "Float Curve",
+    "status": "영상 불일치",
+    "finding": "Factor를 무시한다. 9개 LUT, 0..1 출력 제한과 입력 구간 제한으로 세부 곡선·외삽도 손실된다.",
+    "evidence": "reader 3670; Blender scene/shader_nodes.cpp FloatCurveNode; 720p CPU·Metal"
+  },
+  {
+    "id": "C12",
+    "priority": "P1",
+    "scope": "Vector Curve",
+    "status": "영상 불일치",
+    "finding": "3개 채널 배열에 channel+1로 접근하여 마지막 채널에서 실패하고 입력을 그대로 반환한다. Factor도 미지원이다.",
+    "evidence": "reader 3715; 720p CPU·Metal"
+  },
+  {
+    "id": "C13",
+    "priority": "P1",
+    "scope": "RGB Curve",
+    "status": "소스 확정 제한",
+    "finding": "합성 곡선 하나만 휘도에 적용해 회색 band로 반환한다. 채널별 곡선·Factor·색 보존·외삽이 다르다.",
+    "evidence": "reader 3670; Blender RGB/Vector/Float 곡선 컴파일 경로"
+  },
+  {
+    "id": "C14",
+    "priority": "P1",
+    "scope": "Gamma",
+    "status": "영상 불일치",
+    "finding": "일반 색 입력은 ERROR_VALUE를 반환한다. Image 입력 특례는 기존 좌표·투영·필터를 다시 구성하며 연결 Gamma도 별도 문제가 된다.",
+    "evidence": "reader 2298; Blender svm/gamma.h; 720p CPU·Metal"
+  },
+  {
+    "id": "C15",
+    "priority": "P1",
+    "scope": "RGBA Mix 클램프·외삽",
+    "status": "영상 불일치",
+    "finding": "FLOAT/VECTOR와 달리 clamp_result가 적용되지 않고, clamp_factor=false의 MIX 외삽도 엔진의 Mix 제한으로 손실된다.",
+    "evidence": "reader 2796; 720p CPU 확인"
+  },
+  {
+    "id": "C16",
+    "priority": "P1",
+    "scope": "RGB 혼합 14개 모드",
+    "status": "경고·대체",
+    "finding": "Screen/Overlay/Soft Light/Hue 등 14개 모드를 단순 Mix로 대체한다. Divide의 Cycles 예외 처리와 Factor 경계도 별도 검증이 필요하다.",
+    "evidence": "reader 663; MixRGB·RGBA 조합 전수; Screen 720p"
+  },
+  {
+    "id": "C17",
+    "priority": "P1",
+    "scope": "Vector Math POWER/SIGN",
+    "status": "경고·영상 불일치",
+    "finding": "Blender 5.2의 두 연산을 입력 통과로 대체한다. 나머지 연산의 등록과 구분한다.",
+    "evidence": "reader 2809 이후 VectorMath; 720p CPU·Metal"
+  },
+  {
+    "id": "C18",
+    "priority": "P1",
+    "scope": "Map Range 보간·클램프",
+    "status": "경고·미지원",
+    "finding": "Stepped/Smoothstep/Smootherstep은 ERROR_VALUE다. Clamp=false도 항상 클램프하며 역방향 범위·영폭 경계는 추가 실행 검증이 필요하다.",
+    "evidence": "reader 2539; Blender svm/map_range.h"
+  },
+  {
+    "id": "C19",
+    "priority": "P1",
+    "scope": "흡수+산란 볼륨 Add/Mix",
+    "status": "변환·소스 확정",
+    "finding": "자식 중 clear가 있으면 합성도 clear로 지정한다. scattering 값이 있어도 엔진 ClearVolume은 SigmaS=0이다.",
+    "evidence": "reader 4319; workflow-audit.json; 엔진 parsevolumes.cpp/ClearVolume"
+  },
+  {
+    "id": "C20",
+    "priority": "P1",
+    "scope": "한쪽이 빈 볼륨 Mix",
+    "status": "변환 확정",
+    "finding": "자식이 하나면 Factor를 적용하지 않고 그대로 반환한다. Factor=.25인 산란 입력도 전체 농도로 반환된다.",
+    "evidence": "reader 4302; workflow-audit.json"
+  },
+  {
+    "id": "C21",
+    "priority": "P1",
+    "scope": "Principled Volume 흑체",
+    "status": "변환 확정",
+    "finding": "Blackbody Intensity=1, Temperature=1500의 상수 발광도 무시하며 경고가 없다. 연결 Temperature/Tint 일부에만 경고한다.",
+    "evidence": "reader 4275; Blender svm/closure.h; workflow-audit.json"
+  },
+  {
+    "id": "C22",
+    "priority": "P1",
+    "scope": "Principled Volume 속성",
+    "status": "소스 확정 제한",
+    "finding": "Density/Color/Temperature Attribute 문자열을 계수에 연결하지 않는다. VDB 재질의 기본 density 이름만으로 밀도 격자를 읽는 경로와 Volume Info를 구분해야 한다.",
+    "evidence": "reader 4275; export/volume.py::_material_volume_defs"
+  },
+  {
+    "id": "C23",
+    "priority": "P1",
+    "scope": "투명 필름 설정 가져오기",
+    "status": "실행 변환 실패",
+    "finding": "실제 위치 scene.render.film_transparent 대신 없는 scene.cycles.film_transparent를 읽고 없는 scene.superluxcore.imagepipelines를 탐색한다. 실제 카메라 플래그가 false로 남았다.",
+    "evidence": "operators/cycles_settings.py 140; workflow-audit.json"
+  },
+  {
+    "id": "C24",
+    "priority": "P1",
+    "scope": "바운스 수 가져오기",
+    "status": "실행 변환 실패",
+    "finding": "0 total/diffuse/glossy를 건너뛴다. transparent_bounces 대신 transparent_max_bounces를 읽어야 하며 투명·투과 깊이 분리도 필요하다.",
+    "evidence": "operators/cycles_settings.py 44; workflow-audit.json"
+  },
+  {
+    "id": "C25",
+    "priority": "P1",
+    "scope": "컴포지터 패스 연결",
+    "status": "실행 변환 실패",
+    "finding": "Cycles 플래그로 필름 출력은 일부 생성되지만 update_render_passes는 Combined만 등록하고 _add_passes도 Cycles 패스를 추가하지 않는다. Depth/Albedo는 필름 생성 루프에서도 제외된다.",
+    "evidence": "export/aovs.py 110/136; engine/base.py 233; engine/final.py 280; workflow-audit.json"
+  },
+  {
+    "id": "C26",
+    "priority": "P1",
+    "scope": "패스 의미·식별자",
+    "status": "소스 확정 제한",
+    "finding": "Diffuse/Glossy/Transmission Color를 모두 ALBEDO로 합친다. Object Index는 Blender pass_index와 다른 해시 ID이며 재질 ID도 직접 보존 경로가 없다. Cycles 패스 이름과 엔진 이름의 연결도 필요하다.",
+    "evidence": "cycles_compat.py::_PASS_OUTPUTS; utils.make_object_id; Blender sync.cpp"
+  },
+  {
+    "id": "C27",
+    "priority": "P1",
+    "scope": "무수정 모션 블러 전환",
+    "status": "실행 변환 실패",
+    "finding": "Blender render.use_motion_blur와 shutter를 가져오지 않는다. 확장 전용 enable와 물체별 opt-in이 필요하다. 실제 import 후 false/0.1로 남았다.",
+    "evidence": "cycles_settings.py; export/motion_blur.py; workflow-audit.json"
+  },
+  {
+    "id": "C28",
+    "priority": "P1",
+    "scope": "진짜 변위·범프 모드",
+    "status": "소스 확정 제한",
+    "finding": "재질 displacement_method에 따른 BUMP/DISPLACEMENT/BOTH를 존중하지 않고 출력 링크만으로 모양을 감싼다. 직접 높이 출력의 범프 대체, 연결 Normal·Scale·Midlevel, 월드 공간과 적응 세분화가 제한된다.",
+    "evidence": "reader 217; object_cache.py::_apply_cycles_displacement; cycles_compat.py 191"
+  },
+  {
+    "id": "C29",
+    "priority": "P1",
+    "scope": "벡터 변위",
+    "status": "소스 확정 제한",
+    "finding": "Midlevel을 읽지 않고 offset=0이다. Tangent/World 공간을 Object로 대체한다. 객체 변환·Normal 기준까지 실제 영상 검증이 필요하다.",
+    "evidence": "reader 244; Blender svm/displace.h"
+  },
+  {
+    "id": "C30",
+    "priority": "P1",
+    "scope": "Bump 연결·합성",
+    "status": "경고·소스 제한",
+    "finding": "연결 Distance/Normal을 무시한다. Filter Width는 노드별 기본값 대신 트리 최대 기본값을 모든 bumped 재질에 적용한다. 다중 범프 체인 의미는 실행 검증이 필요하다. Blender도 Filter Width를 컴파일 시 값으로 사용하므로 연결 폭 자체의 차이는 확정하지 않는다.",
+    "evidence": "reader 79/98/2365; Blender svm/displace.h"
+  },
+  {
+    "id": "C31",
+    "priority": "P1",
+    "scope": "일반 Normal 벡터",
+    "status": "소스 검토·실행 미검증",
+    "finding": "_normal_input의 일반 벡터 결과를 높이 bumptex로 전달한다. NormalMap·Bump 전용 경로 외의 임의 벡터 법선 의미, 앞/뒷면·비균일 변환을 별도 검증해야 한다.",
+    "evidence": "reader 4107; 엔진 Texture::Bump"
+  },
+  {
+    "id": "C32",
+    "priority": "P1",
+    "scope": "Principled Tangent·Coat Normal",
+    "status": "소스 확정 제한",
+    "finding": "OpenPBR 경로는 Tangent를 읽지 않고 Coat Normal을 경고 후 무시한다. 코트와 기저 법선을 분리한 장면은 일치하지 않는다.",
+    "evidence": "reader 938/1024; 활성 Normal 연결 검수"
+  },
+  {
+    "id": "C33",
+    "priority": "P1",
+    "scope": "Principled Thin Wall·분기",
+    "status": "소스 확정 제한",
+    "finding": "정확히 full transmission·sharp일 때만 archglass다. 혼합 투과 OpenPBR는 Thin Wall을 사용하지 않으며 해당 분기에서 경고도 없다. 유리 최적화 분기와 코트·SSS·sheen 결합을 다시 검증해야 한다.",
+    "evidence": "reader 1177/1201/1242"
+  },
+  {
+    "id": "C34",
+    "priority": "P2",
+    "scope": "Principled 모델·SSS",
+    "status": "소스 확정 제한",
+    "finding": "distribution/subsurface_method를 OpenPBR 경로에서 선택하지 않는다. Random Walk/Burley/Skin, SSS IOR, fuzz·coat tint 및 박막의 실제 수치 동등성은 별도 판정이 필요하다.",
+    "evidence": "reader 938; Blender scene/shader_nodes.cpp PrincipledBsdfNode"
+  },
+  {
+    "id": "C35",
+    "priority": "P1",
+    "scope": "Diffuse Roughness",
+    "status": "소스 확정 제한",
+    "finding": "Roughness 입력을 경고 없이 무시하고 항상 matte를 만든다.",
+    "evidence": "reader 1513; 전체 연결 입력 검수"
+  },
+  {
+    "id": "C36",
+    "priority": "P2",
+    "scope": "Glass·Refraction 분포·박막",
+    "status": "소스 확정 제한",
+    "finding": "Glass의 Thin Film 입력을 읽지 않는다. sharp/rough/OpenPBR 분기와 Beckmann/GGX/Multiscatter 선택이 Blender의 전체 분포와 동등한지 미검증이다.",
+    "evidence": "reader 1639/1880 이후"
+  },
+  {
+    "id": "C37",
+    "priority": "P2",
+    "scope": "Anisotropic·Metallic",
+    "status": "경고·소스 제한",
+    "finding": "연결 anisotropy/roughness를 등방성으로 대체하고 rotation/tangent 및 Metallic F82 Edge Tint·박막을 지원하지 않는다.",
+    "evidence": "reader 1698/1748; 전체 모드·연결 입력 검수"
+  },
+  {
+    "id": "C38",
+    "priority": "P2",
+    "scope": "Principled Hair",
+    "status": "소스 확정 제한",
+    "finding": "Coat·Random Roughness·Random Color 및 lobe weight 제어를 읽지 않는다. 연결 melanin은 상수 대체이며 Chiang/Huang 모델 이름 매핑만으로 영상 동등함을 판정할 수 없다.",
+    "evidence": "reader 1820; Blender svm/closure.h; Hair 조합 검수"
+  },
+  {
+    "id": "C39",
+    "priority": "P1",
+    "scope": "일반 Add Shader",
+    "status": "경고·소스 제한",
+    "finding": "표면 closure 두 개를 50/50 Mix로 바꿔 에너지를 절반으로 만든다. Transparent가 들어간 Add는 그 자식을 제거한다. 발광 특례와 일반 합성을 구분해야 한다.",
+    "evidence": "reader 1381/1400/1489"
+  },
+  {
+    "id": "C40",
+    "priority": "P2",
+    "scope": "Toon·Ray Portal·AO·Tangent",
+    "status": "경고·대체",
+    "finding": "Toon은 matte, Ray Portal은 transparent, AO는 비차폐 색/1, Tangent는 0이다. 기존 지원 표의 AO/Tangent 설명은 현재 변환과 다르다.",
+    "evidence": "reader 3164/3990 이후; 전체 노드 검수"
+  },
+  {
+    "id": "C41",
+    "priority": "P2",
+    "scope": "Voronoi 전체 의미",
+    "status": "경고·소스 제한",
+    "finding": "2D/4D·일부 feature·Color/Position/Radius/W를 근사·대체한다. Detail/Roughness/Lacunarity/Randomness 연결과 프랙털 계산도 전달하지 않는다.",
+    "evidence": "reader 3300; 전체 모드·연결 입력 검수"
+  },
+  {
+    "id": "C42",
+    "priority": "P1",
+    "scope": "White Noise 해시",
+    "status": "영상 불일치",
+    "finding": "3D도 Cycles hash_float3_to_float3와 다른 엔진 해시/RNG를 사용한다. 연결된 동일 씨앗의 색이 실제로 다르며 2D/4D는 3D 대체다.",
+    "evidence": "reader 3416; 엔진 texture_whitenoise_funcs.cl; 추가 720p"
+  },
+  {
+    "id": "C43",
+    "priority": "P2",
+    "scope": "Brick·Checker·Gabor",
+    "status": "경고·소스 제한",
+    "finding": "Brick 색·배치·mortar smoothing·squash·연결 치수를 근사한다. Checker 연결 Scale은 경고 없이 무시한다. Gabor 3D·연결 파라미터·Orientation이 제한된다.",
+    "evidence": "reader 2178/3445/3492; 전체 노드 검수"
+  },
+  {
+    "id": "C44",
+    "priority": "P1",
+    "scope": "텍스처 Vector 소비 경로",
+    "status": "경고·소스 제한",
+    "finding": "좌표 출력 자체와 텍스처 입력 매핑을 구분해야 한다. 다수 legacy texture의 임의 Vector·Generated·참조 Object 경로가 UV/local 기본값으로 대체된다. 좌표 단독 회귀 통과로 전체 재질을 보장할 수 없다.",
+    "evidence": "reader 813/836; _vector_mapping_defs_impl"
+  },
+  {
+    "id": "C45",
+    "priority": "P2",
+    "scope": "좌표·Mapping·인스턴스",
+    "status": "소스 확정 제한",
+    "finding": "chained Mapping, 연결 TRS, Texture/Normal 타입, 인스턴스 공간, 변형 전 ORCO와 움직이는 reference/camera 공간 및 다른 뷰포트 카메라에 제한이 있다.",
+    "evidence": "reader 718/629/2967/3067; Blender svm/tex_coord.h"
+  },
+  {
+    "id": "C46",
+    "priority": "P2",
+    "scope": "Normal Map",
+    "status": "경고·소스 제한",
+    "finding": "Tangent 외 공간을 지원하지 않는다. uv_map 이름을 이 분기에서 읽지 않으며 연결 Strength는 엔진 Mix 클램프를 거친다. 음수·1 초과 및 여러 UV 층은 별도 영상 검증이 필요하다.",
+    "evidence": "reader 2339; Blender node_shader_normal_map.cc"
+  },
+  {
+    "id": "C47",
+    "priority": "P1",
+    "scope": "이미지 색 공간",
+    "status": "소스 확정 제한",
+    "finding": "sRGB를 단순 gamma=2.2, 나머지를 gamma=1로 처리한다. OCIO 입력 색 공간·선형 구간·프리멀티플라이 알파 계약을 직접 재현한 것이 아니다.",
+    "evidence": "reader 1579; ImageExporter.export_cycles_node_reader"
+  },
+  {
+    "id": "C48",
+    "priority": "P2",
+    "scope": "이미지 투영·필터·시퀀스",
+    "status": "경고·소스 제한",
+    "finding": "Cubic/Smart→Linear, Mirror→Repeat, UDIM 한 타일, Movie/Sequence 전용 Cycles 경로 제한, BOX/SPHERE/TUBE 투영과 blend가 다르다. 이미지 있는 실제 변환 조건을 별도 집계했다.",
+    "evidence": "reader 1550/1590; export/image.py 180 이후"
+  },
+  {
+    "id": "C49",
+    "priority": "P2",
+    "scope": "Geometry·Object·Particle·Point 입력",
+    "status": "경고·대체",
+    "finding": "Pointiness/Random per Island/Tangent, Object Color/Alpha, Particle Age/Lifetime/Velocity 등, Point 중심/Radius, Hair Length/Thickness/Tangent Normal의 부족을 기록한다.",
+    "evidence": "reader 2390/2417/2436/2460/4020; 전체 출력 검수"
+  },
+  {
+    "id": "C50",
+    "priority": "P2",
+    "scope": "속성·절차 기하 데이터",
+    "status": "경고·소스 제한",
+    "finding": "edge/string domain과 채널 예산 초과를 지원하지 않는다. Pointcloud는 구 인스턴스이며 Geometry Nodes가 생성한 인메모리 Volume은 지원하지 않는다.",
+    "evidence": "named_attributes.py; pointcloud.py; volume.py 267"
+  },
+  {
+    "id": "C51",
+    "priority": "P1",
+    "scope": "공간 볼륨·위상·경계",
+    "status": "소스 확정 제한",
+    "finding": "복합 볼륨 asymmetry는 산란 계수 가중 대신 단순 혼합이다. 텍스처 world volume은 구간당 한 번 평가하며 material step/interpolation/sampling과 겹친 경계가 다르다.",
+    "evidence": "reader 4350; world.py; volume.py; Blender shader.cpp volume 설정"
+  },
+  {
+    "id": "C52",
+    "priority": "P2",
+    "scope": "월드·조명 그래프",
+    "status": "경고·소스 제한",
+    "finding": "월드는 제한된 Background/환경/Sky 체인, Mix Shader 주 입력 선택, 연결 Strength와 Vector 변환만 처리한다. 일반 조명 색·강도 그래프, Light Falloff·material IES/Sky는 동일하지 않다.",
+    "evidence": "light.py::_convert_cycles_world/_convert_cycles_light"
+  },
+  {
+    "id": "C53",
+    "priority": "P2",
+    "scope": "빛 연결·가시성·섀도",
+    "status": "경고·소스 제한",
+    "finding": "Shadow Linking 없음, receiver group 예산 제한, Glossy/Transmission/Volume visibility 세분화 부족, per-light max bounce/MIS/caustic 태그 및 shadow-off 제한이다.",
+    "evidence": "cycles_compat.py 65/324/495"
+  },
+  {
+    "id": "C54",
+    "priority": "P2",
+    "scope": "DOF·파노라마·스테레오",
+    "status": "실행 변환·소스 제한",
+    "finding": "Blender DOF blades/ratio/rotation이 전용 bokeh로 복사되지 않는다. 파노라마 longitude 시작 오프셋·latitude·fisheye와 spherical stereo가 제한된다.",
+    "evidence": "camera.py 152/204; engine/base.py 46; workflow-audit.json"
+  },
+  {
+    "id": "C55",
+    "priority": "P2",
+    "scope": "시간·토폴로지·뷰포트",
+    "status": "소스 확정 제한",
+    "finding": "rolling shutter/시간 위치·per-object steps·면광원 변환 제한, 셔터 중 topology/strand layout 변경은 static 대체다. 실시간 normal/vector/data 변경·다른 뷰 카메라 일치와 취소 응답은 GUI 재검증이 필요하다.",
+    "evidence": "motion_blur.py; viewport.py/session_worker.py; Blender camera.cpp"
+  },
+  {
+    "id": "C56",
+    "priority": "P2",
+    "scope": "AOV·Cryptomatte·Light Groups·노이즈 제거",
+    "status": "경고·소스 제한",
+    "finding": "Shader AOV·Crypto Asset/Accurate·Environment/Mist/SSS 패스 및 Cycles lightgroup 이름 연결을 지원표와 구분한다. Cycles denoiser 종류·품질·시간 처리·적응 샘플 기준을 동일하게 가져오지 않는다.",
+    "evidence": "cycles_compat.py 559; aovs.py; properties/lightgroups.py; cycles_settings.py"
+  },
+  {
+    "id": "C57",
+    "priority": "P2",
+    "scope": "제작 장면 수렴·물리 모델",
+    "status": "이전 검증 잔여",
+    "finding": "멩거·모래 및 향수병의 밝은 노이즈/국소 차이, 감실 coplanar 경계와 화이트 퍼니스 개별 SSS·유리·박막 차이는 이전 720p 보고서에 남아 있다. 이번 단일 노드 검수로 해결되었다고 세지 않는다.",
+    "evidence": "2026-10-09-production-render.md"
+  },
+  {
+    "id": "C58",
+    "priority": "P2",
+    "scope": "OSL·베이킹·Eevee 전용 기능",
+    "status": "미지원·별도 범위",
+    "finding": "사용자 OSL, Cycles bake, ShaderToRGB·Freestyle·일부 raster 개념은 일반 Cycles 제작 장면 호환성과 분리해 표시한다. 현재 요청에서 지원된 것으로 세지 않는다.",
+    "evidence": "_UNSUPPORTED_NODE_NOTES; engine/base.py"
+  },
+  {
+    "id": "C59",
+    "priority": "P2",
+    "scope": "그룹·특성 조합·플랫폼",
+    "status": "실행 미검증",
+    "finding": "기본 그룹 생성은 출력이 없어서 호출되지 않았다. 중첩·muted graph·shader/volume 경계 조합, 모든 모드의 모든 연결 조합, Windows/Linux/Intel GPU와 GUI 전수 실행은 별도 검증이 필요하다.",
+    "evidence": "검수 방법의 한계; 공개 ZIP 플랫폼 검증 범위"
+  },
+  {
+    "id": "C60",
+    "priority": "P1",
+    "scope": "그룹의 중복 표시 이름",
+    "status": "실행 변환 실패",
+    "finding": "서로 다른 식별자의 출력 두 개가 같은 표시 이름일 때 두 번째 출력도 첫 번째 출력으로 변환한다. 값 .8을 요청한 실제 그룹이 .1로 변환됐다. Group Input도 이름 조회를 사용하므로 같은 위험이 있으며 별도 실행 검증이 필요하다.",
+    "evidence": "reader 2101/2116; workflow-audit.json duplicate_group_outputs"
+  }
+]

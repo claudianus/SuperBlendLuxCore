@@ -17,3 +17,7 @@ docs live alongside in `doc/`.
 | [diffraction-node.md](diffraction-node.md) | Diffraction material node |
 | [thread-safety.md](thread-safety.md) | bpy/RNA main-thread rules, worker marshalling, crash fixes |
 | [auto-caustic-routing.md](auto-caustic-routing.md) | Scene-signature caustic auto-enable (auto/on/off), legacy bool folding |
+
+## 2026-10-09 잔여 호환성 검수
+
+[현재 배포본의 전수 검수](2026-10-09-remaining-compatibility-audit.md)는 Blender 5.2.1 원본과 1,023개 변환 조건, CPU·Metal 720p 비교를 대조한다. [노드별 목록](2026-10-09-node-audit-catalog.md)과 [문제 60개 묶음](2026-10-09-remaining-issues.json)은 확정 결함·제한·미검증 범위를 구분한다. 런타임 수정이나 새 배포 완료 기록이 아니다.
