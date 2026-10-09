@@ -1,8 +1,8 @@
 {
   "goal": "기존 Cycles 씬의 무변환 시각·논리 의미 호환",
   "complete": false,
-  "target_version": "2.11.20",
-  "public_package_verified": true,
+  "target_version": "2.11.21",
+  "public_package_verified": false,
   "baseline": "2026-10-09-remaining-issues.json",
   "node_census": {
     "conditions": 1023,
@@ -253,15 +253,16 @@
       "priority": "P1",
       "scope": "일반 Normal 벡터",
       "status": "부분 구현·검증",
-      "remaining": "Normal Map 공간·UV·손잡이·객체 변환 및 signed normal 데이터는 CPU·Metal 720p에서 복원했다. 강하게 기울어진 Principled 법선에서 실제 앞면을 shading-normal 뒤쪽으로 오판하여 반사·확산이 검게 사라지는 결함을 재현했다. 재질별 use_bump_map_correction 전달, 로브별 반사·Coat Normal 프레임 및 shadow-terminator 적용 경계의 공통 CPU·GPU 수정은 남아 있다.",
-      "evidence": "2026-10-09-reflection-normal-audit.md"
+      "remaining": "로브별 법선·재질별 반사 보정·확산 보정·뒤면 누수 방지·영벡터 fallback을 CPU/Metal 720p의 50조건, 선택 에너지 gate 및 표적 BIDIR에서 검증했다. 강한 투과 법선, 제작 조합·GUI·타 플랫폼·최종 공개 패키지와 flat-metal grazing 약 1% 에너지 차이는 남아 있다.",
+      "evidence": "2026-10-10-cycles-lobe-normals.md"
     },
     {
       "id": "C32",
       "priority": "P1",
       "scope": "Principled Tangent·Coat Normal",
-      "status": "미완료",
-      "remaining": "OpenPBR 경로는 Tangent를 읽지 않고 Coat Normal을 경고 후 무시한다. 코트와 기저 법선을 분리한 장면은 일치하지 않는다."
+      "status": "부분 구현·검증",
+      "remaining": "독립 Coat Normal·연결 Bump와 기저·코트·fuzz 프레임 분리를 CPU·Metal 720p 및 실제 구형 장면에서 검증했다. Principled Tangent, 넓은 코트/박막/SSS 조합과 최종 공개 패키지 검증은 남아 있다.",
+      "evidence": "2026-10-10-cycles-lobe-normals.md"
     },
     {
       "id": "C33",
@@ -627,5 +628,27 @@
     "implementation_complete": false,
     "evidence": "2026-10-09-reflection-normal-audit.md",
     "remaining": "Strongly tilted mapped Principled reflection/diffuse; per-material correction flag; Coat Normal; per-lobe PDF/frame/terminator handling; flat-metal grazing white-furnace excess energy"
+  },
+  "lobe_normal_candidate": {
+    "version": "2.11.21",
+    "private_native_sha256": "4631c64817a7e44d36437c7a3f25ae93040938a0fc3e6045f6ad9ed6f8edb745",
+    "validation_in_progress": false,
+    "public_package_verified": false,
+    "installed_in_user_blender": false,
+    "complete": false,
+    "evidence": "2026-10-10-cycles-lobe-normals.md",
+    "remaining": "Four-platform CI and public wheel/ZIP/actual install; mapped transmission, Tangent, curve, broad SSS/coat/thin-film, mixed legacy/light-path, production and GUI/platform acceptance",
+    "verified_private": true,
+    "conditions_per_backend": 25,
+    "mean_energy_conditions_per_backend": 11,
+    "mean_energy_tolerance": 0.025,
+    "regression_conditions": 41,
+    "native_property_checks": 3,
+    "glass_furnace_controls": 8,
+    "native_beauty_renders": 2,
+    "comparison_sheets_inspected": 4,
+    "engine_source": "00a3afb7205d856327b0f16f76f94dbad1967105",
+    "ci_run": 37955453896,
+    "ci_status": "in_progress"
   }
 }

@@ -21,6 +21,7 @@
 #                  back to legacy ../LuxCore dir name)
 #   SUPERLUXCORE_BUILD  dir holding the built .so
 #                  (default: $SUPERLUXCORE_REPO/out/build/src/pysuperluxcore/Release)
+#   SUPERLUXCORE_DEV_WHEEL_DIR  isolated immutable wheel directory for a test profile
 #   BLENDER_VER    Blender version dir (default: 5.2)
 #   EXT_ID         extension dir name (default: superluxcore)
 #
@@ -103,7 +104,7 @@ echo "== site-packages <- $DEST_SO (dylibs + rpath rewrite done)"
 # WHEEL_DL_FOLDER before `pip download`, so a path_to_wheel inside wheels/
 # is always moved away mid-install — point the settings at a stable copy
 # in the SuperLuxCore build tree instead.
-DEV_WHEEL_DIR="$SUPERLUXCORE_REPO/out/install/Release/wheel"
+DEV_WHEEL_DIR="${SUPERLUXCORE_DEV_WHEEL_DIR:-$SUPERLUXCORE_REPO/out/install/Release/wheel}"
 mkdir -p "$DEV_WHEEL_DIR"
 ENGINE_VER="$(python3 -c 'import json, sys; v = json.load(open(sys.argv[1]))["DefaultVersion"]; print(".".join((v["major"], v["minor"], v["patch"])))' "$SUPERLUXCORE_REPO/build-system/build-settings.json")"
 DEV_WHEEL="$DEV_WHEEL_DIR/pysuperluxcore-${ENGINE_VER}-cp313-cp313-macosx_14_0_arm64.whl"

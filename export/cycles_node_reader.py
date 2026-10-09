@@ -1251,6 +1251,8 @@ def _principled_openpbr(node, base_color, metallic, transmission,
         # coat (OpenPBR's specular_ior_ratio would make an IOR-1.5 base
         # under an IOR-1.5 coat reflect nothing: coated surfaces 0.56x)
         "coataffectsbaseior": False,
+        "cyclesnormalsemantics": True,
+        "reflectionnormalcorrection": bool(getattr(material.cycles, "use_bump_map_correction", True)),
     }
 
     diffuse_roughness = s("Diffuse Roughness")
@@ -1309,13 +1311,12 @@ def _principled_openpbr(node, base_color, metallic, transmission,
             "scale", tf_thickness, 0.001, superluxcore_name + "_filmum", props)
         definitions["filmior"] = s("Thin Film IOR", 1.33)
 
+    coat_socket = node.inputs.get("Coat Normal")
+    if _socket_active(coat_socket) and _socket_nondefault(coat_socket, (0.0, 0.0, 0.0)):
+        definitions["coatnormal"] = _normal_input(coat_socket, props, material,
+                                                 obj_name, group_node_stack)
+
     # Honest warnings for inputs openpbr cannot express
-    if _socket_active(node.inputs.get("Coat Normal")) and \
-            _socket_nondefault(node.inputs.get("Coat Normal"),
-                               (0.0, 0.0, 0.0)):
-        _warn_unsupported(
-            node, "Coat Normal is not supported by the OpenPBR material "
-            "(the coat shares the shading normal); ignored", None, obj_name)
     if _socket_active(node.inputs.get("Transmission Weight")) and \
             _socket_nondefault(node.inputs.get("Transmission Roughness"), 0.0):
         _warn_unsupported(

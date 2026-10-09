@@ -51,3 +51,5 @@ docs live alongside in `doc/`.
 - [Strongly tilted reflection and diffuse normal audit](2026-10-09-reflection-normal-audit.md)
 
 - [Verified 2.11.20 public ZIP and actual Blender deployment](2026-10-09-deployment-2.11.20.md)
+
+- [Cycles Principled lobe normals and independent Coat Normal](2026-10-10-cycles-lobe-normals.md)
