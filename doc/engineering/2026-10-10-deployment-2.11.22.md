@@ -28,3 +28,5 @@ ARM native SHA-256 e5198b1edc3e9f30222d54b098f91c03d097f37277db5774260dc254fa3da
 | SuperLuxCore-2.11.22-macos_arm64.zip | `26dead39046dfd7bd2b9ceb5122fb3cb5fa60428038d4c741045ada2ac9ec165` |
 | SuperLuxCore-2.11.22-macos_x64.zip | `e14b81a734b34607f5e1ace919c99e030d941510a10ea33008e3225f15d481ac` |
 | SuperLuxCore-2.11.22-windows_x64.zip | `61071cde624fb431415818204d9b640a34bb86178f7aac5db60ae04727463d85` |
+
+후속 검수: [2.11.23 배포 기록](2026-10-10-deployment-2.11.23.md)에서 네 플랫폼 서명, NVRTC 엔진·번들 각 23개, 공개 ZIP·새 설치·실제 macOS CPU/Metal 341개 검수가 완료됐다. NVIDIA 실제 하드웨어 렌더는 계속 미검증이다.

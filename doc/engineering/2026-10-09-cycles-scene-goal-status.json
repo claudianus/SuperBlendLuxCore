@@ -7,7 +7,8 @@
   "node_census": {
     "conditions": 1023,
     "exceptions": 0,
-    "warning_conditions": 239
+    "warning_conditions": 239,
+    "last_verified_version": "2.11.22"
   },
   "issues": [
     {
@@ -476,18 +477,48 @@
       "evidence": "cycles-scene-goal-phase1/workflow"
     }
   ],
-  "public_version": "2.11.21",
+  "public_version": "2.11.23",
   "withdrawn_candidate": {
     "version": "2.11.14",
     "reason": "네 플랫폼 C++ 빌드는 성공했지만 공통 UV payload의 u_int가 실제 Metal shader 컴파일에 실패하여 엔진 후보를 초안으로 회수했다. Blender 확장은 미공개다."
   },
   "public_release": {
-    "version": "2.11.21",
-    "engine_source": "00a3afb7205d856327b0f16f76f94dbad1967105",
-    "addon_source": "84f93cce73087062c73708249097a1c3fe14d5f1",
+    "version": "2.11.23",
+    "engine_source": "8f2aa09c40620ff7cca6b226a74fb44433963755",
+    "addon_source": "fb1938df4d0d392ec5ba09e64506b62484537cdb",
+    "native_sha256": "be60dd8d537ece9e699c8857f6f531b817f0e233cf3049ef99f65c1d425be5c6",
+    "wheel_ci": 37989036418,
+    "bundle_ci": 37992675256,
+    "ci_conditions": 121,
+    "ci_extra_height_zero": 12,
+    "final_counts": {
+      "cpu": 52,
+      "metal": 52
+    },
+    "actual_counts": {
+      "cpu": 52,
+      "metal": 52
+    },
+    "total_targeted_checks": 341,
+    "vector_qa_sheets_reviewed": 18,
+    "native_beauty_images_reviewed": 2,
+    "native_beauty_samples": 128,
+    "engine_nvrtc_programs_passed": 23,
+    "bundle_nvrtc_programs_passed": 23,
+    "four_platform_attestations_verified": true,
+    "public_package_verified": true,
+    "actual_macos_cpu_metal_verified": true,
+    "nvidia_hardware_render_verified": false,
+    "intel_ci_runtime_smoke": "skipped",
+    "fresh_process_registration_diagnostics": 0,
+    "upgrade_cli_registration_diagnostics": 3,
+    "gui_hot_reload_verified": false,
+    "incoming_diagnostic_failed_conditions": 12,
+    "goal": "active incomplete",
+    "evidence": "2026-10-10-deployment-2.11.23.md",
     "installed_in_user_blender": true,
     "verified": true,
-    "evidence": "2026-10-10-deployment-2.11.21.md"
+    "actual_installed": true
   },
   "vector_divide": {
     "version": "2.11.16",
@@ -576,31 +607,44 @@
     "public_runtime_native_sha256": "79b47dca82b4692aba120aa32adaf339457bfc49c5f822ca1f0f2b7dd83b6324",
     "public_evidence": "2026-10-09-deployment-2.11.20.md"
   },
-  "deployed_version": "2.11.21",
+  "deployed_version": "2.11.23",
   "deployment": {
-    "version": "2.11.21",
-    "engine_source": "00a3afb7205d856327b0f16f76f94dbad1967105",
-    "addon_source": "84f93cce73087062c73708249097a1c3fe14d5f1",
-    "installed_in_user_blender": true,
-    "verified": true,
-    "evidence": "2026-10-10-deployment-2.11.21.md",
-    "actual_installed": true,
-    "ci_conditions": 112,
-    "final_zip_conditions": 40,
-    "actual_profile_conditions": 40,
-    "total_checks": 192,
-    "independent_production_scene_count": false,
-    "comparison_sheets_inspected": 6,
-    "native_beauty_images_inspected": 6,
-    "cycles_reference_beauty_images_inspected": 1,
+    "version": "2.11.23",
+    "engine_source": "8f2aa09c40620ff7cca6b226a74fb44433963755",
+    "addon_source": "fb1938df4d0d392ec5ba09e64506b62484537cdb",
+    "native_sha256": "be60dd8d537ece9e699c8857f6f531b817f0e233cf3049ef99f65c1d425be5c6",
+    "wheel_ci": 37989036418,
+    "bundle_ci": 37992675256,
+    "ci_conditions": 121,
+    "ci_extra_height_zero": 12,
+    "final_counts": {
+      "cpu": 52,
+      "metal": 52
+    },
+    "actual_counts": {
+      "cpu": 52,
+      "metal": 52
+    },
+    "total_targeted_checks": 341,
+    "vector_qa_sheets_reviewed": 18,
+    "native_beauty_images_reviewed": 2,
+    "native_beauty_samples": 128,
+    "engine_nvrtc_programs_passed": 23,
+    "bundle_nvrtc_programs_passed": 23,
+    "four_platform_attestations_verified": true,
     "public_package_verified": true,
-    "native_sha256": "0f61daf90d3ad2cb6082d59f837e73fea657133fce39983f82d303b4d985d295",
-    "addon_python_source_files": 367,
+    "actual_macos_cpu_metal_verified": true,
+    "nvidia_hardware_render_verified": false,
+    "intel_ci_runtime_smoke": "skipped",
     "fresh_process_registration_diagnostics": 0,
     "upgrade_cli_registration_diagnostics": 3,
     "gui_hot_reload_verified": false,
-    "actual_metal_gpu_verified": true,
-    "intel_ci_runtime_smoke": "skipped_gpu_unavailable"
+    "incoming_diagnostic_failed_conditions": 12,
+    "goal": "active incomplete",
+    "evidence": "2026-10-10-deployment-2.11.23.md",
+    "installed_in_user_blender": true,
+    "verified": true,
+    "actual_installed": true
   },
   "add_shader": {
     "version": "2.11.20",
@@ -674,29 +718,70 @@
     }
   },
   "previous_public_release": {
-    "version": "2.11.20",
-    "engine_source": "2f0304832ea144a7069718a1cf0a6dcdb13dea73",
-    "addon_source": "6a8c14837fae8428aaec459ad26ef4423f5ec9a7",
-    "installed_in_user_blender": true,
-    "verified": true,
-    "evidence": "2026-10-09-deployment-2.11.20.md"
+    "version": "2.11.22",
+    "engine_source": "bd1bfff02c4661ca2a41fefb595b8280fc06e16f",
+    "addon_source": "9fcf4e873e04acbda387568f3d0ff0e708053a57",
+    "native_sha256": "e5198b1edc3e9f30222d54b098f91c03d097f37277db5774260dc254fa3dad7c",
+    "ci_conditions": 121,
+    "ci_extra_height_zero": 12,
+    "final_counts": {
+      "cpu": 52,
+      "metal": 52
+    },
+    "actual_counts": {
+      "cpu": 52,
+      "metal": 52
+    },
+    "total_targeted_checks": 341,
+    "node_export_conditions": 1023,
+    "node_export_exceptions": 0,
+    "node_export_warning_conditions": 239,
+    "vector_qa_sheets_reviewed": 18,
+    "zero_input_qa_sheets_reviewed": 3,
+    "native_beauty_images_reviewed": 6,
+    "cycles_beauty_references_reviewed": 3,
+    "public_package_verified": true,
+    "actual_macos_cpu_metal_verified": true,
+    "nvidia_cuda_verified": false,
+    "confirmed_cuda_compile_defect": true,
+    "cuda_fix_ci_version": "2.11.23",
+    "goal": "active incomplete",
+    "evidence": "2026-10-10-deployment-2.11.22.md",
+    "wheel_ci": 37984419834,
+    "bundle_ci": 37987937078
   },
   "previous_deployment": {
-    "version": "2.11.20",
-    "actual_installed": true,
-    "engine_source": "2f0304832ea144a7069718a1cf0a6dcdb13dea73",
-    "addon_source": "6a8c14837fae8428aaec459ad26ef4423f5ec9a7",
-    "ci_conditions": 125,
-    "final_zip_conditions": 48,
-    "actual_profile_conditions": 38,
-    "total_checks": 211,
-    "comparison_sheets_inspected": 14,
-    "beauty_images_inspected": 6,
+    "version": "2.11.22",
+    "engine_source": "bd1bfff02c4661ca2a41fefb595b8280fc06e16f",
+    "addon_source": "9fcf4e873e04acbda387568f3d0ff0e708053a57",
+    "native_sha256": "e5198b1edc3e9f30222d54b098f91c03d097f37277db5774260dc254fa3dad7c",
+    "ci_conditions": 121,
+    "ci_extra_height_zero": 12,
+    "final_counts": {
+      "cpu": 52,
+      "metal": 52
+    },
+    "actual_counts": {
+      "cpu": 52,
+      "metal": 52
+    },
+    "total_targeted_checks": 341,
+    "node_export_conditions": 1023,
+    "node_export_exceptions": 0,
+    "node_export_warning_conditions": 239,
+    "vector_qa_sheets_reviewed": 18,
+    "zero_input_qa_sheets_reviewed": 3,
+    "native_beauty_images_reviewed": 6,
+    "cycles_beauty_references_reviewed": 3,
     "public_package_verified": true,
-    "native_sha256": "79b47dca82b4692aba120aa32adaf339457bfc49c5f822ca1f0f2b7dd83b6324",
-    "evidence": "2026-10-09-deployment-2.11.20.md",
-    "fresh_process_registration_diagnostics": 0,
-    "gui_hot_reload_verified": false
+    "actual_macos_cpu_metal_verified": true,
+    "nvidia_cuda_verified": false,
+    "confirmed_cuda_compile_defect": true,
+    "cuda_fix_ci_version": "2.11.23",
+    "goal": "active incomplete",
+    "evidence": "2026-10-10-deployment-2.11.22.md",
+    "wheel_ci": 37984419834,
+    "bundle_ci": 37987937078
   },
   "vector_displacement_candidate": {
     "version": "2.11.22",
@@ -713,7 +798,9 @@
     "native_sha256": "e5198b1edc3e9f30222d54b098f91c03d097f37277db5774260dc254fa3dad7c",
     "evidence": "2026-10-10-cycles-vector-displacement.md",
     "remaining": "C29 remains partial: vector BUMP/BOTH, scalar World/Normal, Incoming/curved Bump evaluation, displaced attributes and production workflows",
-    "deployment_evidence": "2026-10-10-deployment-2.11.22.md"
+    "deployment_evidence": "2026-10-10-deployment-2.11.23.md",
+    "deployed_regression_version": "2.11.23",
+    "deployed_regression_native_sha256": "be60dd8d537ece9e699c8857f6f531b817f0e233cf3049ef99f65c1d425be5c6"
   },
   "zero_displacement_inputs_candidate": {
     "version": "2.11.22",
@@ -768,8 +855,81 @@
     "engine_source": "8f2aa09c40620ff7cca6b226a74fb44433963755",
     "ci": 37989036418,
     "nvrtc_gate_passed": true,
-    "public_package_verified": false,
-    "actual_installed_verified": false,
-    "nvidia_hardware_render_verified": false
+    "public_package_verified": true,
+    "actual_installed_verified": true,
+    "nvidia_hardware_render_verified": false,
+    "bundle_nvrtc_gate_passed": true,
+    "evidence": "2026-10-10-deployment-2.11.23.md"
+  },
+  "deployment_2_11_23": {
+    "version": "2.11.23",
+    "engine_source": "8f2aa09c40620ff7cca6b226a74fb44433963755",
+    "addon_source": "fb1938df4d0d392ec5ba09e64506b62484537cdb",
+    "native_sha256": "be60dd8d537ece9e699c8857f6f531b817f0e233cf3049ef99f65c1d425be5c6",
+    "wheel_ci": 37989036418,
+    "bundle_ci": 37992675256,
+    "ci_conditions": 121,
+    "ci_extra_height_zero": 12,
+    "final_counts": {
+      "cpu": 52,
+      "metal": 52
+    },
+    "actual_counts": {
+      "cpu": 52,
+      "metal": 52
+    },
+    "total_targeted_checks": 341,
+    "vector_qa_sheets_reviewed": 18,
+    "native_beauty_images_reviewed": 2,
+    "native_beauty_samples": 128,
+    "engine_nvrtc_programs_passed": 23,
+    "bundle_nvrtc_programs_passed": 23,
+    "four_platform_attestations_verified": true,
+    "public_package_verified": true,
+    "actual_macos_cpu_metal_verified": true,
+    "nvidia_hardware_render_verified": false,
+    "intel_ci_runtime_smoke": "skipped",
+    "fresh_process_registration_diagnostics": 0,
+    "upgrade_cli_registration_diagnostics": 3,
+    "gui_hot_reload_verified": false,
+    "incoming_diagnostic_failed_conditions": 12,
+    "goal": "active incomplete",
+    "evidence": "2026-10-10-deployment-2.11.23.md",
+    "installed_in_user_blender": true,
+    "verified": true,
+    "actual_installed": true
+  },
+  "incoming_displacement_candidate": {
+    "private_candidate_in_progress": true,
+    "public_fixed": false,
+    "source_contract": "Blender 5.2.1 shader_setup_from_displace wi=N",
+    "baseline_version": "2.11.23",
+    "baseline_failed_conditions": 12,
+    "scope": "Object/World Incoming geometry; curved Bump remains separate"
+  },
+  "deployment_2_11_21": {
+    "version": "2.11.21",
+    "engine_source": "00a3afb7205d856327b0f16f76f94dbad1967105",
+    "addon_source": "84f93cce73087062c73708249097a1c3fe14d5f1",
+    "installed_in_user_blender": true,
+    "verified": true,
+    "evidence": "2026-10-10-deployment-2.11.21.md",
+    "actual_installed": true,
+    "ci_conditions": 112,
+    "final_zip_conditions": 40,
+    "actual_profile_conditions": 40,
+    "total_checks": 192,
+    "independent_production_scene_count": false,
+    "comparison_sheets_inspected": 6,
+    "native_beauty_images_inspected": 6,
+    "cycles_reference_beauty_images_inspected": 1,
+    "public_package_verified": true,
+    "native_sha256": "0f61daf90d3ad2cb6082d59f837e73fea657133fce39983f82d303b4d985d295",
+    "addon_python_source_files": 367,
+    "fresh_process_registration_diagnostics": 0,
+    "upgrade_cli_registration_diagnostics": 3,
+    "gui_hot_reload_verified": false,
+    "actual_metal_gpu_verified": true,
+    "intel_ci_runtime_smoke": "skipped_gpu_unavailable"
   }
 }
