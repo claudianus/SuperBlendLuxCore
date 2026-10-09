@@ -41,3 +41,7 @@ docs live alongside in `doc/`.
 - [Existing Cycles Diffuse Roughness](2026-10-09-diffuse-roughness.md)
 
 - [Existing Cycles Bump remaining contracts](2026-10-09-cycles-bump-audit.md)
+
+- [Cycles Bump direction and linked-input semantics](2026-10-09-cycles-bump-direction.md)
+
+- [Verified 2.11.19 public ZIP and actual Blender deployment](2026-10-09-deployment-2.11.19.md)

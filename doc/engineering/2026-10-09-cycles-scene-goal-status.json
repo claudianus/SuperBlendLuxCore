@@ -1,7 +1,7 @@
 {
   "goal": "기존 Cycles 씬의 무변환 시각·논리 의미 호환",
   "complete": false,
-  "target_version": "2.11.19",
+  "target_version": "2.11.20",
   "public_package_verified": false,
   "baseline": "2026-10-09-remaining-issues.json",
   "node_census": {
@@ -244,16 +244,16 @@
       "id": "C30",
       "priority": "P1",
       "scope": "Bump 연결·합성",
-      "status": "미완료",
-      "remaining": "720p CPU/Metal RGB·표준 스펙트럼 38조건 검수에서 16조건만 통과. 연결 Distance·Normal 무시, Bump 연쇄 및 Vector Math/Mix 법선 데이터 오류를 재현했다. 노드별 Filter Width, linked Normal·Distance, 방향 데이터 출력의 전용 구현이 필요하다.",
-      "evidence": "2026-10-09-cycles-bump-audit.md"
+      "status": "부분 구현·검증",
+      "remaining": "전용 cyclesbump 후보에서 연결·공간 Distance, linked Normal, Bump 연쇄, Vector Math/Mix 방향 데이터 및 노드별 Filter Width를 구현. CPU/Metal 720p 평면 48조건·곡면 10조건 통과. 출력 변위 합성과 임의 closure, 실제 viewport/F12·제작 씬, 최종 공개 패키지 검증은 남아 있다.",
+      "evidence": "2026-10-09-cycles-bump-direction.md"
     },
     {
       "id": "C31",
       "priority": "P1",
       "scope": "일반 Normal 벡터",
       "status": "부분 구현·검증",
-      "remaining": "일반 Normal과 Normal Map 뒤 Vector Math/Mix의 방향 데이터 및 Normal Map의 비균일 변환·뒷면 경로를 표적 검증했다. Geometry Normal의 임의 뒷면, Bump 출력 합성과 다른 closure/specular guard 조합은 남아 있다.",
+      "remaining": "일반 Normal/Normal Map/Bump의 데이터 경로를 검증했다. 기본 Chiang에서 bumped Principled 실루엣의 검은 띠를 재현했으며 pure Diffuse 및 Conty에서는 사라졌다. use_bump_map_correction과 glossy별 법선 보정을 분리해 구현하고 임의 뒷면·coat 조합을 검증해야 한다.",
       "evidence": "2026-10-09-normal-data-vectors.md"
     },
     {
@@ -523,7 +523,7 @@
     "smooth_rgb_conditions_per_backend": 6,
     "smooth_spectral_conditions_per_backend": 4,
     "evidence": "cycles-scene-goal-phase14",
-    "public_package_verified": false,
+    "public_package_verified": true,
     "regression_conditions": 38,
     "settings_regression_passes": 22
   },
@@ -533,8 +533,8 @@
     "rgb_conditions_per_backend": 4,
     "spectral_conditions_per_backend": 4,
     "evidence": "cycles-scene-goal-phase15",
-    "public_package_verified": false,
-    "release_gate": "Private native repair verified: ten spectral and four RGB white-furnace cases, noise halt off, central energy within 1%; fresh four-platform CI and bundle validation pending",
+    "public_package_verified": true,
+    "release_gate": "Fixed-source four-platform CI, exact wheel/ZIP attestations, final ZIP and actual CPU/Metal 720p white furnace passed; BIDIR silhouette remains open",
     "white_furnace": {
       "spectral_conditions": 10,
       "central_energy_tolerance": 0.01,
@@ -553,5 +553,34 @@
     "finite_renderer_error_free": 38,
     "evidence": "cycles-scene-goal-phase16",
     "complete": false
+  },
+  "bump_direction": {
+    "version": "2.11.20",
+    "verified_private": true,
+    "plane_conditions": 48,
+    "smooth_conditions": 10,
+    "normal_map_regression_conditions": 16,
+    "rgb_max_mae": 0.000428069354,
+    "smooth_max_mae": 0.00145647,
+    "public_package_verified": false,
+    "default_terminator": "CHIANG",
+    "reflection_correction_complete": false,
+    "evidence": "cycles-scene-goal-phase16/candidate-after-facing-fix",
+    "final_v20_spectral_conditions": 12,
+    "native_sha256": "cb90c5b7a5b382c5ff4ae31d4b018e4d6780449ba0084c3fb2d148ed2ae03f7e"
+  },
+  "deployed_version": "2.11.19",
+  "deployment": {
+    "version": "2.11.19",
+    "actual_installed": true,
+    "engine_source": "cab7f75f27e18fbd524b39f559a85c9129cb4ef4",
+    "addon_source": "4c4307a4c8e17f089ae2d576b397112a2fd2ac5b",
+    "ci_conditions": 98,
+    "final_zip_conditions": 60,
+    "actual_profile_conditions": 30,
+    "beauty_images_inspected": 6,
+    "public_package_verified": true,
+    "native_sha256": "9112a87f70ba270a2fb44e892347f7636f2534b2f413de778a148c22d30c36d0",
+    "evidence": "2026-10-09-deployment-2.11.19.md"
   }
 }

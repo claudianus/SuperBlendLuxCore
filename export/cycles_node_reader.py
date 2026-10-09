@@ -2650,28 +2650,17 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
             if indices is not None:
                 definitions.update(zip(("normalindex", "tangentindex", "signindex"), indices))
     elif node.bl_idname == "ShaderNodeBump":
-        if node.inputs["Distance"].is_linked:
-            SuperLuxCoreErrorLog.add_warning("Bump node Distance socket is not supported", obj_name=obj_name)
-        if node.inputs["Normal"].is_linked:
-            SuperLuxCoreErrorLog.add_warning("Bump node Normal socket is not supported", obj_name=obj_name)
-
         prefix = "scene.textures."
-
-        # Distance는 높이 미분에 적용하고 Strength는 정규화된 법선을 혼합한다.
-        # 높이에 Strength를 곱하면 큰 기울기에서 Cycles와 다른 법선이 된다.
-        distance = node.inputs["Distance"].default_value
-        strength = _socket(node.inputs["Strength"], props, material, obj_name, group_node_stack)
-        height = _socket(node.inputs["Height"], props, material, obj_name, group_node_stack)
-        if node.invert:
-            distance = -distance
-        scaled_height = _tex_binary("scale", height, distance,
-                                    superluxcore_name + "_height", props)
+        filter_socket = node.inputs.get("Filter Width")
         definitions = {
-            "type": "mix",
-            "texture1": 0.0,
-            "texture2": scaled_height,
-            "amount": strength,
-            "bumpnormal": True,
+            "type": "cyclesbump",
+            "height": _socket(node.inputs["Height"], props, material, obj_name, group_node_stack),
+            "distance": _socket(node.inputs["Distance"], props, material, obj_name, group_node_stack),
+            "strength": _socket(node.inputs["Strength"], props, material, obj_name, group_node_stack),
+            "normal": _socket(node.inputs["Normal"], props, material, obj_name, group_node_stack),
+            "usenormal": node.inputs["Normal"].is_linked,
+            "invert": node.invert,
+            "filterwidth": filter_socket.default_value if filter_socket is not None else 1.0,
         }
     elif node.bl_idname == "ShaderNodeNewGeometry":
         prefix = "scene.textures."
@@ -4200,7 +4189,7 @@ def _normal_input(socket, props, material, obj_name, group_node_stack):
     if _is_textured(value):
         prefix = "scene.textures." + value
         kind = props.Get(prefix + ".type").GetString() if props.IsDefined(prefix + ".type") else ""
-        if kind in {"normalvector", "normalmap", "cyclesnormalmap"}:
+        if kind in {"normalvector", "normalmap", "cyclesnormalmap", "cyclesbump"}:
             return value
         if kind == "mix" and props.IsDefined(prefix + ".bumpnormal") and props.Get(prefix + ".bumpnormal").GetBool():
             return value
