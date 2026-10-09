@@ -36,8 +36,50 @@ on:
         default: "wheels-latest"
 
 jobs:
+  release-state:
+    name: 'Check whether tag release is already published'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      skip: ${{ steps.state.outputs.skip }}
+    steps:
+      - id: state
+        shell: python
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT_NAME: ${{ github.event_name }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          import json
+          import os
+          import subprocess
+          from urllib.parse import quote
+
+          # Publishing a manually verified draft creates the version tag.
+          # Its push event must not rebuild and then attempt to overwrite
+          # that public release (updateOnlyUnreleased correctly rejects it).
+          skip = False
+          if os.environ["EVENT_NAME"] == "push":
+              tag = quote(os.environ["REF_NAME"], safe="")
+              result = subprocess.run(
+                  ["gh", "api", f"repos/{os.environ['GITHUB_REPOSITORY']}/releases/tags/{tag}"],
+                  capture_output=True, text=True,
+              )
+              if result.returncode == 0:
+                  release = json.loads(result.stdout)
+                  skip = not release["draft"] and not release["prerelease"]
+              elif "HTTP 404" not in result.stderr:
+                  raise RuntimeError(f"Cannot read release state: {result.stderr}")
+          with open(os.environ["GITHUB_OUTPUT"], "a") as output:
+              output.write(f"skip={str(skip).lower()}\n")
+          if skip:
+              print("::notice::Release is already public; tag-triggered rebuild skipped")
+
   check-version:
     name: 'Check version compliance'
+    needs: [release-state]
+    if: needs.release-state.outputs.skip != 'true'
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.resolve.outputs.version }}

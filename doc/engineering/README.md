@@ -47,3 +47,7 @@ docs live alongside in `doc/`.
 - [Verified 2.11.19 public ZIP and actual Blender deployment](2026-10-09-deployment-2.11.19.md)
 
 - [Cycles Add Shader closure sums and transparent transport](2026-10-09-cycles-add-shader.md)
+
+- [Strongly tilted reflection and diffuse normal audit](2026-10-09-reflection-normal-audit.md)
+
+- [Verified 2.11.20 public ZIP and actual Blender deployment](2026-10-09-deployment-2.11.20.md)

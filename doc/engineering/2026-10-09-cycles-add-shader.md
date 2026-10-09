@@ -150,3 +150,20 @@ transport beyond the eight targeted BIDIR checks, and actual
 viewport/F12 behavior. General Principled glossy/bump silhouette correction (C31)
 is tracked independently and remains unresolved. User OSL and baking stay outside
 the deferred goal scope.
+
+## Verified public 2.11.20 deployment
+
+The fixed native source `2f0304832ea144a7069718a1cf0a6dcdb13dea73` and add-on
+source `6a8c14837fae8428aaec459ad26ef4423f5ec9a7` are now public and installed
+in the actual user Blender profile. The ARM CI native module SHA-256 is
+`79b47dca82b4692aba120aa32adaf339457bfc49c5f822ca1f0f2b7dd83b6324`,
+distinct from the private module used for the implementation checks above.
+
+The public-payload gate passed 125 CI-wheel checks, 48 final-ZIP checks and 38
+actual user-profile checks on CPU/Metal. Fourteen comparison sheets and six
+1280×720 spectral material images were inspected. Four platform packages passed
+runtime-file, metadata, exact-source/hash and GitHub attestation checks. These
+checks retain the limits above, including strongly tilted reflection/diffuse
+normals and production-scene coverage. See the
+[deployment report](2026-10-09-deployment-2.11.20.md) for provenance, artifact
+hashes, actual installation diagnostics and release-job cleanup.
