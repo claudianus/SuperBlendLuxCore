@@ -262,20 +262,26 @@ def export_displacement(link, props, material, obj_name):
         return {"map": height, "map.type": "height", "scale": 1.0, "offset": 0.0}
 
     if node.bl_idname == "ShaderNodeVectorDisplacement":
-        if getattr(node, "space", "OBJECT") != "OBJECT":
-            SuperLuxCoreErrorLog.add_warning(
-                'Vector Displacement node "%s": world space is not supported, '
-                "object space is used instead" % node.name, obj_name=obj_name)
         vector = _socket(node.inputs["Vector"], props, material, obj_name, None)
-        if vector == ERROR_VALUE:
+        scale = _socket(node.inputs["Scale"], props, material, obj_name, None)
+        midlevel = _socket(node.inputs["Midlevel"], props, material, obj_name, None)
+        if any(value == ERROR_VALUE for value in (vector, scale, midlevel)):
             return None
-        scale = _scalar_or_warn(node.inputs["Scale"], 1.0, node, obj_name)
-        return {
-            "map": vector,
-            "map.type": "vector",
-            "scale": scale,
-            "offset": 0.0,
-        }
+        name = str(node.as_pointer()) + "_shape_vector_displacement"
+        vector = _tex_binary("scale", _tex_binary("subtract", vector, midlevel,
+            name + "_offset", props), scale, name, props)
+        definitions = {"map": vector, "map.type": "vector",
+                       "map.space": node.space.lower(), "scale": 1.0, "offset": 0.0}
+        identity = normal_map_attributes.resolve_identity(obj_name)
+        if identity is not None:
+            definitions.update(zip(("map.vertexidlowindex", "map.vertexidhighindex"), identity))
+            definitions["map.vertexidsmoothflag"] = True
+            definitions["map.normaldelta"] = identity[2]
+        if node.space == "TANGENT":
+            indices = normal_map_attributes.resolve(obj_name, "")
+            if indices is not None:
+                definitions.update(zip(("map.normalindex", "map.tangentindex", "map.signindex"), indices))
+        return definitions
 
     # Anything else plugged straight into Displacement behaves like bump in
     # Cycles — the material-level Normal/bump path covers that case.

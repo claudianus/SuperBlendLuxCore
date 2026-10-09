@@ -496,7 +496,8 @@ class Exporter(object):
                         # changed — object-side definitions a material
                         # delta cannot reach
                         pentry = None
-                    elif _shape_now != pentry["shape_sig"]:
+                    elif (any(value is None for value in _shape_now.values())
+                          or _shape_now != pentry["shape_sig"]):
                         # A material edit changed the required wrapper
                         # shape stack (e.g. displacement added) — a
                         # material delta cannot create the missing
@@ -1084,6 +1085,9 @@ class Exporter(object):
         re-exports carry the current matrix). Raises on any failure,
         which the caller turns into a full rebuild.
         """
+        if any(getattr(pentry["objects"].get(key), "cycles_displacement_context", False)
+               for key in geometry_keys):
+            raise ValueError("Cycles true displacement requires a shared-context scene rebuild")
         eval_by_key = _eval_object_map(
             depsgraph,
             depsgraph.scene,
@@ -1492,7 +1496,8 @@ class Exporter(object):
                     )
                 else:
                     shape = _apply_cycles_displacement(
-                        base_name, obj, mat_index, depsgraph, scratch
+                        base_name, obj, mat_index, depsgraph, scratch,
+                        obj.matrix_world, utils.make_key(obj)
                     )
                 shapes.append(shape)
             # Tangent UV requirements change mesh channels even when only

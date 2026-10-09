@@ -1,7 +1,7 @@
 {
   "goal": "기존 Cycles 씬의 무변환 시각·논리 의미 호환",
   "complete": false,
-  "target_version": "2.11.21",
+  "target_version": "2.11.22",
   "public_package_verified": true,
   "baseline": "2026-10-09-remaining-issues.json",
   "node_census": {
@@ -237,9 +237,9 @@
       "id": "C29",
       "priority": "P1",
       "scope": "벡터 변위",
-      "status": "미완료",
-      "remaining": "Object/Tangent/World 및 연결 Scale·Midlevel의 720p 진단 3개가 실패했다. 공통 표면 깊이 MAE 0.669–0.805, 형상 IoU 0.338–0.370이다. Midlevel 누락, 공간 혼동, 연결 Scale 무시 및 BUMP/BOTH의 벡터 범프 미지원이 남아 있다. 객체 변환·원래 Normal/접선·변위 전 좌표 의미를 구현하고 CPU·Metal 실제 영상으로 검증해야 한다.",
-      "evidence": "2026-10-10-deployment-2.11.21.md"
+      "status": "부분 해결: 2.11.22 격리 CPU·Metal의 true Vector Displacement 42조건 검증",
+      "remaining": "Vector BUMP/BOTH, scalar World/linked Normal, adaptive/cage, flat nonplanar/mixed-material vertex boundaries, displaced Normal Map data, group outputs and production workflow acceptance",
+      "evidence": "2026-10-10-cycles-vector-displacement.md"
     },
     {
       "id": "C30",
@@ -696,5 +696,21 @@
     "evidence": "2026-10-09-deployment-2.11.20.md",
     "fresh_process_registration_diagnostics": 0,
     "gui_hot_reload_verified": false
+  },
+  "vector_displacement_candidate": {
+    "version": "2.11.22",
+    "verified_private": true,
+    "public_package_verified": false,
+    "installed_actual_user": false,
+    "cpu_vector_conditions": 21,
+    "metal_vector_conditions": 21,
+    "cpu_regression_conditions": 22,
+    "metal_regression_conditions": 22,
+    "native_displacement_conditions": 16,
+    "native_mikk_conditions": 13,
+    "total_targeted_checks": 115,
+    "native_sha256": "0c1210e5287f1fd7c21576b1b3bf0af565c6cc272bc62d54006462e4cefd30f5",
+    "evidence": "2026-10-10-cycles-vector-displacement.md",
+    "remaining": "C29 remains incomplete; final package and actual deployment still need validation"
   }
 }

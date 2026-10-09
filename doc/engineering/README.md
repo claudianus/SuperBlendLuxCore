@@ -55,3 +55,5 @@ docs live alongside in `doc/`.
 - [Cycles Principled lobe normals and independent Coat Normal](2026-10-10-cycles-lobe-normals.md)
 
 - [Verified 2.11.21 public ZIP and actual Blender deployment](2026-10-10-deployment-2.11.21.md)
+
+- [Cycles Vector Displacement spaces, shared geometry and Mikk data](2026-10-10-cycles-vector-displacement.md)

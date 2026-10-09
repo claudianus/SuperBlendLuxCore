@@ -170,7 +170,7 @@ def uses_displacement(obj):
     return False
 
 
-def _apply_cycles_displacement(shape, obj, mat_index, depsgraph, scene_props):
+def _apply_cycles_displacement(shape, obj, mat_index, depsgraph, scene_props, transform, obj_key):
     """
     Wraps the shape in a SuperLuxCore "displacement" shape when the material on
     mat_index is a Cycles-routed material whose output Displacement socket
@@ -197,14 +197,16 @@ def _apply_cycles_displacement(shape, obj, mat_index, depsgraph, scene_props):
         )
         return shape
 
-    disp_shape = "%s_disp%d" % (shape, mat_index)
+    instance_tag = hashlib.blake2b(obj_key.encode(), digest_size=8).hexdigest()
+    disp_shape = "%s_disp%d_%s" % (shape, mat_index, instance_tag)
     prefix = "scene.shapes." + disp_shape + "."
     scene_props.Set(pysuperluxcore.Property(prefix + "type", "displacement"))
     scene_props.Set(pysuperluxcore.Property(prefix + "source", shape))
-    scene_props.Set(pysuperluxcore.Property(prefix + "map", disp["map"]))
-    scene_props.Set(pysuperluxcore.Property(prefix + "map.type", disp["map.type"]))
-    scene_props.Set(pysuperluxcore.Property(prefix + "scale", disp["scale"]))
-    scene_props.Set(pysuperluxcore.Property(prefix + "offset", disp["offset"]))
+    for key, value in disp.items():
+        scene_props.Set(pysuperluxcore.Property(prefix + key, value))
+    if "map.space" in disp:
+        scene_props.Set(pysuperluxcore.Property(prefix + "objecttoworld",
+            utils.luxutils.matrix_to_list(transform)))
     # BOTH의 범프는 원래 표면 법선을 기준으로 평가하여 기울기를 두 번 적용하지 않는다.
     scene_props.Set(pysuperluxcore.Property(prefix + "normalsmooth",
         getattr(mat.original, "displacement_method", "BUMP") != "BOTH"))
@@ -487,6 +489,7 @@ class ObjectCache2:
     def __init__(self):
         self.exported_objects = {}
         self.exported_meshes = {}
+        self.cycles_displacement_contexts = {}
         self.exported_hair = {}
         self.pending_pointcloud_duplicates = []
         # {obj_key: (baked matrix_world, delta-safe)} used by the
@@ -520,6 +523,7 @@ class ObjectCache2:
         # previous session registered.
         named_attributes.clear()
         normal_map_attributes.clear()
+        self.cycles_displacement_contexts.clear()
         # Persistent-scene delta bookkeeping: for every instancer, the
         # set of source objects it spawned duplis of (fast path) or a
         # marker that some of its instances were exported individually
@@ -807,7 +811,7 @@ class ObjectCache2:
         modified = utils.has_deforming_modifiers(obj.original)
         source = (
             obj.original.data
-            if (use_instancing and not (modified or obj.type == "META"))
+            if (use_instancing and not (modified or obj.type == "META" or uses_displacement(obj)))
             else obj.original
         )
         key = utils.get_superluxcore_name(source, is_viewport_render)
@@ -1110,7 +1114,7 @@ class ObjectCache2:
             # require a full re-export on any transform change.
             self.bake_matrices[obj_key] = (
                 dg_obj_instance.matrix_world.copy(),
-                obj.type in MESH_OBJECTS,
+                obj.type in MESH_OBJECTS and not uses_displacement(obj),
             )
 
         return exported_stuff
@@ -1338,17 +1342,26 @@ class ObjectCache2:
                     shape = define_shapes(
                         shape, node_tree, exporter, depsgraph, scene_props
                     )
-                elif not loaded_from_cache:
-                    # Cycles-routed material: the Displacement output is a
-                    # mesh-level effect — wrap the shape if the material's
-                    # Blender node tree drives it with a displacement node.
+                elif not node_tree and not (proxy_path or auto_paths):
+                    # Cycles mesh_displace.cpp evaluates a shared geometry in
+                    # its first object's context, then instances that result.
+                    # Keep base meshes pristine, but preserve this context even
+                    # when different instance transforms need separate wrappers.
+                    displacement_transform = transform
+                    if uses_displacement(obj):
+                        source = (obj.original if utils.has_deforming_modifiers(obj.original)
+                                  or obj.type == "META" else obj.original.data)
+                        context_key = utils.get_superluxcore_name(source, is_viewport_render)
+                        displacement_transform = self.cycles_displacement_contexts.setdefault(
+                            context_key, transform.copy())
                     shape = _apply_cycles_displacement(
-                        shape, obj, mat_index, depsgraph, scene_props
+                        shape, obj, mat_index, depsgraph, scene_props, displacement_transform, obj_key
                     )
-                    # Bevel node needs per-edge angles from edgedetectoraov
-                    shape = _apply_cycles_edge_detector(
-                        shape, obj, mat_index, depsgraph, scene_props
-                    )
+                    if not loaded_from_cache:
+                        # Bevel node needs per-edge angles from edgedetectoraov
+                        shape = _apply_cycles_edge_detector(
+                            shape, obj, mat_index, depsgraph, scene_props
+                        )
 
                 mesh_definitions[idx] = [shape, mat_index]
 
@@ -1374,6 +1387,14 @@ class ObjectCache2:
                 obj.superluxcore.link_groups,
                 obj.superluxcore.link_mode,
             )
+            # Shared true displacement depends on the source object's
+            # evaluation context. Geometry/transform edits must rebuild every
+            # affected copy together instead of patching only one instance.
+            exported_obj.cycles_displacement_context = any(
+                slot.material and not slot.material.original.superluxcore.node_tree
+                and getattr(slot.material.original, "displacement_method", "BUMP") != "BUMP"
+                and cycles_node_reader.get_displacement_link(slot.material.original) is not None
+                for slot in obj.material_slots)
             # Cycles light linking: emitter groups this object accepts
             # (see cycles_compat.light_link_plan). Only override the
             # manual UI link_groups when the plan covers this object.

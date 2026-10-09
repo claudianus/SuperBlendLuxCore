@@ -136,7 +136,7 @@ def convert(
             mesh, loop_vertices, len(rgb), obj.name
         )
         rgb += extra_cols
-        normal_map_attributes.collect(obj, mesh, loop_normals, rgb, alphas)
+        normal_map_attributes.collect(obj, mesh, loop_normals, rgb, alphas, vert_aovs)
         # FACE-domain attrs are per polygon; loop_triangles.polygon_index
         # maps each exported triangle back to its attribute value.
         tri_polygon_index = (
