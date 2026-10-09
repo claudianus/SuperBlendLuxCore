@@ -180,3 +180,8 @@ Public and actual installed Blender 2.11.17 are verified in the
 final extension ZIP and user-profile verification are separate release gates.
 
 2.11.18 final ZIP and actual user Blender deployment now passed their gates: see [deployment evidence](2026-10-09-deployment-2.11.18.md). Phase14 was rerun after tangent-requirement cache invalidation; all 70 conditions and 38 existing graph regressions passed, with E37 22/22.
+
+
+## Phase 15: Diffuse Roughness (private 2.11.19)
+
+[Diffuse Roughness](2026-10-09-diffuse-roughness.md) now reaches the native EON model. Four RGB/four standard spectral conditions per CPU/Metal passed at 1280×720, 32 samples. Maximum image MAE was below 0.004146 and roughness changed the image on both engines. Two comparison sheets were inspected. C35 remains partial for colour/incidence, energy and composite-scene validation.

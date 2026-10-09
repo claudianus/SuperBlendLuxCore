@@ -37,3 +37,5 @@ docs live alongside in `doc/`.
 - [Cycles Normal Map spaces and MikkTSpace data](2026-10-09-cycles-normal-map.md)
 
 - [Verified Blender 2.11.18 deployment](2026-10-09-deployment-2.11.18.md)
+
+- [Existing Cycles Diffuse Roughness](2026-10-09-diffuse-roughness.md)

@@ -1839,12 +1839,16 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
             }
     elif node.bl_idname == "ShaderNodeBsdfDiffuse":
         prefix = "scene.materials."
-        # TODO roughmatte and roughness -> sigma conversion (if possible)
+        roughness = _socket(node.inputs["Roughness"], props, material, obj_name, group_node_stack)
+        # Native roughmatte uses normalized EON roughness, not angular sigma.
+        # Preserve the artist's input and the engine's energy-conserving model.
         definitions = {
-            "type": "matte",
+            "type": "roughmatte" if _is_textured(roughness) or roughness > 0. else "matte",
             "kd": _socket(node.inputs["Color"], props, material, obj_name, group_node_stack),
             "bumptex": _normal_input(node.inputs["Normal"], props, material, obj_name, group_node_stack),
         }
+        if definitions["type"] == "roughmatte":
+            definitions["sigma"] = roughness
     elif node.bl_idname == "ShaderNodeBsdfGlossy":
         prefix = "scene.materials."
 

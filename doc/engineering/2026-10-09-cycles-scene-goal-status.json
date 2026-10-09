@@ -280,8 +280,9 @@
       "id": "C35",
       "priority": "P1",
       "scope": "Diffuse Roughness",
-      "status": "미완료",
-      "remaining": "Roughness 입력을 경고 없이 무시하고 항상 matte를 만든다."
+      "status": "부분 구현·검증",
+      "remaining": "Diffuse Roughness의 상수·연결 입력을 네이티브 EON roughmatte에 전달하고 CPU·Metal 720p RGB/기본 분광 16조건을 검증했다. 전체 색·입사각·백색로 에너지 및 복합 closure 제작 조합의 검증은 남아 있다.",
+      "evidence": "2026-10-09-diffuse-roughness.md"
     },
     {
       "id": "C36",
@@ -524,5 +525,13 @@
     "public_package_verified": false,
     "regression_conditions": 38,
     "settings_regression_passes": 22
+  },
+  "diffuse_roughness": {
+    "version": "2.11.19",
+    "verified_private": true,
+    "rgb_conditions_per_backend": 4,
+    "spectral_conditions_per_backend": 4,
+    "evidence": "cycles-scene-goal-phase15",
+    "public_package_verified": false
   }
 }
