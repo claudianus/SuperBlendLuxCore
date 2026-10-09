@@ -857,7 +857,7 @@ def _convert_cycles_world(exporter, scene, world, is_viewport_render):
     }
 
     # Cycles world ray visibility -> the world light's visibility.*
-    # flags (camera visibility maps to transparent film in aovs.py)
+    # 카메라 가시성은 필름 투명도와 독립적인 월드 발광 게인으로 처리한다.
     from . import cycles_compat
     cycles_compat.apply_world_cycles_visibility(
         world, definitions, cycles_compat._warned_set(exporter))
@@ -881,6 +881,8 @@ def _convert_cycles_world(exporter, scene, world, is_viewport_render):
 
     surface_node = utils_node.get_linked_node(output_node.inputs["Surface"])
     camera_gain = _world_camera_gain(surface_node)
+    if cycles_compat.world_camera_invisible(world):
+        camera_gain = 0.
     surface_node = _resolve_world_mix_shader(surface_node, world,
                                              camera_gain is not None)
     if not surface_node:

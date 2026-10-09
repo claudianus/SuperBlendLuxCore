@@ -458,6 +458,9 @@ def apply_world_cycles_visibility(world, definitions, warned):
     cv = getattr(world, "cycles_visibility", None)
     if cv is None:
         return
+    if not cv.camera:
+        # 카메라의 월드 발광만 끄고 간접 조명과 필름 알파 규약은 보존한다.
+        definitions["cameragain"] = [0., 0., 0.]
     if not cv.diffuse:
         definitions["visibility.indirect.diffuse.enable"] = 0
     if not cv.glossy:
@@ -478,7 +481,7 @@ def apply_world_cycles_visibility(world, definitions, warned):
         _warn_once(warned, (world.name, "world-shadow"),
                    "World ray visibility 'Shadow' is not supported - "
                    "ignored", world.name)
-    # cv.camera is handled separately via transparent film in aovs.py
+    # cv.camera는 월드 광원의 cameragain으로 처리한다.
 
 
 def world_camera_invisible(world):

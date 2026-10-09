@@ -81,16 +81,7 @@ def convert(exporter, scene, context=None, engine=None):
             aovs = None
             cycles_passes = ()
 
-        # Cycles "World > Ray Visibility > Camera" hides the environment
-        # from camera rays -> same result as transparent film.
-        world_cam_invisible = (
-            scene.world is not None
-            and utils.misc.use_cycles_compat(scene.world.superluxcore)
-            and cycles_compat.world_camera_invisible(scene.world)
-        )
-        use_transparent_film = (
-            blender_settings.transparent_film(scene) or world_cam_invisible
-        ) and not utils.using_filesaver(context, scene)
+        use_transparent_film = blender_settings.transparent_film(scene) and not utils.using_filesaver(context, scene)
 
         # Some AOVs need tonemapping with a custom imagepipeline
         pipeline_index = 0
