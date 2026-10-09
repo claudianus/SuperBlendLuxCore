@@ -34,7 +34,7 @@ ct=bpy.data.node_groups.new('Existing Cycles Normal compositor','CompositorNodeT
 ct.interface.new_socket(name='Image',in_out='OUTPUT',socket_type='NodeSocketColor')
 rl=ct.nodes.new('CompositorNodeRLayers');rl.layer=layer.name;co=ct.nodes.new('NodeGroupOutput');ct.links.new(rl.outputs['Normal'],co.inputs['Image'])
 s.compositing_node_group=ct;s.render.use_compositing=True
-conditions=('constant_distance','linked_distance','spatial_distance','linked_normal','chained','vector_math','mix_output','strength_two','strength_negative','invert','backface','filter_half','filter_two','backface_normal','backface_chain','backface_math','backface_mix','filter_chain')
+conditions=('constant_distance','linked_distance','spatial_distance','linked_normal','chained','vector_math','mix_output','strength_two','strength_negative','invert','backface','filter_half','filter_two','backface_normal','backface_chain','backface_math','backface_mix','filter_chain','filter_zero','filter_zero_normal','filter_zero_chain','filter_zero_inner_chain','filter_zero_math','filter_zero_mix','backface_filter_zero')
 if cfg.config.spectral_enable:conditions=('spatial_distance','linked_normal','chained','vector_math','mix_output','backface')
 if os.environ.get('SUPERLUXCORE_AUDIT_CASES'):conditions=tuple(os.environ['SUPERLUXCORE_AUDIT_CASES'].split(','))
 records=[]
@@ -50,12 +50,12 @@ for condition in conditions:
  if condition=='spatial_distance':
   distance=nodes.new('ShaderNodeMath');distance.operation='MULTIPLY_ADD';distance.inputs[1].default_value=.3;distance.inputs[2].default_value=.05
   links.new(split.outputs['Y'],distance.inputs[0]);links.new(distance.outputs[0],bump.inputs['Distance'])
- if condition in {'linked_normal','mix_output','backface_normal','backface_mix'}:
+ if condition in {'linked_normal','mix_output','backface_normal','backface_mix','filter_zero_normal','filter_zero_mix'}:
   nm=nodes.new('ShaderNodeNormalMap');nm.inputs['Color'].default_value=(.65,.6,.9,1.)
-  if condition in {'linked_normal','backface_normal'}:links.new(nm.outputs['Normal'],bump.inputs['Normal'])
+  if condition in {'linked_normal','backface_normal','filter_zero_normal'}:links.new(nm.outputs['Normal'],bump.inputs['Normal'])
   else:
    mix=nodes.new('ShaderNodeMixRGB');mix.inputs[0].default_value=.35;links.new(value,mix.inputs[1]);links.new(nm.outputs['Normal'],mix.inputs[2]);value=mix.outputs[0]
- if condition in {'chained','backface_chain','filter_chain'}:
+ if condition in {'chained','backface_chain','filter_chain','filter_zero_chain','filter_zero_inner_chain'}:
   first=nodes.new('ShaderNodeBump');first.inputs['Distance'].default_value=.12;first.inputs['Strength'].default_value=.7
   links.new(split.outputs['Y'],first.inputs['Height']);links.new(first.outputs['Normal'],bump.inputs['Normal'])
   if condition=='filter_chain':
@@ -64,12 +64,14 @@ for condition in conditions:
    for source,target in ((split.outputs['Y'],first.inputs['Height']),(split.outputs['X'],bump.inputs['Height'])):
     phase=nodes.new('ShaderNodeMath');phase.operation='MULTIPLY';phase.inputs[1].default_value=20.;links.new(source,phase.inputs[0])
     wave=nodes.new('ShaderNodeMath');wave.operation='SINE';links.new(phase.outputs[0],wave.inputs[0]);links.new(wave.outputs[0],target)
- if condition in {'vector_math','backface_math'}:
+  if condition=='filter_zero_inner_chain':first.inputs['Filter Width'].default_value=0.
+ if condition in {'vector_math','backface_math','filter_zero_math'}:
   arithmetic=nodes.new('ShaderNodeVectorMath');arithmetic.operation='NORMALIZE';links.new(value,arithmetic.inputs[0]);value=arithmetic.outputs[0]
  if condition=='strength_two':bump.inputs['Strength'].default_value=2.
  if condition=='strength_negative':bump.inputs['Strength'].default_value=-.5
  if condition=='invert':bump.invert=True
  if condition in {'filter_half','filter_two'}:bump.inputs['Filter Width'].default_value=.5 if condition=='filter_half' else 2.
+ if (condition.startswith('filter_zero') and condition!='filter_zero_inner_chain') or condition=='backface_filter_zero':bump.inputs['Filter Width'].default_value=0.
  surface=nodes.new('ShaderNodeBsdfDiffuse');links.new(value,surface.inputs['Normal']);out=nodes.new('ShaderNodeOutputMaterial');links.new(surface.outputs[0],out.inputs['Surface'])
  snapshot=[(n.bl_idname,n.name,[(i.name,i.is_linked,tuple(i.default_value) if hasattr(i.default_value,'__len__') else i.default_value) for i in n.inputs if hasattr(i,'default_value')]) for n in nodes]
  pixels={}

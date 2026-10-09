@@ -1086,5 +1086,66 @@
     "all_modes_verified": false,
     "scope": "Alpha, HSV literal, Ease literal, linked HSV",
     "evidence": "2026-10-10-deployment-2.11.24.md"
+  },
+  "bump_zero_filter_candidate": {
+    "version": "2.11.24",
+    "source_sha256": {
+      "export/cycles_node_reader.py": "272410a7422a61d9a13c6a2d51a77aa1eee0059d234eb5b348623ef7ab86ec12",
+      "export/caches/object_cache.py": "0422f21d2516d9bb534baf467e7c2632298d8e8fa9baab2e02030ac78f9f0dd3",
+      "export/normal_map_attributes.py": "d6ab7ce771c8bc0cf20287f38ac909326bf4d2d3ef9dc479fdf545aed638a7ff",
+      "export/mesh_converter.py": "c527e2146b6d8845991197f612ac7dd931c65f6d9a16a4888e181ecf2c1fbded",
+      "export/__init__.py": "c3115a3d7a6082059ec4f2b4f6018c504d2158ee66d54e548ab05bb9d07e9dfc"
+    },
+    "addon_source": "53e6d9b42f0b7fee828588e84ae05c069b98dee7",
+    "native_sha256": "981da75d3123e1a9bd9acab5cf2d0553ebaa7e3459311c027b36e6feb3a2767d",
+    "private_candidate": true,
+    "public_package_verified": false,
+    "engine_base_source": "d9c2054cc85a8ed7248931921222e767553898a2",
+    "core_patch_sha256": "cb80cea21aa2e216b4ca3604be49adae53541de9d9e446a848a9c5d660161ac3",
+    "checks": {
+      "candidate": {
+        "cpu": 25,
+        "metal": 25
+      },
+      "spectral": {
+        "cpu": 7,
+        "metal": 7
+      },
+      "smooth": {
+        "cpu": 7,
+        "metal": 7
+      }
+    },
+    "total_targeted_checks": 78,
+    "baseline_failed_conditions": 14,
+    "max_rgb_component_mae": {
+      "candidate": {
+        "cpu": 0.00042640435276553035,
+        "metal": 0.0004266016185283661
+      },
+      "spectral": {
+        "cpu": 1.2709364455076866e-05,
+        "metal": 1.3367134670261294e-05
+      },
+      "smooth": {
+        "cpu": 0.001303523895330727,
+        "metal": 0.001368835219182074
+      }
+    },
+    "resolution": [
+      1280,
+      720
+    ],
+    "samples": 16,
+    "qa_sheets_reviewed": 14,
+    "scope": "Cycles Bump Filter Width=0 normal preservation; nonzero width and native quality defaults unchanged",
+    "native_quality_defaults_changed": false,
+    "main_merged": true,
+    "actual_user_installed": false,
+    "cuda_nvrtc_gate_pending": true,
+    "nvidia_hardware_render_verified": false,
+    "goal_complete": false,
+    "evidence": "2026-10-10-cycles-bump-zero-filter.md",
+    "candidate_version": "2.11.25"
   }
 }
