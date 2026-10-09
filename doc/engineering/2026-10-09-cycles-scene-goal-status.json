@@ -7,8 +7,10 @@
   "node_census": {
     "conditions": 1023,
     "exceptions": 0,
-    "warning_conditions": 239,
-    "last_verified_version": "2.11.22"
+    "warning_conditions": 240,
+    "last_verified_version": "2.11.23 private candidate",
+    "reader_sha256": "272410a7422a61d9a13c6a2d51a77aa1eee0059d234eb5b348623ef7ab86ec12",
+    "evidence": "2026-10-10-cycles-zero-subsurface-microfiber.md"
   },
   "issues": [
     {
@@ -277,10 +279,11 @@
     },
     {
       "id": "C34",
-      "priority": "P2",
+      "priority": "P1",
       "scope": "Principled 모델·SSS",
       "status": "미완료",
-      "remaining": "distribution/subsurface_method를 OpenPBR 경로에서 선택하지 않는다. Random Walk/Burley/Skin, SSS IOR, fuzz·coat tint 및 박막의 실제 수치 동등성은 별도 판정이 필요하다."
+      "remaining": "distribution/subsurface_method를 OpenPBR 경로에서 선택하지 않는다. Random Walk/Burley/Skin, SSS IOR, fuzz·coat tint 및 박막의 실제 수치 동등성은 별도 판정이 필요하다. 독립 SSS 상수/Value Scale0은 native Lambert 극한으로 검증했다. 기본 Microfiber Sheen은 native SGGX-LTC fuzz로 연결하고 0/.25/.5/1 CPU·Metal 720p를 검증했다. Scale .15/Roughness0 독립 SSS의 SUN 영상은 native 평균이 Cycles의 약5.3%이므로 호환 실패로 남긴다. 동적/부분 채널 0 radius, 양의 Scale bulk/interface, Ashikhmin은 미완료다.",
+      "evidence": "2026-10-10-cycles-zero-subsurface-microfiber.md"
     },
     {
       "id": "C35",
@@ -959,5 +962,21 @@
     "comparison_sheets_reviewed": 4,
     "evidence": "2026-10-10-cycles-backfacing.md",
     "engine_source": "684e94c3ff26bf1dfa7f3b0671ebf847af384ced"
+  },
+  "next_candidate_version": "2.11.24",
+  "zero_subsurface_microfiber_candidate": {
+    "verified_private": true,
+    "public_fixed": false,
+    "main_merged": true,
+    "native_sha256": "0833c117bcdeb517c5d5c1eff9eb03202557e255aca23919a548e3e5896643e8",
+    "reader_sha256": "272410a7422a61d9a13c6a2d51a77aa1eee0059d234eb5b348623ef7ab86ec12",
+    "export_checks": 9,
+    "render_acceptance_per_backend": 7,
+    "total_acceptance_checks": 23,
+    "positive_sss_diagnostic_count": 1,
+    "positive_sss_compatible": false,
+    "verified_qa_sheets": 2,
+    "remaining_gap_qa_sheets": 1,
+    "evidence": "2026-10-10-cycles-zero-subsurface-microfiber.md"
   }
 }

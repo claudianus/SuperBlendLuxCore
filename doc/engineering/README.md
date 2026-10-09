@@ -65,3 +65,5 @@ docs live alongside in `doc/`.
 - [Verified private Cycles Vector Displacement Incoming direction](2026-10-10-cycles-displacement-incoming.md)
 
 - [Cycles Backfacing spectrum](2026-10-10-cycles-backfacing.md): front/back emission color/strength fix; 28 private CPU/Metal checks, public deployment pending.
+
+- [Valid zero, zero SSS and Microfiber sheen](2026-10-10-cycles-zero-subsurface-microfiber.md): 23 private acceptance checks, source-grounded local SSS limit and native fuzz mapping; positive SSS/Ashikhmin gaps remain.

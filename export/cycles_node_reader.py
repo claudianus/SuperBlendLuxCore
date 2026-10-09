@@ -140,7 +140,7 @@ def convert(material, props, superluxcore_name, obj_name=""):
 
     if link is not None:
         result = _node(link.from_node, link.from_socket, props, material, superluxcore_name, obj_name)
-        if result == ERROR_VALUE:
+        if result is ERROR_VALUE:
             return black(superluxcore_name)
 
         assert result == superluxcore_name
@@ -1722,14 +1722,14 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
 
         def convert_mat_socket(index):
             mat_name = _socket(node.inputs[index], props, material, obj_name, group_node_stack)
-            if mat_name == ERROR_VALUE:
+            if mat_name is ERROR_VALUE:
                 mat_name, mat_props = black()
                 props.Set(mat_props)
             return mat_name
 
         fac_input = node.inputs["Fac"]
         amount = _socket(fac_input, props, material, obj_name, group_node_stack)
-        if fac_input.is_linked and amount == ERROR_VALUE:
+        if fac_input.is_linked and amount is ERROR_VALUE:
             amount = 0.5
 
         definitions = {
@@ -1786,7 +1786,7 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
             base_socket = node.inputs[1] if is_emission1 else node.inputs[0]
             base_name = _socket(base_socket, props, material, obj_name,
                                 group_node_stack, superluxcore_name)
-            if base_name == ERROR_VALUE or not isinstance(base_name, str):
+            if base_name is ERROR_VALUE or not isinstance(base_name, str):
                 base_name, mat_props = black(superluxcore_name)
                 props.Set(mat_props)
 
@@ -1823,7 +1823,7 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
             def add_mat_socket(index):
                 mat_name = _socket(node.inputs[index], props, material, obj_name,
                                    group_node_stack)
-                if mat_name == ERROR_VALUE or not isinstance(mat_name, str):
+                if mat_name is ERROR_VALUE or not isinstance(mat_name, str):
                     mat_name, mat_props = black()
                     props.Set(mat_props)
                 return mat_name
@@ -2179,7 +2179,7 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
         offset_sock = node.inputs.get("Offset")
         offset = _socket(offset_sock, props, material, obj_name, group_node_stack) \
             if offset_sock is not None else 0.0
-        if offset_sock is not None and offset_sock.is_linked and offset != ERROR_VALUE:
+        if offset_sock is not None and offset_sock.is_linked and offset is not ERROR_VALUE:
             alpha = superluxcore_name + "offset_to_deg"
             props.Set(utils.luxutils.create_props("scene.textures." + alpha + ".", {
                 "type": "scale",
@@ -2530,7 +2530,7 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
 
         fac_input = node.inputs["Fac"]
         fac = _socket(fac_input, props, material, obj_name, group_node_stack)
-        if fac_input.is_linked and fac == ERROR_VALUE:
+        if fac_input.is_linked and fac is ERROR_VALUE:
             fac = 1
 
         tex = _socket(node.inputs["Color"], props, material, obj_name, group_node_stack)
@@ -2819,23 +2819,40 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
     elif node.bl_idname == "ShaderNodeSubsurfaceScattering":
         prefix = "scene.materials."
 
-        # Full-fidelity route: Cycles' standalone SSS node is an OpenPBR
-        # subsurface-only material - weight is always 1.0 and the node's
-        # Color/Scale/Radius/IOR/Anisotropy inputs all map directly onto
-        # openpbr's CB15 subsurface lobes. The old Disney fallback kept the
-        # radius flattened to a scalar; that approximation is gone.
+        # Nonzero radii use the native OpenPBR bulk-scattering model.
+        # Its dielectric interface differs from Cycles' standalone BSSRDF;
+        # broader positive-radius fidelity is tracked separately.
         color = _socket(node.inputs["Color"], props, material, obj_name, group_node_stack)
         scale = _socket(node.inputs["Scale"], props, material, obj_name, group_node_stack)
-        if scale == ERROR_VALUE:
+        if scale is ERROR_VALUE:
             scale = 1.0
         radius = _socket(node.inputs.get("Radius"), props, material, obj_name,
                          group_node_stack)
-        if radius == ERROR_VALUE or radius is None:
+        if radius is ERROR_VALUE or radius is None:
             radius = [1.0, 1.0, 1.0]
+
+        # Cycles bssrdf_setup replaces sub-1e-8 channel radii with Lambert
+        # diffuse. At zero Scale all channels take this exact local limit;
+        # an opaque bulk volume would absorb them before they can exit.
+        # Resolve Value-node constants without changing the original graph.
+        constant_scale = scale
+        if _is_textured(scale):
+            constant_key = "scene.textures." + scale
+            if props.IsDefined(constant_key + ".type") and \
+                    props.Get(constant_key + ".type").GetString() == "constfloat1":
+                constant_scale = props.Get(constant_key + ".value").GetFloat()
+        if not _is_textured(constant_scale) and constant_scale <= 0.0:
+            definitions = {"type": "matte", "kd": color}
+            if node.inputs.get("Normal") is not None:
+                definitions["bumptex"] = _normal_input(
+                    node.inputs["Normal"], props, material, obj_name, group_node_stack)
+            props.Set(utils.luxutils.create_props(prefix + superluxcore_name + ".", definitions))
+            return superluxcore_name
+
         roughness_socket = node.inputs.get("Roughness")
         roughness = _socket(roughness_socket, props, material, obj_name,
                             group_node_stack) if roughness_socket else 0.5
-        if roughness == ERROR_VALUE:
+        if roughness is ERROR_VALUE:
             roughness = 0.5
 
         # The node's "Weight" input is Blender's hidden closure-weight
@@ -2863,7 +2880,7 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
         if anisotropy_socket is not None:
             anisotropy = _socket(anisotropy_socket, props, material, obj_name,
                                  group_node_stack)
-            if anisotropy is not None and anisotropy != ERROR_VALUE:
+            if anisotropy is not None and anisotropy is not ERROR_VALUE:
                 definitions["subsurfaceanisotropy"] = anisotropy
         if node.inputs.get("Normal") is not None:
             definitions["bumptex"] = _normal_input(node.inputs["Normal"], props, material,
@@ -2875,7 +2892,7 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
         # S7's charlie model is the physical match, not legacy velvet.
         # Sigma plays the roughness role -> sheenroughness.
         sigma = _socket(node.inputs["Sigma"], props, material, obj_name, group_node_stack)
-        if sigma == ERROR_VALUE:
+        if sigma is ERROR_VALUE:
             sigma = 0.5
 
         definitions = {
@@ -2889,23 +2906,30 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
                                              obj_name, group_node_stack)
     elif node.bl_idname == "ShaderNodeBsdfSheen":
         prefix = "scene.materials."
-
-        # S7's Charlie sheen (Estevez-Kulla'17) in the velvet material is
-        # the direct physical model for Cycles' standalone Sheen lobe:
-        # Color -> kd, Roughness -> sheenroughness. Roughness enters
-        # linear like the other BSDF sockets do on this path.
         roughness_socket = node.inputs.get("Roughness")
         roughness = _socket(roughness_socket, props, material, obj_name,
                             group_node_stack) if roughness_socket else 0.5
-        if roughness == ERROR_VALUE:
+        if roughness is ERROR_VALUE:
             roughness = 0.5
+        color = _socket(node.inputs["Color"], props, material, obj_name, group_node_stack)
 
-        definitions = {
-            "type": "velvet",
-            "model": "charlie",
-            "kd": _socket(node.inputs["Color"], props, material, obj_name, group_node_stack),
-            "sheenroughness": roughness,
-        }
+        if getattr(node, "distribution", "MICROFIBER") == "MICROFIBER":
+            # Cycles' default sheen is Zeltner's SGGX-LTC microfiber lobe,
+            # also used by native OpenPBR fuzz. Disable the other lobes for
+            # this standalone closure, including its hidden zero Weight.
+            definitions = {
+                "type": "openpbr", "baseweight": 0.0, "specularweight": 0.0,
+                "fuzzweight": 1.0, "fuzzcolor": color, "fuzzroughness": roughness,
+            }
+        else:
+            # Legacy Ashikhmin remains an approximation pending its native
+            # closure. Do not silently claim equivalence to Charlie sheen.
+            _warn_unsupported(node, "Ashikhmin sheen is approximated by native Charlie sheen",
+                              None, obj_name)
+            definitions = {
+                "type": "velvet", "model": "charlie", "kd": color,
+                "sheenroughness": roughness,
+            }
         if node.inputs.get("Normal") is not None:
             definitions["bumptex"] = _normal_input(node.inputs["Normal"], props, material,
                                              obj_name, group_node_stack)
@@ -2934,7 +2958,7 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
 
         ior_socket = node.inputs["IOR"]
         ior = _socket(ior_socket, props, material, obj_name, group_node_stack)
-        if ior == ERROR_VALUE:
+        if ior is ERROR_VALUE:
             ior = 1.45
 
         if _is_textured(ior):
@@ -3411,7 +3435,7 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
                 "(unoccluded)", 1.0, obj_name)
         color = _socket(node.inputs["Color"], props, material, obj_name,
                         group_node_stack)
-        if color == ERROR_VALUE:
+        if color is ERROR_VALUE:
             color = [1.0, 1.0, 1.0]
         return _warn_unsupported(
             node, "Ambient Occlusion is not supported; passing through the "
@@ -4021,7 +4045,7 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
         offset = _socket(offset_sock, props, material, obj_name,
                          group_node_stack) if offset_sock is not None else 0.0
         if offset_sock is not None and offset_sock.is_linked \
-                and offset != ERROR_VALUE:
+                and offset is not ERROR_VALUE:
             alpha = superluxcore_name + "offset_to_deg"
             props.Set(utils.luxutils.create_props(
                 "scene.textures." + alpha + ".", {
@@ -4200,7 +4224,7 @@ def _normal_input(socket, props, material, obj_name, group_node_stack):
 
 def _squared_roughness_to_linear(socket, props, material, superluxcore_name, obj_name, group_node):
     roughness = _socket(socket, props, material, obj_name, group_node)
-    if socket.is_linked and roughness != ERROR_VALUE:
+    if socket.is_linked and roughness is not ERROR_VALUE:
         # Implicitly create a math texture with unique name
         tex_name = superluxcore_name + "roughness_converter"
         helper_prefix = "scene.textures." + tex_name + "."
