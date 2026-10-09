@@ -1,13 +1,13 @@
 {
   "goal": "기존 Cycles 씬의 무변환 시각·논리 의미 호환",
   "complete": false,
-  "target_version": "2.11.15",
+  "target_version": "2.11.16",
   "public_package_verified": false,
   "baseline": "2026-10-09-remaining-issues.json",
   "node_census": {
     "conditions": 1023,
     "exceptions": 0,
-    "warning_conditions": 257
+    "warning_conditions": 250
   },
   "issues": [
     {
@@ -346,7 +346,7 @@
       "priority": "P1",
       "scope": "텍스처 Vector 소비 경로",
       "status": "부분 구현·검증",
-      "remaining": "Checker는 연결 Vector·Scale과 Generated·Object·연속 Mapping을 실제 렌더로 검증했다. 다수 다른 legacy texture의 임의 Vector·Generated·참조 Object 소비 경로는 별도 검증과 수정이 필요하다.",
+      "remaining": "Checker와 일반 Mapping 벡터 출력은 연결 입력·Generated·Object·연속 변환을 실제 렌더로 검증했다. 다른 legacy texture와 이미지가 Mapping을 자체 매핑 속성으로 변환하는 경로, 임의 Vector·참조 Object의 소비는 별도 검증과 수정이 필요하다.",
       "evidence": "2026-10-09-cycles-scene-goal.md"
     },
     {
@@ -354,7 +354,7 @@
       "priority": "P2",
       "scope": "좌표·Mapping·인스턴스",
       "status": "부분 구현·검증",
-      "remaining": "원본 UV·음수·정수 타일·UV=1, Checker의 두 연속 Point Mapping과 Object 정수 평면의 안정성을 CPU·Metal 720p로 검증했다. 연결 TRS, Texture/Normal 타입, 인스턴스 공간, 변형 전 ORCO와 시간에 따른 좌표는 남아 있다.",
+      "remaining": "2.11.16 직접 Mapping의 Point/Texture/Vector/Normal, 연결 TRS, 상수 Vector와 0 스케일을 CPU·Metal 720p RGB 및 기본 스펙트럼에서 검증했다. 인스턴스·변형 전 ORCO·시간 좌표와 legacy 이미지 매핑으로 변환하는 소비 경로는 남아 있다.",
       "evidence": "2026-10-09-cycles-scene-goal.md"
     },
     {
@@ -466,9 +466,17 @@
       "evidence": "cycles-scene-goal-phase1/workflow"
     }
   ],
-  "public_version": "2.11.13",
+  "public_version": "2.11.15",
   "withdrawn_candidate": {
     "version": "2.11.14",
     "reason": "네 플랫폼 C++ 빌드는 성공했지만 공통 UV payload의 u_int가 실제 Metal shader 컴파일에 실패하여 엔진 후보를 초안으로 회수했다. Blender 확장은 미공개다."
+  },
+  "public_release": {
+    "version": "2.11.15",
+    "verified": true,
+    "installed_in_user_blender": true,
+    "engine_source": "5953e309e0ea3ad6e50636818728c094b7395f6c",
+    "addon_source": "0d067d9d79cf200bfc338d527208cc80de41dba1",
+    "evidence": "2026-10-09-deployment-2.11.15.md"
   }
 }

@@ -3318,68 +3318,13 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
             else:
                 definitions["mapping.uvindex"] = index
     elif node.bl_idname == "ShaderNodeMapping":
-        link = utils_node.get_link(node.inputs["Vector"])
-        if link is None:
-            return _warn_unsupported(
-                node, "Mapping node without a Vector input; returning a zero "
-                "vector", FALLBACK_VECTOR, obj_name)
-
-        # Exact affine transform as a vector texture: out_i = dot(v, row_i) +
-        # t_i (three dotproducts into a raw makefloat3), so it composes with
-        # any vector source and any consumer.
-        vec = _socket(node.inputs["Vector"], props, material, obj_name,
-                      group_node_stack)
-        if vec == ERROR_VALUE or not _is_textured(vec):
-            return _warn_unsupported(
-                node, "cannot map a non-texture input; returning a zero vector",
-                FALLBACK_VECTOR, obj_name)
-
-        location, rotation, scale = _mapping_node_values(node, obj_name)
-        rot = Euler(rotation).to_matrix()
-        mtype = getattr(node, "vector_type", "POINT")
-        if mtype == "TEXTURE":
-            # inverse(T R S): (R^-1 (v - loc)) / scale
-            inv_s = Matrix.Diagonal(Vector(
-                [1.0 / s if s != 0.0 else 0.0 for s in scale]))
-            linear = inv_s @ rot.transposed()
-            offset = -(linear @ Vector(location))
-        elif mtype in {"VECTOR", "NORMAL"}:
-            if mtype == "NORMAL":
-                # R (v / scale), the result normalization is not applied
-                linear = rot @ Matrix.Diagonal(Vector(
-                    [1.0 / s if s != 0.0 else 0.0 for s in scale]))
-                SuperLuxCoreErrorLog.add_warning(
-                    f'Mapping node "{node.name}": Normal type output is not '
-                    "re-normalized", obj_name=obj_name)
-            else:
-                linear = rot @ Matrix.Diagonal(Vector(scale))
-            offset = Vector((0.0, 0.0, 0.0))
-        else:
-            linear = rot @ Matrix.Diagonal(Vector(scale))
-            offset = Vector(location)
-
-        rows = []
-        for i in range(3):
-            component = _tex_helper(props, f"{superluxcore_name}_row{i}", {
-                "type": "dotproduct",
-                "texture1": vec,
-                "texture2": list(linear[i]),
-            })
-            if offset[i] != 0.0:
-                component = _tex_helper(props, f"{superluxcore_name}_off{i}", {
-                    "type": "add",
-                    "texture1": component,
-                    "texture2": float(offset[i]),
-                })
-            rows.append(component)
         prefix = "scene.textures."
-        definitions = {
-            "type": "makefloat3",
-            "texture1": rows[0],
-            "texture2": rows[1],
-            "texture3": rows[2],
-            "color": False,
-        }
+        definitions = {"type": "vectormapping",
+                       "mode": {"POINT": 0, "TEXTURE": 1, "VECTOR": 2, "NORMAL": 3}[node.vector_type]}
+        for key in ("Vector", "Location", "Rotation", "Scale"):
+            socket = node.inputs.get(key)
+            definitions[key.lower()] = (_socket(socket, props, material, obj_name, group_node_stack)
+                                        if socket is not None else [0., 0., 0.])
     elif node.bl_idname == "ShaderNodeNormal":
         # The "Normal" output is the fixed direction set in the node widget
         try:
