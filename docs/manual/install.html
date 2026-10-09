@@ -47,8 +47,8 @@ open the top-right settings menu and choose <em>Install from Disk</em>.</li>
 <li>Enable <b>Render: SuperLuxCore</b>.</li>
 <li>Switch the active render engine to <b>SuperLuxCore</b>.</li>
 </ol>
-<p>The public bundles currently pair add-on <b>2.11.12</b> with
-<b>pysuperluxcore 2.11.12 / Python 3.13</b>; <code>v2.11.12</code> is
+<p>The public bundles currently pair add-on <b>2.11.13</b> with
+<b>pysuperluxcore 2.11.13 / Python 3.13</b>; <code>v2.11.13</code> is
 the current versioned GitHub release. The packaging workflow uses
 Blender 5.2.1. <code>latest</code> is a rolling pre-release and is not a
 production-qualified versioned release. Restart Blender after upgrading:
@@ -64,9 +64,10 @@ updating Python source alone does not replace an already-loaded native module.</
 <pre><code># Blender scripting console / Text Editor
 import bpy
 import pysuperluxcore
-print(pysuperluxcore.Version())  # 2.11.12 for the verified current bundle
+print(pysuperluxcore.Version())  # 검증한 현재 배포물: 2.11.13
 bpy.context.scene.render.engine = "SUPERLUXCORE"
 print(bpy.context.scene.superluxcore.config.engine)</code></pre>
+<p>The <a href="https://github.com/claudianus/SuperBlendLuxCore/releases/tag/v2.11.13">2.11.13 release</a> bundles passed all four platform packaging gates and source-commit attestation verification. The final Apple-silicon ZIP (SHA-256 <code>dccd7560eba995eb9b2790e2e09ae8408a25695d70a7d1fe087c6ee6462d2963</code>) installed offline into a fresh Blender 5.2.1 profile and completed a 1280&times;720, 32-sample default spectral Metal render with an empty cache in 48.25 seconds including kernel builds. Windows, Linux and Intel Mac runtime rendering remain unverified on their native hardware. See the <a href="https://github.com/claudianus/SuperBlendLuxCore/blob/main/doc/engineering/2026-10-09-deployment.md">deployment evidence</a> and documented compatibility limits.</p>
 <p><b>2.11.12</b> fixes the first GPU render with the default spectral
 mode: the Metal shader compiler previously gave up on one oversized kernel
 after 10+ minutes, so the render failed. The attestation-verified public
