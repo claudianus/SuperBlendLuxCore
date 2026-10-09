@@ -44,6 +44,18 @@ RGB 혼합은 채널별 연산, HSV 기반 모드, Factor 클램프·외삽과 �
 - 실제 `path.spectral.enable=1`인 기본 스펙트럼 경로에서도 Gamma·Screen·RGB Curve 3조건을 CPU·Metal로 재검증했다. 16샘플 색 비교의 MAE는 0.014~0.019이며 이미지는 같은 색 연산의 의미를 보인다. 노이즈와 스펙트럼 변환 차이를 RGB 경로의 수치 기준과 혼동하지 않는다.
 - 설정 가져오기 없이 720p·32샘플의 정지·모션·개별 물체 모션 제외 3조건을 양쪽 장치에서 검사했다. Cycles와 SuperLuxCore의 모션 폭은 각각 985와 989~990픽셀이며 제외된 물체는 정지 폭 280~282픽셀을 유지한다. 투명 모서리 알파는 0이고 원본 설정을 수정하지 않았다.
 - 기본 스펙트럼의 흑체 발광과 흡수+산란 볼륨 각 2조건을 CPU·Metal에서 렌더했다. 유한 출력, 발광 복원, 산란의 색·형태·광원 반응을 확인했다. SuperLuxCore 산란 영상은 더 밝고 두 엔진의 32샘플 수렴도 다르다. 이 차이는 고샘플·방사량 검증 전에 완료로 판정하지 않는다.
-- 기존 E37 어댑터 스냅샷 23개와 E23 제작 조합 회귀 90/90 검사가 통과했다. E23의 낮은 해상도는 기능 회귀 확인이며 720p 이미지 검증을 대신하지 않는다.
+- 기존 E37 어댑터 스냅샷 22/22개와 E23 제작 조합 회귀 90/90 검사가 통과했다. E23의 낮은 해상도는 기능 회귀 확인이며 720p 이미지 검증을 대신하지 않는다.
 
 원본 EXR·PNG·수치·로그와 검토용 비교표는 상위 작업 폴더의 `test-scenes/validation-2026-10-09/cycles-scene-goal-phase1/`에 보존했다. `summary.json`은 음수 방출을 검사하던 초기 fixture를 양수 데이터 가시화로 바로잡은 최종 결과를 합친 48조건이다. `node-comparison-1.png`부터 `node-comparison-6.png`, `workflow-comparison.png`, `volume-comparison.png`, `spectral-comparison.png`를 모두 직접 검토했다. 모션과 볼륨의 적은 샘플 노이즈를 최종 품질 완료로 해석하지 않는다.
+
+## 데이터 패스 묶음의 검증
+
+Depth·Normal·Position·UV·IndexOB·IndexMA·Emit·Mist를 Blender의 원래 RenderResult 이름과 컴포지터 소켓으로 전달한다. 확장 AOV 패널을 별도로 켤 필요가 없다. Depth는 엔진 광선 거리의 정규화 값을 복사하지 않고 월드 위치에서 카메라 Z 깊이를 계산한다. Mist는 별도의 카메라 거리와 World의 start/depth/falloff를 사용한다. UV=0도 유효하므로 마스크는 교차 여부로 계산한다. 엔진 ID는 보존하면서 원래 Blender 물체·재질 `pass_index`에 대응시킨다.
+
+Blender 5.2.1에서 720p·16샘플, CPU·Metal 원근 카메라 및 CPU 직교 카메라의 각 8패스를 검증했다. 원래 Cycles Render Layers 컴포지터를 만든 뒤 Normal 연결을 그대로 유지하고 엔진만 교체하여 최종 컴포지터 렌더를 확인했다. 내부 픽셀의 최대 평균 차이는 Position 0.00124 미만, Depth 0.00092 미만이며 인덱스 7·13은 정확하게 유지한다. 알파·경계 필터 차이는 내부 픽셀 비교와 구분한다. 직교 카메라의 Cycles·SuperLuxCore Normal PNG를 직접 검토했고 형태·방향·색 의미를 확인했다.
+
+원본 EXR·실제 RenderPass의 NumPy 데이터·수치·로그는 `test-scenes/validation-2026-10-09/cycles-scene-goal-phase2/`에 보존했다. 검증 장면은 불투명 정적 표면이다. 시간에 따라 움직이는 카메라의 픽셀별 깊이, 투명 표면이 여러 겹인 Mist, Geometry Nodes 내부 점 인스턴스의 별도 ID는 추가 검증이 필요하다.
+
+Diffuse/Glossy/Transmission Color를 모두 ALBEDO로 대체하던 매핑은 제거했다. 로브별 색, 광원 패스의 색 분리, 모션 벡터, Cryptomatte 메타데이터 등은 엔진/전달 계약의 추가 작업이 남아 있으며 명시적으로 경고한다. 이 묶음은 전체 컴포지터 호환 완료를 뜻하지 않는다.
+
+데이터 패스 변경 후 E37 어댑터 스냅샷을 다시 실행해 22/22 검사가 통과했다.

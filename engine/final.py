@@ -99,7 +99,7 @@ def _render_layer(engine, depsgraph, statistics, view_layer):
         print("[Engine/Final] Export cancelled by user.")
         return
 
-    engine.framebuffer = FrameBufferFinal(scene)
+    engine.framebuffer = FrameBufferFinal(scene, depsgraph)
 
     # Create session
     start = time()
@@ -284,6 +284,11 @@ def _add_passes(engine, layer, scene):
     Called by engine.final.render() before the render starts.
     layer is the current render layer.
     """
+    from ..export import cycles_passes
+    # Depth 이미지는 Blender가 기본으로 추가하므로 중복 등록하지 않는다.
+    for item in cycles_passes.enabled(layer):
+        if item.name != "Depth" and not (item.name == "UV" and layer.superluxcore.aovs.uv):
+            engine.add_pass(item.name, len(item.channels), item.channels, layer=layer.name)
     aovs = layer.superluxcore.aovs
 
     # Denoiser

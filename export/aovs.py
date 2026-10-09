@@ -106,10 +106,10 @@ def convert(exporter, scene, context=None, engine=None):
                          or (not final and scene.superluxcore.viewport.use_denoiser))
 
         # AOVs
-        if (final and aovs.alpha) or use_transparent_film or use_backgroundimage(context, scene):
+        if (final and (aovs.alpha or "ALPHA" in cycles_passes)) or use_transparent_film or use_backgroundimage(context, scene):
             _add_output(definitions, "ALPHA")
         vp = scene.superluxcore.viewport if not final else None
-        if (final and aovs.depth) or pipeline.mist.enabled \
+        if (final and (aovs.depth or "DEPTH" in cycles_passes)) or pipeline.mist.enabled \
                 or (vp and vp.use_temporal) or (vp and vp.use_smooth):
             # Viewport: DEPTH feeds the smoothing filter's edge weights
             _add_output(definitions, "DEPTH")
@@ -119,7 +119,7 @@ def convert(exporter, scene, context=None, engine=None):
             _add_output(definitions, "POSITION")
         if (final and aovs.irradiance) or pipeline.contour_lines.enabled:
             _add_output(definitions, "IRRADIANCE")
-        if (final and aovs.albedo) or add_DENOISER_AOVs:
+        if (final and (aovs.albedo or "ALBEDO" in cycles_passes)) or add_DENOISER_AOVs:
             _add_output(definitions, "ALBEDO")
         if (final and aovs.avg_shading_normal) or add_DENOISER_AOVs \
                 or (vp and vp.use_smooth):

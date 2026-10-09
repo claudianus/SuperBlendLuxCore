@@ -371,6 +371,10 @@ def export_material(
         # cloned material variant carries them (see cycles_compat).
         lux_mat_name = cycles_compat.apply_object_shading_flags(
             obj, lux_mat_name, mat_props, exporter, view_layer)
+        # 엔진의 재질 ID는 유지하고 Blender IndexMA를 별도 대응표로 전달한다.
+        if not hasattr(exporter, "cycles_material_indices"):
+            exporter.cycles_material_indices = {}
+        exporter.cycles_material_indices[lux_mat_name] = int(mat.pass_index)
         return lux_mat_name, mat_props, node_tree
     else:
         lux_mat_name, mat_props = material.fallback()

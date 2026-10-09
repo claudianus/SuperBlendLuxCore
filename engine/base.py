@@ -246,6 +246,10 @@ class SuperLuxCoreRenderEngine(bpy.types.RenderEngine):
             else:
                 self.register_pass(scene, renderlayer, "DENOISED", 3, "RGB", "COLOR")
 
+        from ..export import cycles_passes
+        for item in cycles_passes.enabled(renderlayer):
+            self.register_pass(scene, renderlayer, item.name, len(item.channels), item.channels, item.socket)
+
         aovs = renderlayer.superluxcore.aovs
 
         # Notes:
@@ -257,7 +261,7 @@ class SuperLuxCoreRenderEngine(bpy.types.RenderEngine):
             self.register_pass(scene, renderlayer, "RGBA", 4, "RGBA", "COLOR")
         if aovs.alpha:
             self.register_pass(scene, renderlayer, "ALPHA", 1, "A", "VALUE")
-        if aovs.depth:
+        if aovs.depth and not renderlayer.use_pass_z:
             # In the compositor we need to register the Depth pass
             self.register_pass(scene, renderlayer, "Depth", 1, "Z", "VALUE")
         if aovs.albedo:
@@ -310,7 +314,7 @@ class SuperLuxCoreRenderEngine(bpy.types.RenderEngine):
             self.register_pass(scene, renderlayer, "AVG_SHADING_NORMAL", 3, "XYZ", "VECTOR")
         if aovs.geometry_normal:
             self.register_pass(scene, renderlayer, "GEOMETRY_NORMAL", 3, "XYZ", "VECTOR")
-        if aovs.uv:
+        if aovs.uv and not renderlayer.use_pass_uv:
             # We need to pad the UV pass to 3 elements (Blender can't handle 2 elements)
             self.register_pass(scene, renderlayer, "UV", 3, "UVA", "VECTOR")
         if aovs.direct_shadow_mask:

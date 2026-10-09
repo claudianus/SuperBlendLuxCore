@@ -285,6 +285,7 @@ class Exporter(object):
         # reference to temporary data, even if only for a while
         self.scene = depsgraph.scene_eval
         scene = self.scene
+        self.cycles_material_indices = {}
         # Evaluated view layer: needed to resolve layer_collection
         # holdout/indirect_only and indirect_only_get/holdout_get for
         # evaluated objects. Final render passes it explicitly; the

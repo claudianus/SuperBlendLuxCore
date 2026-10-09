@@ -3,6 +3,7 @@
 from ..export import blender_settings
 from time import time, sleep
 import numpy as np
+from mathutils import Vector
 import pysuperluxcore as plc
 from .. import utils
 from ..export.aovs import get_denoiser_imgpipeline_props
@@ -20,7 +21,7 @@ AOVS = {
     "RGB": ConvertFilmChannelOutput(3, np.float32, 3),
     "RGBA": ConvertFilmChannelOutput(4, np.float32, 4),
     "ALPHA": ConvertFilmChannelOutput(1, np.float32, 1),
-    "DEPTH": ConvertFilmChannelOutput(1, np.float32, 1, normalize=True),
+    "DEPTH": ConvertFilmChannelOutput(1, np.float32, 1),
     "DIRECT_SHADOW_MASK": ConvertFilmChannelOutput(1, np.float32, 1),
     "INDIRECT_SHADOW_MASK": ConvertFilmChannelOutput(1, np.float32, 1),
     "UV": ConvertFilmChannelOutput(2, np.float32, 3),
@@ -47,11 +48,14 @@ DEFAULT_AOV_SETTINGS_RGBA = ConvertFilmChannelOutput(4, np.float32, 4)
 class FrameBufferFinal:
     """FrameBuffer for final render."""
 
-    def __init__(self, scene):
+    def __init__(self, scene, depsgraph=None):
         filmsize = utils.calc_filmsize(scene)
         self._width = filmsize[0]
         self._height = filmsize[1]
         self._border = utils.calc_blender_border(scene)
+        self._cycles_object_indices = {utils.make_object_id(instance): int(instance.object.original.pass_index)
+                                       for instance in depsgraph.object_instances} if depsgraph else {}
+        self._cycles_material_indices = None
         pipeline = scene.camera.data.superluxcore.imagepipeline
         self._transparent = blender_settings.transparent_film(scene)
 
@@ -131,6 +135,8 @@ class FrameBufferFinal:
                 except RuntimeError as error:
                     print(f"Error on import of AOV {output_name}: {error}")
 
+            self._import_cycles_passes(scene.view_layers[active_layer], render_layer, session, engine, scene)
+
             # Light groups
             lightgroup_pass_names = scene.superluxcore.lightgroups.get_pass_names()
             enabled_lightgroups = (
@@ -168,6 +174,70 @@ class FrameBufferFinal:
         engine.end_result(result)
         # Reset the refresh button
         SuperLuxCoreDisplaySettings.refresh = False
+
+    def _import_cycles_passes(self, layer, render_layer, session, engine, scene):
+        """확장 AOV 패널을 켜지 않아도 원본 패스와 컴포지터에 데이터를 채운다."""
+        from ..export import cycles_passes
+        film = session.GetFilm()
+        size = self._width * self._height
+        cached = {}
+
+        def read(output):
+            if output in cached:
+                return cached[output]
+            is_id = output in {"OBJECT_ID", "MATERIAL_ID"}
+            channels = 1 if is_id or output in {"DEPTH", "ALPHA"} else 2 if output == "UV" else 3
+            buf = np.empty((size, channels), dtype=np.uint32 if is_id else np.float32)
+            getter = film.GetOutputUInt if is_id else film.GetOutputFloat
+            getter(plc.FilmOutputType.names[output], buf, 0, False)
+            cached[output] = buf
+            return buf
+
+        def camera_depth(radial=False):
+            position = read("POSITION")
+            matrix = scene.camera.matrix_world
+            origin = np.asarray(matrix.translation, dtype=np.float64)
+            delta = np.where(np.isfinite(position), position, 0.) - origin
+            if radial and scene.camera.data.type != "ORTHO":
+                value = np.linalg.norm(delta, axis=1, keepdims=True)
+            else:
+                forward = np.asarray(matrix.to_quaternion() @ Vector((0, 0, -1)), dtype=np.float64)
+                value = np.abs(delta @ forward).reshape(-1, 1)
+            return np.where(np.isfinite(read("DEPTH")), value, 1.e10)
+
+        for item in cycles_passes.enabled(layer):
+            buf = read(item.output)
+            if item.name == "Depth":
+                # 거리 단위를 유지하며 배경은 Blender의 Z 패스 규약을 사용한다.
+                buf = camera_depth(radial=scene.camera.data.type == "PANO")
+            elif item.name == "Mist":
+                mist = scene.world.mist_settings if scene.world else None
+                start = mist.start if mist else 5.
+                length = mist.depth if mist else 25.
+                value = np.clip((camera_depth(radial=True) - start) / max(length, 1.e-8), 0., 1.)
+                falloff = mist.falloff if mist else "QUADRATIC"
+                buf = value ** 2 if falloff == "QUADRATIC" else np.sqrt(value) if falloff == "INVERSE_QUADRATIC" else value
+                buf = 1. - (1. - buf) * read("ALPHA")
+            elif item.name in {"IndexOB", "IndexMA"}:
+                if item.name == "IndexMA" and self._cycles_material_indices is None:
+                    props = session.GetRenderConfig().GetScene().ToProperties()
+                    self._cycles_material_indices = {}
+                    for name, index in getattr(engine.exporter, "cycles_material_indices", {}).items():
+                        key = "scene.materials." + name + ".id"
+                        if props.IsDefined(key):
+                            self._cycles_material_indices[props.Get(key).GetInt()] = index
+                table = self._cycles_object_indices if item.name == "IndexOB" else self._cycles_material_indices
+                result = np.zeros(buf.shape, dtype=np.float32)
+                for key, value in table.items():
+                    result[buf == key] = value
+                buf = result
+            elif item.name == "UV":
+                hit = np.isfinite(read("DEPTH"))
+                buf = np.concatenate((np.where(hit, buf, 0.), hit.astype(np.float32)), axis=1)
+            else:
+                # 위치·법선의 배경 무한대가 컴포지터 산술을 오염시키지 않게 한다.
+                buf = np.where(np.isfinite(buf), buf, 0.)
+            render_layer.passes[item.name].rect.foreach_set(np.asarray(buf, dtype=np.float32).ravel())
 
     def _denoised_to_combined(self, engine, scene, render_layer):
         """Cycles parity: once the denoiser has produced a result, Combined

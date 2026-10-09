@@ -541,16 +541,13 @@ _PASS_OUTPUTS = (
     ("use_pass_shadow", ("DIRECT_SHADOW_MASK", "INDIRECT_SHADOW_MASK")),
     ("use_pass_diffuse_direct", ("DIRECT_DIFFUSE",)),
     ("use_pass_diffuse_indirect", ("INDIRECT_DIFFUSE",)),
-    ("use_pass_diffuse_color", ("ALBEDO",)),
     ("use_pass_glossy_direct", ("DIRECT_GLOSSY",)),
     ("use_pass_glossy_indirect", ("INDIRECT_GLOSSY",)),
-    ("use_pass_glossy_color", ("ALBEDO",)),
     # Cycles transmission covers glossy + specular refraction; the
     # specular part only exists on the indirect side in the engine.
     ("use_pass_transmission_direct", ("DIRECT_GLOSSY_TRANSMIT",)),
     ("use_pass_transmission_indirect",
      ("INDIRECT_GLOSSY_TRANSMIT", "INDIRECT_SPECULAR_TRANSMIT")),
-    ("use_pass_transmission_color", ("ALBEDO",)),
     ("use_pass_cryptomatte_object", ("CRYPTOMATTE_OBJECT",)),
     ("use_pass_cryptomatte_material", ("CRYPTOMATTE_MATERIAL",)),
 )
@@ -558,7 +555,8 @@ _PASS_OUTPUTS = (
 
 def cycles_pass_outputs(view_layer, warned):
     """Film output names implied by the layer's Blender pass flags."""
-    outputs = set()
+    from . import cycles_passes
+    outputs = cycles_passes.outputs(view_layer)
     lname = view_layer.name
     for flag, names in _PASS_OUTPUTS:
         if getattr(view_layer, flag, False):
@@ -574,6 +572,17 @@ def cycles_pass_outputs(view_layer, warned):
         _warn_once(warned, (lname, "cryptoaccurate"),
                    "Cryptomatte 'Accurate' mode is not supported - "
                    "standard cryptomatte is emitted", lname)
+    if any(getattr(view_layer, flag, False) for flag in (
+            "use_pass_diffuse_color", "use_pass_glossy_color", "use_pass_transmission_color")):
+        _warn_once(warned, (lname, "lobecolorpass"),
+                   "로브별 Color 패스는 별도 엔진 채널이 필요하므로 아직 전달하지 않는다. "
+                   "단일 ALBEDO로 다른 로브를 대체하지 않는다.", lname)
+    if any(getattr(view_layer, flag, False) for flag in (
+            "use_pass_diffuse_direct", "use_pass_diffuse_indirect", "use_pass_glossy_direct",
+            "use_pass_glossy_indirect", "use_pass_transmission_direct", "use_pass_transmission_indirect",
+            "use_pass_shadow", "use_pass_vector", "use_pass_cryptomatte_object", "use_pass_cryptomatte_material")):
+        _warn_once(warned, (lname, "pendingpasscontracts"),
+                   "일부 광원·모션·Cryptomatte 패스의 Blender 이름·데이터 계약은 아직 미완료다.", lname)
     if getattr(view_layer, "use_pass_environment", False):
         _warn_once(warned, (lname, "envpass"),
                    "The Environment pass has no film output - the "
@@ -582,11 +591,6 @@ def cycles_pass_outputs(view_layer, warned):
         _warn_once(warned, (lname, "aopass"),
                    "The AO pass has no film output - ambient occlusion "
                    "is a shader-level effect in SuperLuxCore", lname)
-    if getattr(view_layer, "use_pass_mist", False):
-        _warn_once(warned, (lname, "mistpass"),
-                   "The Mist pass is an image-pipeline effect in "
-                   "SuperLuxCore - enable Mist under Image Pipeline, "
-                   "or use the Depth pass", lname)
     if any(getattr(view_layer, f, False) for f in (
             "use_pass_subsurface_direct", "use_pass_subsurface_indirect",
             "use_pass_subsurface_color")):
