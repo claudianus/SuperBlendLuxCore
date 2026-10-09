@@ -383,6 +383,10 @@ def _const_binary(op, value1, value2):
         if op == "divide":
             return value1 / value2 if value2 != 0 else 0.0
         if op == "power":
+            if value2 == 0.:
+                return 1.
+            if value1 == 0. or (value1 < 0. and value2 != int(value2)):
+                return 0.
             return value1 ** value2
         if op == "lessthan":
             return 1.0 if value1 < value2 else 0.0
@@ -433,6 +437,177 @@ def _tex_mix(texture1, texture2, amount, name, props):
         "texture2": texture2,
         "amount": amount,
     })
+
+
+def _tex_lerp(a, b, factor, name, props):
+    """엔진 Mix의 계수 제한을 피하고 외삽까지 보존한다."""
+    delta = _tex_binary("subtract", b, a, name + "_delta", props)
+    weighted = _tex_binary("scale", delta, factor, name + "_weighted", props)
+    return _tex_binary("add", a, weighted, name, props)
+
+
+def _tex_clamp(value, low, high, name, props):
+    """연결된 경계와 채널별 경계도 처리한다."""
+    value = _tex_mathfunc("max", value, low, name + "_min", props)
+    return _tex_mathfunc("min", value, high, name, props)
+
+
+def _group_socket(sockets, requested):
+    """표시 이름이 중복되어도 그룹 인터페이스 식별자를 유지한다."""
+    identifier = getattr(requested, "identifier", None)
+    return next((s for s in sockets if s.identifier == identifier), None)
+
+
+def _texture_coordinates(node, props, material, obj_name, stack, name):
+    """절차 텍스처의 기본 Generated와 연결 좌표를 구분한다."""
+    socket = node.inputs.get("Vector")
+    if socket is not None and socket.is_linked:
+        return _socket(socket, props, material, obj_name, stack)
+    return _tex_helper(props, name + "_generated", {
+        "type": "hitpoint", "channel": "generated"})
+
+
+def _output_is_color(socket):
+    """색 출력이 좌표 데이터로만 쓰이면 스펙트럼 색 변환을 생략한다."""
+    links = list(getattr(socket, "links", ()) or ())
+    return not (links and all(link.to_socket.type == "VECTOR" for link in links))
+
+
+def _tex_band(amount, samples, interpolation, name, props):
+    """고해상도 표를 GPU의 16항목 테이블로 나누어 정밀도를 유지한다."""
+    if not _is_textured(amount):
+        value = float(amount)
+        if value <= samples[0][0]:
+            return samples[0][1]
+        for i in range(1, len(samples)):
+            left, right = samples[i - 1], samples[i]
+            if value < right[0]:
+                if interpolation == "none":
+                    return left[1]
+                factor = (value - left[0]) / (right[0] - left[0])
+                return [a + (b - a) * factor for a, b in zip(left[1], right[1])]
+        return samples[-1][1]
+    # 원 표에 대한 채널별 최대 오차를 제한하고 평평한 구간을 압축한다.
+    if interpolation == "linear" and len(samples) > 16:
+        retained = {0, len(samples) - 1}
+        pending = [(0, len(samples) - 1)]
+        while pending:
+            left, right = pending.pop()
+            x0, v0 = samples[left]
+            x1, v1 = samples[right]
+            worst, split = 0., None
+            for i in range(left + 1, right):
+                x, values = samples[i]
+                factor = (x - x0) / (x1 - x0) if x1 != x0 else 0.
+                error = max(abs(v - (a + (b - a) * factor)) for v, a, b in zip(values, v0, v1))
+                if error > worst:
+                    worst, split = error, i
+            if worst > 1e-4:
+                retained.add(split)
+                pending.extend(((left, split), (split, right)))
+        samples = [samples[i] for i in sorted(retained)]
+    chunks = [samples[i:i + 16] for i in range(0, len(samples) - 1, 15)]
+    def emit(index):
+        chunk = chunks[index]
+        definitions = {"type": "band", "amount": amount, "offsets": len(chunk), "interpolation": interpolation}
+        for i, (position, values) in enumerate(chunk):
+            definitions[f"offset{i}"] = position
+            definitions[f"value{i}"] = values
+        return _tex_helper(props, name + f"_table{index}", definitions)
+    def combine(begin, end):
+        if end - begin == 1:
+            return emit(begin)
+        middle = (begin + end) // 2
+        left, right = combine(begin, middle), combine(middle, end)
+        boundary = chunks[middle][0][0]
+        select = _tex_lessthan(amount, boundary, name + f"_boundary{middle}", props)
+        return _tex_mix(right, left, select, name + f"_select{begin}_{end}", props)
+    return combine(0, len(chunks))
+
+
+def _map_range(node, props, material, obj_name, stack, name):
+    """동적 소켓·역방향 범위·벡터 보간·클램프를 산술 텍스처로 전달한다."""
+    vector = node.data_type == "FLOAT_VECTOR"
+    values = {}
+    for key in ("Vector" if vector else "Value", "From Min", "From Max", "To Min", "To Max", "Steps"):
+        candidates = [s for s in node.inputs if s.name == key and (s.type == "VECTOR") == vector]
+        socket = next((s for s in candidates if s.enabled), candidates[0])
+        values[key] = _socket(socket, props, material, obj_name, stack)
+    results = []
+    for channel in range(3 if vector else 1):
+        v = {k: _split_chan(value, channel, name + f"_{k}_{channel}", props)
+             if vector else value for k, value in values.items()}
+        tag = name + f"_range{channel}"
+        width = _tex_binary("subtract", v["From Max"], v["From Min"], tag + "_width", props)
+        factor = _tex_binary("divide", _tex_binary("subtract", v["Vector" if vector else "Value"], v["From Min"], tag + "_offset", props), width, tag + "_factor", props)
+        mode = node.interpolation_type
+        if mode == "STEPPED":
+            count = _tex_binary("add", v["Steps"], 1., tag + "_count", props)
+            steps = _tex_mathfunc("floor", _tex_binary("scale", factor, count, tag + "_steps", props), None, tag + "_floor", props)
+            factor = _tex_binary("divide", steps, v["Steps"], tag + "_stepped", props)
+            factor = _tex_binary("scale", factor, _tex_greaterthan(v["Steps"], 0., tag + "_hassteps", props), tag + "_validsteps", props)
+        elif mode in {"SMOOTHSTEP", "SMOOTHERSTEP"}:
+            factor = _tex_clamp(factor, 0., 1., tag + "_smoothclamp", props)
+            square = _tex_binary("scale", factor, factor, tag + "_square", props)
+            if mode == "SMOOTHSTEP":
+                polynomial = _tex_binary("subtract", 3., _tex_binary("scale", 2., factor, tag + "_two", props), tag + "_poly", props)
+                factor = _tex_binary("scale", square, polynomial, tag + "_smooth", props)
+            else:
+                polynomial = _tex_binary("add", _tex_binary("scale", factor, _tex_binary("subtract", _tex_binary("scale", factor, 6., tag + "_six", props), 15., tag + "_fifteen", props), tag + "_middle", props), 10., tag + "_poly", props)
+                factor = _tex_binary("scale", _tex_binary("scale", square, factor, tag + "_cube", props), polynomial, tag + "_smooth", props)
+        result = _tex_lerp(v["To Min"], v["To Max"], factor, tag + "_result", props)
+        if node.clamp and mode in {"LINEAR", "STEPPED"}:
+            low = _tex_mathfunc("min", v["To Min"], v["To Max"], tag + "_low", props)
+            high = _tex_mathfunc("max", v["To Min"], v["To Max"], tag + "_high", props)
+            result = _tex_clamp(result, low, high, tag + "_clamp", props)
+        if not vector:
+            valid = _tex_greaterthan(_tex_unary("abs", width, None, tag + "_abswidth", props), 0., tag + "_nonzero", props)
+            result = _tex_binary("scale", result, valid, tag + "_valid", props)
+        results.append(result)
+    if not vector:
+        return results[0]
+    return _tex_helper(props, name, {"type": "makefloat3", **{f"texture{i+1}": v for i, v in enumerate(results)}})
+
+
+def _magic_texture(node, output, props, material, obj_name, stack, name):
+    """Magic의 깊이 속성과 연결 Scale·Distortion·Vector를 모두 평가한다."""
+    serial = 0
+    def binary(op, a, b):
+        nonlocal serial
+        serial += 1
+        return _tex_binary(op, a, b, name + f"_m{serial}", props)
+    def trig(op, value):
+        nonlocal serial
+        serial += 1
+        return _tex_mathfunc(op, value, None, name + f"_m{serial}", props)
+    vector = _texture_coordinates(node, props, material, obj_name, stack, name)
+    scale = _socket(node.inputs["Scale"], props, material, obj_name, stack)
+    distortion = _socket(node.inputs["Distortion"], props, material, obj_name, stack)
+    scaled = binary("scale", vector, scale)
+    p = [_split_chan(scaled, i, name + f"_p{i}", props) for i in range(3)]
+    x = trig("sin", binary("scale", binary("add", binary("add", p[0], p[1]), p[2]), 5.))
+    y = trig("cos", binary("scale", binary("subtract", binary("subtract", p[1], p[0]), p[2]), 5.))
+    z = binary("scale", trig("cos", binary("scale", binary("subtract", binary("subtract", p[2], p[0]), p[1]), 5.)), -1.)
+    depth = int(node.turbulence_depth)
+    if depth > 0:
+        x, y, z = [binary("scale", v, distortion) for v in (x, y, z)]
+        operations = (
+            (1, "cos", (-1, 1, -1), -1), (0, "cos", (1, -1, -1), 1),
+            (2, "sin", (-1, -1, -1), 1), (0, "cos", (-1, 1, -1), -1),
+            (1, "sin", (-1, 1, 1), -1), (1, "cos", (-1, 1, 1), -1),
+            (0, "cos", (1, 1, 1), 1), (2, "sin", (1, 1, -1), 1),
+            (0, "cos", (-1, -1, 1), -1), (1, "sin", (1, -1, 1), -1))
+        channels = [x, y, z]
+        for index, op, signs, sign in operations[:depth]:
+            value = binary("add", binary("add", binary("scale", channels[0], signs[0]), binary("scale", channels[1], signs[1])), binary("scale", channels[2], signs[2]))
+            channels[index] = binary("scale", trig(op, value), binary("scale", sign, distortion))
+        x, y, z = channels
+    denominator = binary("scale", distortion, 2.)
+    nonzero = _tex_greaterthan(_tex_unary("abs", distortion, None, name + "_absdist", props), 0., name + "_nonzero", props)
+    colors = [binary("subtract", .5, _tex_lerp(v, binary("divide", v, denominator), nonzero, name + f"_normalized{i}", props)) for i, v in enumerate((x, y, z))]
+    if output.name == "Fac":
+        return binary("scale", binary("add", binary("add", colors[0], colors[1]), colors[2]), 1./3.)
+    return _tex_helper(props, name, {"type": "makefloat3", "color": _output_is_color(output), **{f"texture{i+1}": v for i, v in enumerate(colors)}})
 
 
 def _tex_lessthan(t1, t2, name, props):
@@ -661,58 +836,111 @@ def _point_transform_channels(matrix, name, props, rows=(0, 1, 2)):
 
 
 def _blend_rgb(node, blend_type, fac, tex1, tex2, superluxcore_name, props, obj_name):
-    """
-    Shared implementation for ShaderNodeMixRGB and the RGBA variant of the
-    unified ShaderNodeMix node.
-    Returns (definitions, superluxcore_name, early_result); when early_result is not
-    None the caller returns it directly.
-    """
-    # TODO (in SuperLuxCore):
-    #  "DARKEN", "BURN", "LIGHTEN", "SCREEN", "DODGE", "OVERLAY", "SOFT_LIGHT",
-    #  "LINEAR_LIGHT", "DIFFERENCE", "HUE", "SATURATION", "COLOR", "VALUE"
-    definitions = {}
+    """색 혼합의 채널별 연산·외삽·조건부 HSV 의미를 보존한다."""
+    serial = 0
+    def binary(op, a, b):
+        nonlocal serial
+        serial += 1
+        return _tex_binary(op, a, b, superluxcore_name + f"_blend{serial}", props)
+    def func(op, a, b=None):
+        nonlocal serial
+        serial += 1
+        return _tex_mathfunc(op, a, b, superluxcore_name + f"_blend{serial}", props)
+    def select(a, b, predicate):
+        nonlocal serial
+        serial += 1
+        return _tex_mix(a, b, predicate, superluxcore_name + f"_select{serial}", props)
+    def lerp(a, b, factor=fac):
+        return binary("add", a, binary("scale", binary("subtract", b, a), factor))
+    def absolute(a):
+        nonlocal serial
+        serial += 1
+        return _tex_unary("abs", a, None, superluxcore_name + f"_abs{serial}", props)
+    def rgb_to_hsv(color):
+        channels = [_split_chan(color, i, superluxcore_name + f"_hsv{serial}_{i}", props) for i in range(3)]
+        r, g, b = channels
+        maximum = func("max", func("max", r, g), b)
+        minimum = func("min", func("min", r, g), b)
+        delta = binary("subtract", maximum, minimum)
+        saturation = binary("divide", delta, maximum)
+        red_h = binary("divide", binary("subtract", g, b), delta)
+        green_h = binary("add", binary("divide", binary("subtract", b, r), delta), 2.)
+        blue_h = binary("add", binary("divide", binary("subtract", r, g), delta), 4.)
+        hue = select(blue_h, green_h, func("lessequal", maximum, g))
+        hue = select(hue, red_h, func("lessequal", maximum, r))
+        hue = func("floormod", binary("scale", hue, 1./6.), 1.)
+        hue = select(hue, 0., func("lessequal", delta, 0.))
+        return hue, saturation, maximum
+    def hsv_to_rgb(hsv):
+        h, saturation, value = hsv
+        h = binary("scale", h, 6.)
+        channels = []
+        for offset in (0., 4., 2.):
+            wave = absolute(binary("subtract", func("floormod", binary("add", h, offset), 6.), 3.))
+            wave = func("min", func("max", binary("subtract", wave, 1.), 0.), 1.)
+            channels.append(binary("scale", value, lerp(1., wave, saturation)))
+        nonlocal serial
+        serial += 1
+        return _tex_helper(props, superluxcore_name + f"_rgb{serial}", {"type": "makefloat3", "color": _output_is_color(next(socket for socket in node.outputs if socket.enabled)), **{f"texture{i+1}": v for i, v in enumerate(channels)}})
 
-    if fac == 0:
-        return None, superluxcore_name, tex1
-
-    if blend_type in {"MIX", "MULTIPLY", "ADD", "SUBTRACT", "DIVIDE"}:
-        if blend_type == "MULTIPLY":
-            definitions["type"] = "scale"
+    if blend_type in {"HUE", "SATURATION", "COLOR", "VALUE"}:
+        h1, s1, v1 = rgb_to_hsv(tex1)
+        h2, s2, v2 = rgb_to_hsv(tex2)
+        if blend_type == "SATURATION":
+            result = select(hsv_to_rgb((h1, lerp(s1, s2), v1)), tex1, func("lessequal", s1, 0.))
+        elif blend_type == "VALUE":
+            result = hsv_to_rgb((h1, s1, lerp(v1, v2)))
         else:
-            definitions["type"] = blend_type.lower()
-
-        definitions["texture1"] = tex1
-        definitions["texture2"] = tex2
-
-        if blend_type == "MIX":
-            definitions["amount"] = fac
-            if fac == 1:
-                return None, superluxcore_name, tex2
+            target = hsv_to_rgb((h2, s1 if blend_type == "HUE" else s2, v1))
+            result = select(lerp(tex1, target), tex1, func("lessequal", s2, 0.))
     else:
-        # Never silently black: warn and degrade to a plain mix
-        SuperLuxCoreErrorLog.add_warning(
-            f'Node "{node.name}": unsupported blend mode "{blend_type}", '
-            'falling back to "mix"', obj_name=obj_name)
-        definitions = {
-            "type": "mix",
-            "texture1": tex1,
-            "texture2": tex2,
-            "amount": fac,
-        }
-        return definitions, superluxcore_name, None
-
-    if (_is_textured(fac) or (fac > 0 and fac < 1)) and blend_type != "MIX":
-        # Here we need to insert a helper texture *after* the current texture
-        props.Set(utils.luxutils.create_props("scene.textures." + superluxcore_name + ".", definitions))
-        definitions = {
-            "type": "mix",
-            "texture1": tex1,
-            "texture2": superluxcore_name,
-            "amount": fac,
-        }
-        superluxcore_name = superluxcore_name + "fac"
-
-    return definitions, superluxcore_name, None
+        result_channels = []
+        for channel in range(3):
+            a = _split_chan(tex1, channel, superluxcore_name + f"_a{channel}", props)
+            b = _split_chan(tex2, channel, superluxcore_name + f"_b{channel}", props)
+            if blend_type == "MIX":
+                result = lerp(a, b)
+            elif blend_type == "ADD":
+                result = binary("add", a, binary("scale", b, fac))
+            elif blend_type == "SUBTRACT":
+                result = binary("subtract", a, binary("scale", b, fac))
+            elif blend_type == "MULTIPLY":
+                result = lerp(a, binary("scale", a, b))
+            elif blend_type == "DIVIDE":
+                result = select(lerp(a, binary("divide", a, b)), a, func("lessequal", absolute(b), 0.))
+            elif blend_type == "SCREEN":
+                result = lerp(a, binary("subtract", 1., binary("scale", binary("subtract", 1., a), binary("subtract", 1., b))))
+            elif blend_type == "OVERLAY":
+                dark = binary("scale", 2., binary("scale", a, b))
+                light = binary("subtract", 1., binary("scale", 2., binary("scale", binary("subtract", 1., a), binary("subtract", 1., b))))
+                result = lerp(a, select(dark, light, func("lessequal", .5, a)))
+            elif blend_type in {"DARKEN", "LIGHTEN"}:
+                result = lerp(a, func("min" if blend_type == "DARKEN" else "max", a, b))
+            elif blend_type == "DIFFERENCE":
+                result = lerp(a, absolute(binary("subtract", a, b)))
+            elif blend_type == "EXCLUSION":
+                target = binary("subtract", binary("add", a, b), binary("scale", 2., binary("scale", a, b)))
+                result = func("max", lerp(a, target), 0.)
+            elif blend_type == "DODGE":
+                denominator = binary("subtract", 1., binary("scale", fac, b))
+                ratio = func("min", binary("divide", a, denominator), 1.)
+                result = select(ratio, 1., func("lessequal", denominator, 0.))
+                result = select(result, 0., func("lessequal", absolute(a), 0.))
+            elif blend_type == "BURN":
+                denominator = lerp(1., b)
+                ratio = binary("subtract", 1., binary("divide", binary("subtract", 1., a), denominator))
+                result = select(func("min", func("max", ratio, 0.), 1.), 0., func("lessequal", denominator, 0.))
+            elif blend_type == "SOFT_LIGHT":
+                screen = binary("subtract", 1., binary("scale", binary("subtract", 1., a), binary("subtract", 1., b)))
+                target = binary("add", binary("scale", binary("scale", binary("subtract", 1., a), b), a), binary("scale", a, screen))
+                result = lerp(a, target)
+            elif blend_type == "LINEAR_LIGHT":
+                result = binary("add", a, binary("scale", fac, binary("subtract", binary("scale", b, 2.), 1.)))
+            else:
+                return None, superluxcore_name, _warn_unsupported(node, f"혼합 모드 {blend_type} 평가 경로 없음", tex1, obj_name)
+            result_channels.append(result)
+        result = _tex_helper(props, superluxcore_name + "_rgb", {"type": "makefloat3", "color": _output_is_color(next(socket for socket in node.outputs if socket.enabled)), **{f"texture{i+1}": v for i, v in enumerate(result_channels)}})
+    return {"type": "scale", "texture1": result, "texture2": 1.}, superluxcore_name, None
 
 
 def _mapping_node_values(mapping_node, obj_name):
@@ -1924,8 +2152,7 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
 
         fac_input = node.inputs["Fac"]
         fac = _socket(fac_input, props, material, obj_name, group_node_stack)
-        if fac_input.is_linked and fac == ERROR_VALUE:
-            fac = 0.5
+        fac = _tex_clamp(fac, 0., 1., superluxcore_name + "_factor", props)
 
         tex1 = _socket(node.inputs["Color1"], props, material, obj_name, group_node_stack)
         tex2 = _socket(node.inputs["Color2"], props, material, obj_name, group_node_stack)
@@ -2079,7 +2306,7 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
         hue = _socket(node.inputs["Hue"], props, material, obj_name, group_node_stack)
         saturation = _socket(node.inputs["Saturation"], props, material, obj_name, group_node_stack)
         value = _socket(node.inputs["Value"], props, material, obj_name, group_node_stack)
-        fac = _socket(node.inputs["Fac"], props, material, obj_name, group_node_stack)  # TODO
+        fac = _socket(node.inputs["Fac"], props, material, obj_name, group_node_stack)
         color = _socket(node.inputs["Color"], props, material, obj_name, group_node_stack)
 
         definitions = {
@@ -2089,6 +2316,8 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
             "saturation": saturation,
             "value": value,
         }
+        converted = _tex_helper(props, superluxcore_name + "_hsv", definitions)
+        return _tex_lerp(color, converted, fac, superluxcore_name, props)
     elif node.bl_idname == "ShaderNodeGroup":
         active_output = None
         for subnode in node.node_tree.nodes:
@@ -2096,9 +2325,11 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
                 active_output = subnode
                 break
 
-        current_input = active_output.inputs[output_socket.name]
-        if not current_input.is_linked:
-            return ERROR_VALUE
+        if active_output is None:
+            return _warn_unsupported(node, "사용 가능한 그룹 출력이 없음", ERROR_VALUE, obj_name)
+        current_input = _group_socket(active_output.inputs, output_socket)
+        if current_input is None:
+            return _warn_unsupported(node, "그룹 출력 식별자를 찾을 수 없음", ERROR_VALUE, obj_name)
 
         if group_node_stack is None:
             _group_node_stack = []
@@ -2110,7 +2341,7 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
         return _socket(current_input, props, material, obj_name,
                        _group_node_stack, superluxcore_name)
     elif node.bl_idname == "NodeGroupInput":
-        return _socket(group_node_stack[-1].inputs[output_socket.name], props,
+        return _socket(_group_socket(group_node_stack[-1].inputs, output_socket), props,
                        material, obj_name, group_node_stack[:-1], superluxcore_name)
     elif node.bl_idname == "ShaderNodeEmission":
         prefix = "scene.materials."
@@ -2152,28 +2383,20 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
             "value": list(node.outputs[0].default_value)[:3],
         }
     elif node.bl_idname == "ShaderNodeValToRGB":
-        # Color ramp
-        prefix = "scene.textures."
         ramp = node.color_ramp
-
-        if ramp.interpolation == "CONSTANT":
-            interpolation = "none"
-        elif ramp.interpolation == "LINEAR":
-            interpolation = "linear"
+        amount = _socket(node.inputs["Fac"], props, material, obj_name, group_node_stack)
+        alpha = output_socket.name == "Alpha"
+        if ramp.interpolation == "CONSTANT" or (ramp.color_mode == "RGB" and ramp.interpolation == "LINEAR"):
+            samples = [(element.position, list(element.color)) for element in ramp.elements]
+            interpolation = "none" if ramp.interpolation == "CONSTANT" else "linear"
         else:
-            # TODO: not all interpolation modes are supported by SuperLuxCore
-            interpolation = "cubic"
-
-        definitions = {
-            "type": "band",
-            "amount": _socket(node.inputs["Fac"], props, material, obj_name, group_node_stack),
-            "offsets": len(ramp.elements),
-            "interpolation": interpolation,
-        }
-
-        for i in range(len(ramp.elements)):
-            definitions[f"offset{i}"] = ramp.elements[i].position
-            definitions[f"value{i}"] = list(ramp.elements[i].color[:3])  # Ignore alpha
+            # Blender 자체 평가로 색 공간·색상 방향·곡선 보간을 보존한다.
+            positions = sorted(set([i / 512 for i in range(513)] + [e.position for e in ramp.elements]))
+            samples = [(position, list(ramp.evaluate(position))) for position in positions]
+            interpolation = "linear"
+        values = [(position, [rgba[3]] * 3 if alpha else rgba[:3]) for position, rgba in samples]
+        result = _tex_band(amount, values, interpolation, superluxcore_name, props)
+        return _split_chan(result, 0, superluxcore_name + "_alpha", props) if alpha else result
     elif node.bl_idname == "ShaderNodeTexChecker":
         prefix = "scene.textures."
 
@@ -2292,49 +2515,19 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
             "contrast": _socket(node.inputs["Contrast"], props, material, obj_name, group_node_stack),
         }
     elif node.bl_idname == "ShaderNodeGamma":
-        #print(f"ShaderNodeGamma inputs: {[input.name for input in node.inputs]}")
-
-        prefix = "scene.textures."
-
-        # Check if the Gamma node input is a Texture Image node
-        texture_input = utils_node.get_link(node.inputs["Color"])
-        if texture_input and texture_input.from_node.bl_idname == "ShaderNodeTexImage":
-            tex_node = texture_input.from_node
-        
-            # Extract the image filepath and gamma value
-            gamma_value = _socket(node.inputs["Gamma"], props, material, obj_name, group_node_stack)
-
-            if not gamma_value:
-                gamma_value = 1  # Default to 1 if no value is provided
-        
-            filepath = ImageExporter.export_cycles_node_reader(tex_node.image)
-            extension_map = {
-                "REPEAT": "repeat",
-                "EXTEND": "clamp",
-                "CLIP": "black",
-            }
-        
-            definitions = {
-                "type": "imagemap",
-                "file": filepath,
-                "wrap": extension_map.get(tex_node.extension, "repeat"),
-                "gamma": gamma_value,
-                "gain": 1,  # Adjust as necessary
-                "mapping.type": "uvmapping2d",
-                "mapping.uvscale": [1, -1],
-                "mapping.rotation": 0,
-                "mapping.uvdelta": [0, 1],
-            }
-        
-            # Define the SuperLuxCore texture node
-            props.Set(utils.luxutils.create_props(prefix + superluxcore_name + ".", definitions))
-            return superluxcore_name
-        else:
-            # Only image textures carry their own gamma; anything else
-            # falls through with stale definitions (or UnboundLocalError).
-            SuperLuxCoreErrorLog.add_warning(
-                "Gamma node without image input is not supported", obj_name=obj_name)
-            return ERROR_VALUE
+        color = _socket(node.inputs["Color"], props, material, obj_name, group_node_stack)
+        gamma = _socket(node.inputs["Gamma"], props, material, obj_name, group_node_stack)
+        channels = []
+        zero_gamma = _tex_mathfunc("lessequal", _tex_unary("abs", gamma, None, superluxcore_name + "_abs", props), 0., superluxcore_name + "_zero", props)
+        for i in range(3):
+            tag = superluxcore_name + f"_gamma{i}"
+            channel = _split_chan(color, i, tag + "_input", props)
+            positive = _tex_greaterthan(channel, 0., tag + "_positive", props)
+            base = _tex_mix(1., channel, positive, tag + "_safe_base", props)
+            powered = _tex_binary("power", base, gamma, tag + "_power", props)
+            value = _tex_mix(channel, powered, positive, tag + "_color", props)
+            channels.append(_tex_mix(value, 1., zero_gamma, tag + "_result", props))
+        return _tex_helper(props, superluxcore_name, {"type": "makefloat3", "color": _output_is_color(output_socket), **{f"texture{i+1}": v for i, v in enumerate(channels)}})
 
     elif node.bl_idname == "ShaderNodeNormalMap":
         if node.space != "TANGENT":
@@ -2537,27 +2730,7 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
             "normalize": True,
         }
     elif node.bl_idname == "ShaderNodeMapRange":
-        if node.interpolation_type != "LINEAR":
-            SuperLuxCoreErrorLog.add_warning(f"In material {material.name}: Unsupported map range interpolation type: " + node.interpolation_type,
-                                        obj_name=obj_name)
-            return ERROR_VALUE
-
-        if not node.clamp:
-            # TODO: SuperLuxCore's remap texture always clamps, at the moment
-            SuperLuxCoreErrorLog.add_warning(f"In material {material.name}: map range node will be clamped", obj_name=obj_name)
-
-        prefix = "scene.textures."
-
-        value = _socket(node.inputs["Value"], props, material, obj_name, group_node_stack)
-
-        definitions = {
-            "type": "remap",
-            "value": value,
-            "sourcemin": _socket(node.inputs["From Min"], props, material, obj_name, group_node_stack),
-            "sourcemax": _socket(node.inputs["From Max"], props, material, obj_name, group_node_stack),
-            "targetmin": _socket(node.inputs["To Min"], props, material, obj_name, group_node_stack),
-            "targetmax": _socket(node.inputs["To Max"], props, material, obj_name, group_node_stack),
-        }
+        return _map_range(node, props, material, obj_name, group_node_stack, superluxcore_name)
     elif node.bl_idname == "ShaderNodeSubsurfaceScattering":
         prefix = "scene.materials."
 
@@ -2702,38 +2875,35 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
                 "ior": float(ior),
             }
     elif node.bl_idname == "ShaderNodeLayerWeight":
-        prefix = "scene.textures."
-
-        if node.inputs["Normal"].is_linked:
-            SuperLuxCoreErrorLog.add_warning(
-                f'Layer Weight node "{node.name}": the Normal input is not supported',
-                obj_name=obj_name)
-
-        if output_socket.name == "Fresnel":
-            # Cycles' Fresnel output is the dielectric reflectance at the
-            # fixed IOR 1.45 - the fresnelior texture evaluates it exactly
-            # at the hit-point incident angle.
-            definitions = {
-                "type": "fresnelior",
-                "ior": 1.45,
-            }
-        else:
-            # "Facing": pow(1-|cosi|, blend) - the facing texture evaluates
-            # it exactly. Cycles' Blend input carries the exponent.
-            blend_socket = node.inputs.get("Blend")
-            blend = _socket(blend_socket, props, material, obj_name,
-                            group_node_stack) if blend_socket is not None else 0.0
-            if blend == ERROR_VALUE or blend is None or _is_textured(blend):
-                blend = 0.0
-                if blend_socket is not None and blend_socket.is_linked:
-                    SuperLuxCoreErrorLog.add_warning(
-                        f'Layer Weight node "{node.name}": textured Blend is '
-                        "not supported on the Facing output (facing.blend is "
-                        "scalar); using 0.0", obj_name=obj_name)
-            definitions = {
-                "type": "facing",
-                "blend": float(blend),
-            }
+        name = superluxcore_name
+        blend = _socket(node.inputs["Blend"], props, material, obj_name, group_node_stack)
+        normal_socket = node.inputs["Normal"]
+        normal = _socket(normal_socket, props, material, obj_name, group_node_stack) if normal_socket.is_linked else _tex_helper(props, name + "_normal", {"type": "shadingnormal"})
+        incoming = _tex_helper(props, name + "_incoming", {"type": "hitpoint", "channel": "incoming"})
+        cosine = _tex_binary("dotproduct", normal, incoming, name + "_dot", props)
+        cosine = _tex_clamp(_tex_unary("abs", cosine, None, name + "_abs", props), 0., 1., name + "_cosine", props)
+        if output_socket.name == "Facing":
+            blend = _tex_clamp(blend, 0., 1. - 1e-5, name + "_blend", props)
+            low = _tex_binary("scale", blend, 2., name + "_low", props)
+            high = _tex_binary("divide", .5, _tex_binary("subtract", 1., blend, name + "_one_minus", props), name + "_high", props)
+            branch = _tex_lessthan(blend, .5, name + "_branch", props)
+            exponent = _tex_mix(high, low, branch, name + "_exponent", props)
+            powered = _tex_binary("power", cosine, exponent, name + "_power", props)
+            return _tex_binary("subtract", 1., powered, name, props)
+        eta = _tex_mathfunc("max", _tex_binary("subtract", 1., blend, name + "_eta_input", props), 1e-5, name + "_eta", props)
+        inverse_eta = _tex_binary("divide", 1., eta, name + "_eta_inverse", props)
+        backfacing = _tex_helper(props, name + "_backfacing", {"type": "hitpoint", "channel": "backfacing"})
+        eta = _tex_mix(inverse_eta, eta, backfacing, name + "_side_eta", props)
+        sin_squared = _tex_binary("subtract", 1., _tex_binary("scale", cosine, cosine, name + "_cos_squared", props), name + "_sin_squared", props)
+        transmitted_squared = _tex_binary("subtract", 1., _tex_binary("divide", sin_squared, _tex_binary("scale", eta, eta, name + "_eta_squared", props), name + "_sin_transmitted", props), name + "_cos_transmitted_squared", props)
+        transmitted = _tex_binary("power", _tex_mathfunc("max", transmitted_squared, 0., name + "_nonnegative", props), .5, name + "_cos_transmitted", props)
+        eta_cos = _tex_binary("scale", eta, cosine, name + "_eta_cos", props)
+        eta_transmitted = _tex_binary("scale", eta, transmitted, name + "_eta_transmitted", props)
+        parallel = _tex_binary("divide", _tex_binary("subtract", eta_cos, transmitted, name + "_parallel_num", props), _tex_binary("add", eta_cos, transmitted, name + "_parallel_den", props), name + "_parallel", props)
+        perpendicular = _tex_binary("divide", _tex_binary("subtract", cosine, eta_transmitted, name + "_perpendicular_num", props), _tex_binary("add", cosine, eta_transmitted, name + "_perpendicular_den", props), name + "_perpendicular", props)
+        reflected = _tex_binary("scale", .5, _tex_binary("add", _tex_binary("scale", parallel, parallel, name + "_parallel_squared", props), _tex_binary("scale", perpendicular, perpendicular, name + "_perpendicular_squared", props), name + "_sum", props), name + "_reflected", props)
+        total_reflection = _tex_mathfunc("lessequal", transmitted_squared, 0., name + "_tir", props)
+        return _tex_mix(reflected, 1., total_reflection, name, props)
     elif node.bl_idname == "ShaderNodeLightPath":
         # The SuperLuxCore "rayinfo" texture exposes the context of the ray that
         # generated the current hit point (stored in HitPoint by
@@ -2777,8 +2947,6 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
         factor_socket = mix_input("Factor", factor_type)
         fac = _socket(factor_socket, props, material, obj_name,
                       group_node_stack) if factor_socket else 0.5
-        if factor_socket is not None and factor_socket.is_linked and fac == ERROR_VALUE:
-            fac = 0.5
 
         socket_a = mix_input("A", socket_type)
         socket_b = mix_input("B", socket_type)
@@ -2791,10 +2959,12 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
         tex2 = _socket(socket_b, props, material, obj_name, group_node_stack)
 
         if data_type == "RGBA":
+            if getattr(node, "clamp_factor", True):
+                fac = _tex_clamp(fac, 0., 1., superluxcore_name + "_factor", props)
             definitions, superluxcore_name, early = _blend_rgb(
                 node, node.blend_type, fac, tex1, tex2, superluxcore_name, props, obj_name)
             if early is not None:
-                return early
+                return _tex_clamp(early, 0., 1., superluxcore_name + "_resultclamp", props) if node.clamp_result else early
         elif data_type in {"FLOAT", "VECTOR"}:
             # 엔진 Mix는 스칼라 계수만 사용하므로 벡터 계수와 외삽은 산술식으로 보존한다.
             if getattr(node, "clamp_factor", True):
@@ -2809,7 +2979,7 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
                 node, f'data type "{data_type}" is not supported, passing through '
                 "input A", tex1, obj_name)
 
-        if getattr(node, "clamp", False):
+        if getattr(node, "clamp_result", False):
             # Clamp the mix result (mirrors the use_clamp handling below)
             props.Set(utils.luxutils.create_props(prefix + superluxcore_name + ".", definitions))
             definitions = {
@@ -2842,6 +3012,17 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
                 "texture1": vector1,
                 "texture2": vector2,
             }
+        elif operation == "SIGN":
+            channels = []
+            for i in range(3):
+                value = _split_chan(vector1, i, superluxcore_name + f"_input{i}", props)
+                positive = _tex_greaterthan(value, 0., superluxcore_name + f"_positive{i}", props)
+                negative = _tex_lessthan(value, 0., superluxcore_name + f"_negative{i}", props)
+                channels.append(_tex_binary("subtract", positive, negative, superluxcore_name + f"_sign{i}", props))
+            return _tex_helper(props, superluxcore_name, {"type": "makefloat3", **{f"texture{i+1}": v for i, v in enumerate(channels)}})
+        elif operation == "POWER":
+            channels = [_tex_binary("power", _split_chan(vector1, i, superluxcore_name + f"_a{i}", props), _split_chan(vector2, i, superluxcore_name + f"_b{i}", props), superluxcore_name + f"_power{i}", props) for i in range(3)]
+            return _tex_helper(props, superluxcore_name, {"type": "makefloat3", **{f"texture{i+1}": v for i, v in enumerate(channels)}})
         elif operation == "ABSOLUTE":
             definitions = {"type": "abs", "texture": vector1}
         elif operation == "MODULO":
@@ -3345,9 +3526,11 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
             "w4": weights[3],
             "noisesize": noisesize,
         }
-        definitions.update(_vector_mapping_defs(
-            node.inputs["Vector"], False, False, props, material, obj_name,
-            group_node_stack))
+        vector_socket = node.inputs.get("Vector")
+        if vector_socket is not None:
+            definitions.update(_vector_mapping_defs(vector_socket, False, False, props, material, obj_name, group_node_stack))
+        else:
+            return _warn_unsupported(node, "1D Voronoi는 W 기반 거리 평가 경로가 필요함", FALLBACK_FLOAT, obj_name)
 
         if output_socket.name not in {"Distance", "Color"}:
             return _warn_unsupported(
@@ -3368,8 +3551,8 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
         # Perlin, fractal types, normalize, distortion and Color seeds).
         dims = {"1D": 1, "2D": 2, "3D": 3, "4D": 4}.get(node.noise_dimensions, 3)
 
-        vector_socket = node.inputs["Vector"]
-        if vector_socket.is_linked:
+        vector_socket = node.inputs.get("Vector")
+        if vector_socket is not None and vector_socket.is_linked:
             vec_tex = _socket(vector_socket, props, material, obj_name,
                               group_node_stack)
         else:
@@ -3419,25 +3602,20 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
     elif node.bl_idname == "ShaderNodeTexWhiteNoise":
         prefix = "scene.textures."
 
-        # Deterministic hash of a 3D vector seed -> Value + Color.
-        # The same whitenoise texture serves both outputs (SuperLuxCore selects
-        # float/spectrum evaluation by usage).
-        if node.noise_dimensions != "3D":
+        # 고유한 결정적 해시를 사용하며 차원에서 제외된 입력을 제거한다.
+        if node.noise_dimensions == "4D":
             SuperLuxCoreErrorLog.add_warning(
-                f'White Noise node "{node.name}": {node.noise_dimensions} mode '
-                "is approximated by 3D (extra inputs ignored)",
-                obj_name=obj_name)
+                f'White Noise "{node.name}": 4D W 입력 평가 경로가 필요함', obj_name=obj_name)
 
-        vector_socket = node.inputs["Vector"]
-        if vector_socket.is_linked:
-            seed_tex = _socket(vector_socket, props, material, obj_name,
-                               group_node_stack)
+        vector_socket = node.inputs.get("Vector")
+        if vector_socket is None:
+            seed_tex = _socket(node.inputs["W"], props, material, obj_name, group_node_stack)
         else:
-            # Unlinked Vector defaults to the position seed
-            seed_tex = node.name + "::wnseed"
-            props.Set(utils.luxutils.create_props(
-                f"{prefix}{seed_tex}.", {"type": "position"}))
-
+            seed_tex = _socket(vector_socket, props, material, obj_name, group_node_stack)
+        if node.noise_dimensions == "2D":
+            seed_tex = _combine3(_split_chan(seed_tex, 0, superluxcore_name + "_x", props),
+                                 _split_chan(seed_tex, 1, superluxcore_name + "_y", props),
+                                 0., superluxcore_name + "_xy", props)
         definitions = {
             "type": "whitenoise",
             "texture": seed_tex,
@@ -3624,126 +3802,42 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
             node.inputs["Vector"], False, False, props, material, obj_name,
             group_node_stack, post_matrix=legacy_remap))
     elif node.bl_idname == "ShaderNodeTexMagic":
-        prefix = "scene.textures."
-
-        depth_socket = node.inputs["Depth"]
-        noisedepth = 2 if depth_socket.is_linked else \
-            max(1, min(10, round(depth_socket.default_value)))
-
-        distortion_socket = node.inputs["Distortion"]
-        turbulence = 5.0 if distortion_socket.is_linked else \
-            distortion_socket.default_value
-
-        # blender_magic has no noisesize parameter; the Scale input is folded
-        # into the texture space transform instead
-        scale_socket = node.inputs["Scale"]
-        scale = scale_socket.default_value if not scale_socket.is_linked else 1.0
-        if scale_socket.is_linked:
-            SuperLuxCoreErrorLog.add_warning(
-                f'Magic node "{node.name}": textured scale is not supported',
-                obj_name=obj_name)
-        transform = Matrix.Diagonal(Vector((scale, scale, scale))).to_4x4()
-
-        vector_link = utils_node.get_link(node.inputs["Vector"])
-        if vector_link is not None and \
-                vector_link.from_node.bl_idname == "ShaderNodeMapping":
-            transform = transform @ _mapping_matrix(*_mapping_node_values(
-                vector_link.from_node, obj_name))
-
-        definitions = {
-            "type": "blender_magic",
-            "noisedepth": noisedepth,
-            "turbulence": turbulence,
-            "mapping.type": "localmapping3d",
-            "mapping.transformation": utils.luxutils.matrix_to_list(transform),
-        }
-    elif node.bl_idname in {"ShaderNodeRGBCurve", "ShaderNodeFloatCurve"}:
-        prefix = "scene.textures."
-
-        # Approximation: the curve is sampled into a "band" texture; for the
-        # RGB curve node only the combined (C) curve is used and the color input
-        # is evaluated via its luminance. The Fac mix input is ignored.
-        is_rgb_curve = node.bl_idname == "ShaderNodeRGBCurve"
-        input_socket = node.inputs["Color" if is_rgb_curve else "Value"]
-
-        try:
-            node.mapping.update()
-            curve_map = node.mapping.curves[3 if is_rgb_curve else 0]
-            samples = [max(0.0, min(1.0, _evaluate_curve(curve_map, node.mapping,
-                                                        i / 8)))
-                       for i in range(9)]
-        except Exception as error:
-            return _warn_unsupported(
-                node, f"curve evaluation failed ({error}); passing through the "
-                "input", _socket(input_socket, props, material, obj_name,
-                                 group_node_stack), obj_name)
-
-        if is_rgb_curve:
-            SuperLuxCoreErrorLog.add_warning(
-                f'RGB Curves node "{node.name}": only the combined curve is used '
-                "(per-channel curves are approximated)", obj_name=obj_name)
-
-        definitions = {
-            "type": "band",
-            "amount": _socket(input_socket, props, material, obj_name,
-                              group_node_stack),
-            "offsets": len(samples),
-            "interpolation": "linear",
-        }
-        for i, sample in enumerate(samples):
-            definitions[f"offset{i}"] = i / 8
-            definitions[f"value{i}"] = [sample] * 3
-    elif node.bl_idname == "ShaderNodeVectorCurve":
-        prefix = "scene.textures."
-
-        # split the vector, run each channel through its own curve (sampled
-        # into "band" textures), recombine — the Fac mix input is ignored
-        vector_socket = node.inputs["Vector"]
-        fac_socket = node.inputs.get("Factor")
-        if fac_socket is not None and \
-                (fac_socket.is_linked or fac_socket.default_value != 1.0):
-            SuperLuxCoreErrorLog.add_warning(
-                f'Vector Curves node "{node.name}": the Factor input is not '
-                "supported", obj_name=obj_name)
-
-        vector = _socket(vector_socket, props, material, obj_name,
-                         group_node_stack)
-        try:
-            node.mapping.update()
-            channel_names = ("_x", "_y", "_z")
-            tex_names = []
-            for channel in range(3):
-                curve_map = node.mapping.curves[channel + 1]
-                samples = [max(-4.0, min(4.0, _evaluate_curve(
-                    curve_map, node.mapping, i / 8))) for i in range(9)]
-
-                split_name = superluxcore_name + channel_names[channel]
-                props.Set(utils.luxutils.create_props(
-                    prefix + split_name + ".",
-                    {"type": "splitfloat3", "texture": vector,
-                     "channel": channel}))
-                band_name = superluxcore_name + channel_names[channel] + "_curve"
-                band_defs = {
-                    "type": "band", "amount": split_name,
-                    "offsets": len(samples), "interpolation": "linear",
-                }
-                for i, sample in enumerate(samples):
-                    band_defs[f"offset{i}"] = i / 8
-                    band_defs[f"value{i}"] = [sample] * 3
-                props.Set(utils.luxutils.create_props(
-                    prefix + band_name + ".", band_defs))
-                tex_names.append(band_name)
-
-            definitions = {
-                "type": "makefloat3",
-                "texture1": tex_names[0],
-                "texture2": tex_names[1],
-                "texture3": tex_names[2],
-            }
-        except Exception as error:
-            return _warn_unsupported(
-                node, f"curve evaluation failed ({error}); passing through the "
-                "input", vector, obj_name)
+        return _magic_texture(node, output_socket, props, material, obj_name, group_node_stack, superluxcore_name)
+    elif node.bl_idname in {"ShaderNodeRGBCurve", "ShaderNodeFloatCurve", "ShaderNodeVectorCurve"}:
+        mapping = node.mapping
+        mapping.update()
+        rgb = node.bl_idname == "ShaderNodeRGBCurve"
+        scalar = node.bl_idname == "ShaderNodeFloatCurve"
+        source = _socket(node.inputs["Color" if rgb else "Value" if scalar else "Vector"], props, material, obj_name, group_node_stack)
+        factor_socket = node.inputs.get("Factor") or node.inputs.get("Fac")
+        factor = _socket(factor_socket, props, material, obj_name, group_node_stack)
+        curves = list(mapping.curves)
+        low = min(point.location[0] for curve in curves for point in curve.points)
+        high = max(point.location[0] for curve in curves for point in curve.points)
+        high = max(high, low + 1e-6)
+        channels = []
+        for channel in range(1 if scalar else 3):
+            tag = superluxcore_name + f"_curve{channel}"
+            value = source if scalar else _split_chan(source, channel, tag + "_input", props)
+            def evaluate(position):
+                if rgb:
+                    position = _evaluate_curve(curves[3], mapping, position)
+                return _evaluate_curve(curves[channel], mapping, position)
+            samples = [evaluate(low + (high - low) * i / 256) for i in range(257)]
+            amount = _tex_binary("divide", _tex_binary("subtract", value, low, tag + "_offset", props), high - low, tag + "_amount", props)
+            curve_value = _tex_band(amount, [(i / 256, [sample] * 3) for i, sample in enumerate(samples)], "linear", tag, props)
+            curve_value = _split_chan(curve_value, 0, tag + "_scalar", props)
+            if mapping.extend == "EXTRAPOLATED":
+                step = (high - low) / 256
+                left_slope = (samples[1] - samples[0]) / step
+                right_slope = (samples[-1] - samples[-2]) / step
+                left = _tex_binary("scale", _tex_mathfunc("min", _tex_binary("subtract", value, low, tag + "_leftoffset", props), 0., tag + "_left", props), left_slope, tag + "_leftline", props)
+                right = _tex_binary("scale", _tex_mathfunc("max", _tex_binary("subtract", value, high, tag + "_rightoffset", props), 0., tag + "_right", props), right_slope, tag + "_rightline", props)
+                curve_value = _tex_binary("add", _tex_binary("add", curve_value, left, tag + "_extrapleft", props), right, tag + "_extrapright", props)
+            channels.append(_tex_lerp(value, curve_value, factor, tag + "_result", props))
+        if scalar:
+            return channels[0]
+        return _tex_helper(props, superluxcore_name, {"type": "makefloat3", "color": rgb and _output_is_color(output_socket), **{f"texture{i+1}": v for i, v in enumerate(channels)}})
     elif node.bl_idname == "ShaderNodeTexEnvironment":
         if node.image:
             prefix = "scene.textures."
@@ -4257,14 +4351,6 @@ def _volume(node, output_socket, props, material, name_base, obj_name,
     if node.bl_idname == "ShaderNodeVolumePrincipled":
         density = coeff("Density", 1.0)
         color = coeff("Color", [1.0, 1.0, 1.0])
-        for blackbody_input in ("Blackbody Tint", "Temperature"):
-            blackbody_socket = node.inputs.get(blackbody_input)
-            if blackbody_socket is not None and blackbody_socket.is_linked:
-                SuperLuxCoreErrorLog.add_warning(
-                    f'Principled Volume node "{node.name}": blackbody emission '
-                    "inputs are not supported", obj_name=obj_name)
-                break
-
         # Cycles svm_node_principled_volume:
         # sigma_a = density * (1 - Color) * (1 - Absorption Color)
         absorb = _tex_binary(
@@ -4284,6 +4370,25 @@ def _volume(node, output_socket, props, material, name_base, obj_name,
         emission = _tex_binary("scale", coeff("Emission Color", [0, 0, 0]),
                                coeff("Emission Strength", 0.0),
                                name_base + "_emission", props)
+        blackbody = coeff("Blackbody Intensity", 0.)
+        if not _is_zero(blackbody):
+            temperature = _tex_mathfunc("max", coeff("Temperature", 1000.), 0., name_base + "_temperature", props)
+            color_temperature = _tex_mathfunc("max", temperature, 800., name_base + "_color_temperature", props)
+            spectrum = _tex_helper(props, name_base + "_blackbody", {"type": "blackbody", "temperature": color_temperature, "normalize": True})
+            # 원 엔진의 흑체는 고정 절대 정규화를 쓰므로 휘도 1의 색 계약으로 변환한다.
+            luminance = 0.
+            for channel, weight in enumerate((.2126, .7152, .0722)):
+                value = _split_chan(spectrum, channel, name_base + f"_blackbody_rgb{channel}", props)
+                luminance = _tex_binary("add", luminance, _tex_binary("scale", value, weight, name_base + f"_blackbody_y{channel}", props), name_base + f"_blackbody_sum{channel}", props)
+            luminance = _tex_mathfunc("max", luminance, 1e-20, name_base + "_blackbody_luminance", props)
+            spectrum = _tex_binary("divide", spectrum, luminance, name_base + "_blackbody_unit_luminance", props)
+            fourth = _tex_binary("power", temperature, 4., name_base + "_temperature4", props)
+            intensity = _tex_binary("scale", 5.670373e-14 / math.pi, _tex_lerp(1., fourth, blackbody, name_base + "_thermal", props), name_base + "_intensity", props)
+            intensity = _tex_mathfunc("max", intensity, 0., name_base + "_positive_intensity", props)
+            intensity = _tex_binary("scale", intensity, _tex_greaterthan(blackbody, 0., name_base + "_has_blackbody", props), name_base + "_enabled_intensity", props)
+            tint = coeff("Blackbody Tint", [1., 1., 1.])
+            thermal = _tex_binary("scale", _tex_binary("scale", spectrum, tint, name_base + "_tinted", props), intensity, name_base + "_blackbody_emission", props)
+            emission = _tex_binary("add", emission, thermal, name_base + "_total_emission", props)
         if not _is_zero(emission):
             definitions["emission"] = emission
         return definitions
@@ -4320,58 +4425,33 @@ def _volume(node, output_socket, props, material, name_base, obj_name,
         return definitions
 
     if node.bl_idname in {"ShaderNodeAddShader", "ShaderNodeMixShader"}:
-        # SuperLuxCore allows only one interior volume per material, so merge the
-        # children coefficient-wise. Add sums the coefficients (physically
-        # correct for overlapping volumes); Mix interpolates them.
         is_add = node.bl_idname == "ShaderNodeAddShader"
         indices = (0, 1) if is_add else (1, 2)
-
         children = []
         for index in indices:
             link = utils_node.get_link(node.inputs[index])
-            if link is None:
-                continue
-            child = _volume(link.from_node, link.from_socket, props, material,
-                            name_base + f"_child{index}", obj_name, group_node_stack)
-            if child is not None:
-                children.append(child)
-
-        if not children:
-            return _warn_unsupported(
-                node, "no convertible volume shader on the inputs", None, obj_name)
-        if len(children) == 1:
-            return children[0]
-
-        amount = 1.0
-        if not is_add:
-            fac_input = node.inputs["Fac"]
-            amount = _socket(fac_input, props, material, obj_name, group_node_stack)
-            if fac_input.is_linked and amount is ERROR_VALUE:
-                amount = 0.5
-
-        child1, child2 = children[0], children[1]
-        merged = {
-            "type": "homogeneous" if "clear" not in {child1["type"], child2["type"]}
-                    else "clear",
-        }
+            child = _volume(link.from_node, link.from_socket, props, material, name_base + f"_child{index}", obj_name, group_node_stack) if link is not None else None
+            children.append(child or {"type": "clear", "absorption": 0.})
+        amount = 1. if is_add else _tex_clamp(_socket(node.inputs["Fac"], props, material, obj_name, group_node_stack), 0., 1., name_base + "_factor", props)
+        child1, child2 = children
+        merged = {}
         for key in ("absorption", "scattering", "emission"):
-            value1 = child1.get(key, 0)
-            value2 = child2.get(key, 0)
+            value1, value2 = child1.get(key, 0.), child2.get(key, 0.)
             if _is_zero(value1) and _is_zero(value2):
                 continue
-            if is_add:
-                merged[key] = _tex_binary("add", value1, value2,
-                                          f"{name_base}_{key}", props)
-            else:
-                merged[key] = _tex_mix(value1, value2, amount,
-                                       f"{name_base}_{key}", props)
-
-        # Approximation: asymmetry should be weighted by the scattering
-        # coefficients; a plain 50/50 (respectively fac) mix is used instead
-        merged["asymmetry"] = _tex_mix(child1.get("asymmetry", [0, 0, 0]),
-                                       child2.get("asymmetry", [0, 0, 0]),
-                                       0.5 if is_add else amount,
-                                       name_base + "_asymmetry", props)
+            merged[key] = _tex_binary("add", value1, value2, f"{name_base}_{key}", props) if is_add else _tex_lerp(value1, value2, amount, f"{name_base}_{key}", props)
+        # 산란이 있는 합성을 clear로 지정하면 엔진이 산란을 버린다.
+        merged["type"] = "clear" if _is_zero(merged.get("scattering", 0.)) else "homogeneous"
+        if merged["type"] != "clear":
+            scattering = []
+            phase = []
+            for index, child in enumerate(children):
+                sigma = child.get("scattering", 0.)
+                weight = 1. if is_add else _tex_binary("subtract", 1., amount, name_base + "_weight1", props) if index == 0 else amount
+                weighted = _tex_binary("scale", sigma, weight, name_base + f"_sigma{index}", props)
+                scattering.append(weighted)
+                phase.append(_tex_binary("scale", weighted, child.get("asymmetry", [0., 0., 0.]), name_base + f"_phase{index}", props))
+            merged["asymmetry"] = _tex_binary("divide", _tex_binary("add", phase[0], phase[1], name_base + "_phase", props), _tex_binary("add", scattering[0], scattering[1], name_base + "_sigma", props), name_base + "_asymmetry", props)
         return merged
 
     if node.bl_idname == "ShaderNodeGroup" and node.node_tree:
@@ -4381,7 +4461,7 @@ def _volume(node, output_socket, props, material, name_base, obj_name,
                 active_output = subnode
                 break
 
-        group_input = active_output.inputs.get(output_socket.name) \
+        group_input = _group_socket(active_output.inputs, output_socket) \
             if active_output is not None else None
         link = utils_node.get_link(group_input) if group_input is not None else None
         if link is None:
@@ -4394,7 +4474,7 @@ def _volume(node, output_socket, props, material, name_base, obj_name,
                        name_base, obj_name, stack)
 
     if node.bl_idname == "NodeGroupInput" and group_node_stack:
-        socket = group_node_stack[-1].inputs.get(output_socket.name)
+        socket = _group_socket(group_node_stack[-1].inputs, output_socket)
         link = utils_node.get_link(socket) if socket is not None else None
         if link is None:
             return _warn_unsupported(

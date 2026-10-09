@@ -1,3 +1,4 @@
+from ..export import blender_settings
 from time import sleep
 import threading
 
@@ -239,7 +240,7 @@ class SuperLuxCoreRenderEngine(bpy.types.RenderEngine):
 
         # Denoiser
         if scene.superluxcore.denoiser.enabled:
-            transparent = scene.camera.data.superluxcore.imagepipeline.transparent_film
+            transparent = blender_settings.transparent_film(scene)
             if transparent:
                 self.register_pass(scene, renderlayer, "DENOISED", 4, "RGBA", "COLOR")
             else:

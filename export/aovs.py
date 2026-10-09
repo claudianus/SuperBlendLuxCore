@@ -1,3 +1,4 @@
+from . import blender_settings
 from collections import OrderedDict
 import os
 import bpy
@@ -88,7 +89,7 @@ def convert(exporter, scene, context=None, engine=None):
             and cycles_compat.world_camera_invisible(scene.world)
         )
         use_transparent_film = (
-            pipeline.transparent_film or world_cam_invisible
+            blender_settings.transparent_film(scene) or world_cam_invisible
         ) and not utils.using_filesaver(context, scene)
 
         # Some AOVs need tonemapping with a custom imagepipeline

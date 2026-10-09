@@ -1,5 +1,6 @@
 _needs_reload = "bpy" in locals()
 
+from ..export import blender_settings
 import bpy
 import gpu
 from gpu_extras.batch import batch_for_shader
@@ -235,7 +236,7 @@ class FrameBuffer:
         if utils.is_valid_camera(
             scene.camera
         ) and not utils.in_material_shading_mode(context):
-            return scene.camera.data.superluxcore.imagepipeline.transparent_film
+            return blender_settings.transparent_film(scene)
         return False
 
     def _init_opengl(self):
@@ -292,7 +293,7 @@ class FrameBuffer:
         if valid_cam:
             if (
                 self._transparent
-                != scene.camera.data.superluxcore.imagepipeline.transparent_film
+                != blender_settings.transparent_film(scene)
             ):
                 return True
         elif self._transparent:

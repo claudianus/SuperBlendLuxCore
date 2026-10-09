@@ -42,31 +42,14 @@ class SUPERLUXCORE_OT_import_cycles_settings(bpy.types.Operator):
         # --- bounce depths -> path.pathdepth.* -------------------------
         # Cycles separates the count by lobe type; SuperLuxCore does the
         # same (total / diffuse / glossy / specular).
-        depth_map = [
-            ("max_bounces",     "depth_total",    None),
-            ("diffuse_bounces", "depth_diffuse",  None),
-            ("glossy_bounces",  "depth_glossy",   None),
-            ("transparent_bounces", "depth_specular", None),
-            ("transmission_bounces", "depth_specular", "min"),
-            # Cycles counts volume scattering apart from diffuse bounces
-            ("volume_bounces", "depth_volume", None),
-        ]
-        for cyc_name, slc_name, op in depth_map:
-            try:
-                v = int(getattr(cyc, cyc_name))
-            except Exception:
-                continue
-            if slc_name == "depth_volume":
-                # 0 volume bounces is single scattering, not "unset"
-                slc.config.path.depth_volume = max(0, v)
-                changed.append(f"depth_volume={slc.config.path.depth_volume}")
-                continue
-            if v <= 0:
-                continue
-            cur = getattr(slc.config.path, slc_name, None)
-            if op == "min" and cur is not None:
-                v = min(v, cur)
-            setattr(slc.config.path, slc_name, max(1, v))
+        depth_map = [("max_bounces", "depth_total"), ("diffuse_bounces", "depth_diffuse"),
+                     ("glossy_bounces", "depth_glossy"), ("transmission_bounces", "depth_specular"),
+                     ("volume_bounces", "depth_volume")]
+        for cyc_name, slc_name in depth_map:
+            value = int(getattr(cyc, cyc_name))
+            # 표면 깊이의 첫 정점 보정은 내보내기에서 처리하므로 0바운스도 보존한다.
+            minimum = 0
+            setattr(slc.config.path, slc_name, max(minimum, value))
             changed.append(f"{slc_name}={getattr(slc.config.path, slc_name)}")
 
         # --- transport colour model ------------------------------------
@@ -137,18 +120,15 @@ class SUPERLUXCORE_OT_import_cycles_settings(bpy.types.Operator):
                 slc.config.gaussian_alpha = max(0.1, 8.0 / max(fwidth, 0.01) ** 2)
             changed.append(f"filter={filter_map[ftype]} {slc.config.filter_width:g}px")
 
-        # --- transparent film ------------------------------------------
-        try:
-            if bool(cyc.film_transparent):
-                # Find the first imagepipeline with the flag; enable it.
-                for pipeline in getattr(scene.superluxcore,
-                                        "imagepipelines", []) or []:
-                    if hasattr(pipeline, "transparent_film"):
-                        pipeline.transparent_film = True
-                        changed.append("transparent_film")
-                        break
-        except Exception:
-            pass
+        # 표준 RNA 경로의 투명 필름과 모션 설정을 복사한다.
+        if scene.camera is not None:
+            scene.camera.data.superluxcore.imagepipeline.transparent_film = scene.render.film_transparent
+            motion = scene.camera.data.superluxcore.motion_blur
+            motion.enable = scene.render.use_motion_blur
+            motion.shutter = scene.render.motion_blur_shutter
+            motion.object_blur = True
+            motion.camera_blur = True
+            changed.extend(("transparent_film", "motion_blur"))
 
         # --- denoise flag ----------------------------------------------
         try:

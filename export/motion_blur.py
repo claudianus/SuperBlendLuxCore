@@ -1,3 +1,4 @@
+from . import blender_settings
 import hashlib
 import math
 from array import array
@@ -18,13 +19,13 @@ from .hair import _read_curves_points
 def convert(context, engine, scene, depsgraph, exported_objects,
             superluxcore_scene=None, instances=None):
     assert scene.camera
-    motion_blur = scene.camera.data.superluxcore.motion_blur
+    motion_blur = blender_settings.motion_blur(scene)
     assert motion_blur.enable and (motion_blur.object_blur or motion_blur.camera_blur)
 
     steps = motion_blur.steps
     assert steps >= 2 and isinstance(steps, int)
 
-    frame_offsets = _calc_frame_offsets(motion_blur.shutter, steps)
+    frame_offsets = [value + getattr(motion_blur, "offset", 0.) for value in _calc_frame_offsets(motion_blur.shutter, steps)]
     # Per-step {instance_key: matrix_world} maps for dupli motion blur (A5).
     # Collected during the same frame stepping loop that samples object
     # matrices, so no extra depsgraph evaluations are needed.
@@ -90,7 +91,7 @@ def _calc_frame_offsets(shutter, steps):
 def _get_matrices(context, engine, scene, steps, frame_offsets, depsgraph,
                   exported_objects, instances=None, dupli_steps=None,
                   vert_steps=None, strand_steps=None):
-    motion_blur = scene.camera.data.superluxcore.motion_blur
+    motion_blur = blender_settings.motion_blur(scene)
     matrices = {}  # {prefix: [matrix1, matrix2, ...]}
 
     frame_center = scene.frame_current
@@ -168,7 +169,7 @@ def _append_object_matrices(depsgraph, exported_objects, matrices, step,
                 cycles_compat._warned_set(engine), (obj.name, "mbsteps"),
                 "Per-object motion steps are not supported - the "
                 "global shutter-step count applies", obj.name)
-        if not (obj.superluxcore.enable_motion_blur or dupli_mb):
+        if not (blender_settings.object_motion_blur(obj) or dupli_mb):
             continue
 
         obj_key = utils.make_key_from_instance(dg_obj_instance)

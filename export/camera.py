@@ -1,3 +1,4 @@
+from . import blender_settings
 import math
 from mathutils import Vector, Matrix
 import pysuperluxcore
@@ -286,12 +287,12 @@ def _motion_blur(scene, definitions, context, is_camera_moving):
         # Viewport render should work without camera
         return
 
-    moblur_settings = scene.camera.data.superluxcore.motion_blur
+    moblur_settings = blender_settings.motion_blur(scene)
     if not moblur_settings.enable:
         return
 
-    definitions["shutteropen"] = -moblur_settings.shutter / 2
-    definitions["shutterclose"] = moblur_settings.shutter / 2
+    definitions["shutteropen"] = -moblur_settings.shutter / 2 + getattr(moblur_settings, "offset", 0.)
+    definitions["shutterclose"] = moblur_settings.shutter / 2 + getattr(moblur_settings, "offset", 0.)
 
     # Don't export camera blur in viewport render
     if moblur_settings.camera_blur and not context and is_camera_moving:

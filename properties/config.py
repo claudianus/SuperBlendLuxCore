@@ -305,13 +305,13 @@ class SuperLuxCoreConfigPath(PropertyGroup):
     """
     # TODO: helpful descriptions
     # path.pathdepth.total
-    depth_total: IntProperty(name="Total Path Depth", default=24, min=1, soft_max=128)
+    depth_total: IntProperty(name="Total Path Depth", default=24, min=0, soft_max=128)
     # path.pathdepth.diffuse
-    depth_diffuse: IntProperty(name="Diffuse", default=8, min=1, soft_max=128)
+    depth_diffuse: IntProperty(name="Diffuse", default=8, min=0, soft_max=128)
     # path.pathdepth.glossy
-    depth_glossy: IntProperty(name="Glossy", default=8, min=1, soft_max=128)
+    depth_glossy: IntProperty(name="Glossy", default=8, min=0, soft_max=128)
     # path.pathdepth.specular
-    depth_specular: IntProperty(name="Specular", default=24, min=1, soft_max=128)
+    depth_specular: IntProperty(name="Specular", default=24, min=0, soft_max=128)
     # path.pathdepth.volume (-1 = volume scattering counts as Diffuse)
     depth_volume: IntProperty(name="Volume", default=-1, min=-1, soft_max=128,
                               description="Maximum number of volume bounces "

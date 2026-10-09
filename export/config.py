@@ -1,3 +1,4 @@
+from . import blender_settings
 import os
 import errno
 from math import degrees
@@ -438,7 +439,7 @@ def convert(exporter, scene, context=None, engine=None):
             pipeline = scene.camera.data.superluxcore.imagepipeline
 
             if (
-                pipeline.transparent_film
+                blender_settings.transparent_film(scene)
                 or use_backgroundimage(context, scene)
             ) and not use_filesaver:
                 # This avoids issues with transparent film in Blender
@@ -801,12 +802,13 @@ def _convert_path(
     # that feels intuitive for the user. SuperLuxCore does only MIS on the last path bounce, but no
     # other shading, so depth 1 would be only direct light without MIS, depth 2 would be only
     # direct light with MIS, and depth 3 onwards would finally be direct + indirect light with MIS.
-    definitions["path.pathdepth.total"] = path.depth_total + 1
-    definitions["path.pathdepth.diffuse"] = path.depth_diffuse + 1
-    definitions["path.pathdepth.glossy"] = path.depth_glossy + 1
+    definitions["path.pathdepth.total"] = blender_settings.path_depth(scene, "depth_total", path.depth_total) + 1
+    definitions["path.pathdepth.diffuse"] = blender_settings.path_depth(scene, "depth_diffuse", path.depth_diffuse) + 1
+    definitions["path.pathdepth.glossy"] = blender_settings.path_depth(scene, "depth_glossy", path.depth_glossy) + 1
     definitions["path.pathdepth.specular"] = path.depth_specular
     # Same +1 convention as diffuse/glossy (the depth counts vertices)
-    definitions["path.pathdepth.volume"] = path.depth_volume + 1 if path.depth_volume >= 0 else 0
+    volume_depth = blender_settings.path_depth(scene, "depth_volume", path.depth_volume)
+    definitions["path.pathdepth.volume"] = volume_depth + 1 if volume_depth >= 0 else 0
 
     if not utils.using_photongi_debug_mode(is_viewport_render, scene):
         if device == "OCL":

@@ -4,7 +4,7 @@
     "priority": "P0",
     "scope": "Magic Texture",
     "status": "실행 예외",
-    "finding": "Depth는 소켓이 아니라 tex_depth 속성이다. 존재하지 않는 입력 조회로 회색 대체 재질이 된다.",
+    "finding": "Depth는 소켓이 아니라 turbulence_depth 속성이다. 존재하지 않는 입력 조회로 회색 대체 재질이 된다.",
     "evidence": "reader 3621; Blender node_shader_tex_magic.cc; 720p CPU·Metal"
   },
   {

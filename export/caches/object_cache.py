@@ -1,3 +1,4 @@
+from .. import blender_settings
 import bpy
 import hashlib
 import os
@@ -83,10 +84,10 @@ def _dupli_motion_enabled(dg_obj_instance):
     # both keeps the first instance's object-level motion props and the
     # duplicated instances consistent — flagging either side blurs all
     # copies instead of a subset.
-    if dg_obj_instance.object.superluxcore.enable_motion_blur:
+    if blender_settings.object_motion_blur(dg_obj_instance.object):
         return True
     parent = dg_obj_instance.parent
-    return bool(parent and parent.superluxcore.enable_motion_blur)
+    return bool(parent and blender_settings.object_motion_blur(parent))
 
 
 @contextmanager
@@ -841,7 +842,7 @@ class ObjectCache2:
                             or dg_obj_instance.is_instance
                             or (
                                 exporter.motion_blur_enabled
-                                and obj.superluxcore.enable_motion_blur
+                                and blender_settings.object_motion_blur(obj)
                             )
                         )
                         curve_res = convert_hair_curves(
@@ -999,7 +1000,7 @@ class ObjectCache2:
                     or dg_obj_instance.is_instance
                     or (
                         exporter.motion_blur_enabled
-                        and obj.superluxcore.enable_motion_blur
+                        and blender_settings.object_motion_blur(obj)
                     )
                 )
                 psys_key = make_psys_key(obj, psys, is_for_duplication)
@@ -1114,7 +1115,7 @@ class ObjectCache2:
         if (
             obj.type != "MESH"
             or uses_displacement(obj)
-            or (motion_blur_enabled and obj.superluxcore.enable_motion_blur)
+            or (motion_blur_enabled and blender_settings.object_motion_blur(obj))
         ):
             return False
         # Gate on the evaluated mesh — modifiers can raise the tri
@@ -1234,7 +1235,7 @@ class ObjectCache2:
             or dg_obj_instance.is_instance
             or utils.can_share_mesh(obj.original)
             or (
-                exporter.motion_blur_enabled and obj.superluxcore.enable_motion_blur
+                exporter.motion_blur_enabled and blender_settings.object_motion_blur(obj)
             )
             or uses_displacement(obj)
         )

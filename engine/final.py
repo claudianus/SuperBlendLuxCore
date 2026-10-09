@@ -1,3 +1,4 @@
+from ..export import blender_settings
 from time import time, sleep
 
 _needs_reload = "bpy" in locals()
@@ -287,7 +288,7 @@ def _add_passes(engine, layer, scene):
 
     # Denoiser
     if scene.superluxcore.denoiser.enabled:
-        transparent = scene.camera.data.superluxcore.imagepipeline.transparent_film
+        transparent = blender_settings.transparent_film(scene)
         if transparent:
             engine.add_pass("DENOISED", 4, "RGBA", layer=layer.name)
         else:

@@ -1,5 +1,6 @@
 """Final rendering."""
 
+from ..export import blender_settings
 from time import time, sleep
 import numpy as np
 import pysuperluxcore as plc
@@ -52,7 +53,7 @@ class FrameBufferFinal:
         self._height = filmsize[1]
         self._border = utils.calc_blender_border(scene)
         pipeline = scene.camera.data.superluxcore.imagepipeline
-        self._transparent = pipeline.transparent_film
+        self._transparent = blender_settings.transparent_film(scene)
 
         if self._transparent:
             self._combined_output_type = plc.FilmOutputType.RGBA_IMAGEPIPELINE

@@ -1,3 +1,4 @@
+from . import blender_settings
 from time import time
 from array import array
 import os
@@ -579,7 +580,7 @@ class Exporter(object):
         superluxcore_scene.Parse(camera_props)
 
         if utils.is_valid_camera(scene.camera):
-            blur_settings = scene.camera.data.superluxcore.motion_blur
+            blur_settings = blender_settings.motion_blur(scene)
             # Don't export camera blur in viewport
             camera_blur = blur_settings.camera_blur and not context
             self.motion_blur_enabled = (

@@ -23,7 +23,7 @@ P0는 실제 입력 조회 예외로 재질을 대체하는 문제, P1은 제작
 
 | ID | 우선순위 | 범위 | 판정 | 발견 내용 | 근거 |
 |---|---|---|---|---|---|
-| C01 | P0 | Magic Texture | 실행 예외 | Depth는 소켓이 아니라 tex_depth 속성이다. 존재하지 않는 입력 조회로 회색 대체 재질이 된다. | reader 3621; Blender node_shader_tex_magic.cc; 720p CPU·Metal |
+| C01 | P0 | Magic Texture | 실행 예외 | Depth는 소켓이 아니라 turbulence_depth 속성이다. 존재하지 않는 입력 조회로 회색 대체 재질이 된다. | reader 3621; Blender node_shader_tex_magic.cc; 720p CPU·Metal |
 | C02 | P0 | Noise 1D | 실행 예외 | 1D에서 Vector 입력이 제거되는데 무조건 조회한다. W를 받기 전에 실패한다. | reader 3362; Blender node_shader_tex_noise.cc; 720p CPU·Metal |
 | C03 | P0 | Voronoi 1D | 실행 예외 | Vector 입력이 없는 1D에서 무조건 조회한다. Distance/Color/W 출력 검사에서 예외가 난다. | reader 3341; 노드 전수 변환 |
 | C04 | P0 | White Noise 1D | 실행 예외 | 없는 Vector 입력을 조회한다. W 기반 1D 해시 경로가 없다. | reader 3428; 노드 전수 변환 |
