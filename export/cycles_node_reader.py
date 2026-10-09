@@ -1057,6 +1057,40 @@ def _mapping_3d_space(mapping_node, obj_name):
     return "localmapping3d", {}
 
 
+def _image_vector_projection(vector, projection, name, props):
+    """Cycles Sphere/Tube remap [0,1] coordinates before projecting."""
+    centered = _tex_binary("subtract", vector, [.5, .5, .5], name + "_center", props)
+    centered = _tex_binary("scale", centered, 2., name + "_remap", props)
+    x, y, z = [_split_chan(centered, i, name + f"_axis{i}", props) for i in range(3)]
+    xy = _tex_binary("add", _tex_binary("scale", x, x, name + "_xx", props),
+                     _tex_binary("scale", y, y, name + "_yy", props), name + "_xy", props)
+    xy_valid = _tex_greaterthan(xy, 0., name + "_xy_valid", props)
+    # Metal atan2(0,0) may be NaN; a later zero mask cannot remove it.
+    angle_y = _tex_binary("add", y, _tex_binary("subtract", 1., xy_valid,
+                                               name + "_axis_guard", props), name + "_angle_y", props)
+    angle = _tex_mathfunc("atan2", x, angle_y, name + "_angle", props)
+    u = _tex_binary("subtract", .5,
+                    _tex_binary("scale", angle, 1. / (2. * math.pi), name + "_angle_uv", props),
+                    name + "_u", props)
+    u = _tex_binary("scale", u, xy_valid, name + "_safe_u", props)
+    if projection == "SPHERE":
+        length2 = _tex_binary("add", xy, _tex_binary("scale", z, z, name + "_zz", props),
+                              name + "_length2", props)
+        length = _tex_binary("power", length2, .5, name + "_length", props)
+        ratio = _tex_binary("divide", z, length, name + "_ratio", props)
+        ratio = _tex_clamp(ratio, -1., 1., name + "_acos_input", props)
+        v = _tex_binary("subtract", 1.,
+                        _tex_binary("scale", _tex_mathfunc("acos", ratio, None, name + "_acos", props),
+                                    1. / math.pi, name + "_acos_uv", props), name + "_v", props)
+        v = _tex_binary("scale", v, _tex_greaterthan(length2, 0., name + "_valid", props),
+                        name + "_safe_v", props)
+    else:
+        v = _tex_binary("scale", _tex_binary("add", z, 1., name + "_height", props),
+                        .5, name + "_v", props)
+        v = _tex_binary("scale", v, xy_valid, name + "_safe_v", props)
+    return _combine3(u, v, 0., name + "_projected", props)
+
+
 def _vector_mapping_defs(vector_socket, is_2d, flip_v, props, material, obj_name,
                          group_node_stack, post_matrix=None):
     """
@@ -1885,17 +1919,8 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
                 "mapping.uvdelta": [0, 1],
             }
 
-            # Cycles' projection=SPHERE samples the image by the hit
-            # direction (equirect on the surface-normal frame is wrong -
-            # the eye-ray direction is the correct proxy for a surface-
-            # attached projection, matching Cycles' sampling of a linked
-            # Vector over a sphere).
-            if getattr(node, "projection", "FLAT") == "SPHERE":
-                definitions["mapping.type"] = "dirmapping2d"
-                del definitions["mapping.uvscale"]
-                del definitions["mapping.rotation"]
-                del definitions["mapping.uvdelta"]
-            elif (getattr(node, "projection", "FLAT") == "BOX" and
+            projection = getattr(node, "projection", "FLAT")
+            if (projection == "BOX" and
                     node.inputs.get("Vector") is not None and
                     node.inputs["Vector"].is_linked):
                 # Box projection: Cycles picks the dominant axis of the
@@ -1916,20 +1941,32 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
                 definitions.update(_vector_mapping_defs(
                     node.inputs["Vector"], False, False, props, material,
                     obj_name, group_node_stack))
-            elif getattr(node, "projection", "FLAT") not in ("FLAT",):
+            elif projection not in ("FLAT", "SPHERE", "TUBE"):
                 SuperLuxCoreErrorLog.add_warning(
                     f'Image Texture node "{node.name}": projection '
                     f'"{node.projection}" is approximated by UV mapping '
-                    "(only SPHERE is remapped to the direction projection)",
+                    "(BOX blend requires further compatibility work)",
                     obj_name=obj_name)
 
             # A linked Vector input (e.g. a Mapping node) overrides the default
             # UV flip mapping
             vector_input = node.inputs.get("Vector")
             if vector_input is not None and definitions.get("type") == "imagemap":
-                definitions.update(_vector_mapping_defs(
-                    vector_input, True, True, props, material, obj_name,
-                    group_node_stack))
+                if projection in {"FLAT", "SPHERE", "TUBE"} and (vector_input.is_linked or projection != "FLAT"):
+                    vector = (_socket(vector_input, props, material, obj_name, group_node_stack)
+                              if vector_input.is_linked else
+                              _tex_helper(props, superluxcore_name + "_default_uv", {"type": "uv", "wrap": False}))
+                    if projection != "FLAT":
+                        vector = _image_vector_projection(vector, projection, superluxcore_name + "_projection", props)
+                    # Image storage is top-down; Cycles Vector uses bottom-up V.
+                    vector = _tex_binary("scale", vector, [1., -1., 1.],
+                                         superluxcore_name + "_image_orientation", props)
+                    definitions["vector"] = _tex_binary("add", vector, [0., 1., 0.],
+                                                         superluxcore_name + "_image_vector", props)
+                else:
+                    definitions.update(_vector_mapping_defs(
+                        vector_input, True, True, props, material, obj_name,
+                        group_node_stack))
         else:
             return MISSING_IMAGE_COLOR
     elif node.bl_idname == "ShaderNodeBsdfGlass":

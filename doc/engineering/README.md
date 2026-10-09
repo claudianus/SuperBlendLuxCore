@@ -25,3 +25,5 @@ docs live alongside in `doc/`.
 ## 기존 Cycles 씬의 무변환 렌더 목표
 
 [목표와 현재 소스 검증](2026-10-09-cycles-scene-goal.md)은 픽셀 일치 대신 시각적·논리적 의미를 보존하는 사용자 기준과 검증된 첫 수정 묶음을 기록한다. 목표는 활성 상태이며 전체 제작 씬 호환·정식 배포 완료를 뜻하지 않는다.
+
+[Verified 2.11.16 deployment](2026-10-09-deployment-2.11.16.md) records final ZIP and actual user Blender validation, source commits and artifact hashes.

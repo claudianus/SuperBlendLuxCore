@@ -1,7 +1,7 @@
 {
   "goal": "기존 Cycles 씬의 무변환 시각·논리 의미 호환",
   "complete": false,
-  "target_version": "2.11.16",
+  "target_version": "2.11.17",
   "public_package_verified": false,
   "baseline": "2026-10-09-remaining-issues.json",
   "node_census": {
@@ -346,7 +346,7 @@
       "priority": "P1",
       "scope": "텍스처 Vector 소비 경로",
       "status": "부분 구현·검증",
-      "remaining": "Checker와 일반 Mapping 벡터 출력은 연결 입력·Generated·Object·연속 변환을 실제 렌더로 검증했다. 다른 legacy texture와 이미지가 Mapping을 자체 매핑 속성으로 변환하는 경로, 임의 Vector·참조 Object의 소비는 별도 검증과 수정이 필요하다.",
+      "remaining": "Checker·직접 Mapping·Flat 이미지의 연결 Vector/Generated/Object/명명 UV/연속 Mapping을 CPU·Metal 720p RGB 및 기본 분광에서 검증했다. 다른 legacy texture와 참조 Object·변형 전 ORCO·시간의 모든 소비 조합은 추가 검증과 수정이 필요하다.",
       "evidence": "2026-10-09-cycles-scene-goal.md"
     },
     {
@@ -354,7 +354,7 @@
       "priority": "P2",
       "scope": "좌표·Mapping·인스턴스",
       "status": "부분 구현·검증",
-      "remaining": "2.11.16 직접 Mapping의 Point/Texture/Vector/Normal, 연결 TRS, 상수 Vector와 0 스케일을 CPU·Metal 720p RGB 및 기본 스펙트럼에서 검증했다. 인스턴스·변형 전 ORCO·시간 좌표와 legacy 이미지 매핑으로 변환하는 소비 경로는 남아 있다.",
+      "remaining": "직접 Mapping 네 타입·연결 TRS·상수 Vector·0 스케일과 Flat 이미지 소비를 CPU·Metal 720p에서 검증했다. 인스턴스·변형 전 ORCO·시간 좌표의 제작 조합은 남아 있다.",
       "evidence": "2026-10-09-cycles-scene-goal.md"
     },
     {
@@ -376,8 +376,9 @@
       "id": "C48",
       "priority": "P2",
       "scope": "이미지 투영·필터·시퀀스",
-      "status": "미완료",
-      "remaining": "Cubic/Smart→Linear, Mirror→Repeat, UDIM 한 타일, Movie/Sequence 전용 Cycles 경로 제한, BOX/SPHERE/TUBE 투영과 blend가 다르다. 이미지 있는 실제 변환 조건을 별도 집계했다."
+      "status": "부분 구현·검증",
+      "remaining": "Flat 및 Sphere/Tube의 실제 Vector 투영을 CPU·Metal의 720p RGB/기본 분광에서 검증했다. BOX 부호별 면 방향·blend, Cubic/Smart→Linear, Mirror→Repeat, UDIM 한 타일 및 Movie/Sequence 시간 처리는 남아 있다.",
+      "evidence": "cycles-scene-goal-phase11 and cycles-scene-goal-phase12"
     },
     {
       "id": "C49",
@@ -466,18 +467,18 @@
       "evidence": "cycles-scene-goal-phase1/workflow"
     }
   ],
-  "public_version": "2.11.15",
+  "public_version": "2.11.16",
   "withdrawn_candidate": {
     "version": "2.11.14",
     "reason": "네 플랫폼 C++ 빌드는 성공했지만 공통 UV payload의 u_int가 실제 Metal shader 컴파일에 실패하여 엔진 후보를 초안으로 회수했다. Blender 확장은 미공개다."
   },
   "public_release": {
-    "version": "2.11.15",
+    "version": "2.11.16",
     "verified": true,
     "installed_in_user_blender": true,
-    "engine_source": "5953e309e0ea3ad6e50636818728c094b7395f6c",
-    "addon_source": "0d067d9d79cf200bfc338d527208cc80de41dba1",
-    "evidence": "2026-10-09-deployment-2.11.15.md"
+    "engine_source": "00e96a78ad7be788b3c2e1f76560eb255b0fbf10",
+    "addon_source": "42dc17b832eca363d3ca205e88019f0582cfeb06",
+    "evidence": "2026-10-09-deployment-2.11.16.md"
   },
   "vector_divide": {
     "version": "2.11.16",
@@ -486,5 +487,20 @@
     "spectral_conditions_per_backend": 3,
     "evidence": "cycles-scene-goal-phase10",
     "remaining": "극단 크기 및 모든 Vector Math 조합은 추가 검증 범위"
+  },
+  "image_vector": {
+    "version": "2.11.17",
+    "verified_private": true,
+    "rgb_conditions_per_backend": 13,
+    "spectral_conditions_per_backend": 4,
+    "bump_normal_conditions_per_backend": 4,
+    "evidence": "cycles-scene-goal-phase11"
+  },
+  "image_projection": {
+    "version": "2.11.17",
+    "verified_private": true,
+    "rgb_conditions_per_backend": 10,
+    "spectral_conditions_per_backend": 4,
+    "evidence": "cycles-scene-goal-phase12"
   }
 }
