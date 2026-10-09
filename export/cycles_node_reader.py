@@ -3065,7 +3065,6 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
             "ADD": "add",
             "SUBTRACT": "subtract",
             "MULTIPLY": "scale",
-            "DIVIDE": "divide",
             "DOT_PRODUCT": "dotproduct",
         }
 
@@ -3075,6 +3074,19 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
                 "texture1": vector1,
                 "texture2": vector2,
             }
+        elif operation == "DIVIDE":
+            # Cycles safe_divide handles zero denominators per component.
+            # Spectrum division only guards an entirely black denominator;
+            # scalar division guards each component without producing inf/NaN.
+            channels = [
+                _tex_binary(
+                    "divide",
+                    _split_chan(vector1, i, superluxcore_name + f"_a{i}", props),
+                    _split_chan(vector2, i, superluxcore_name + f"_b{i}", props),
+                    superluxcore_name + f"_divide{i}", props)
+                for i in range(3)
+            ]
+            return _combine3(*channels, superluxcore_name, props)
         elif operation == "SIGN":
             channels = []
             for i in range(3):
