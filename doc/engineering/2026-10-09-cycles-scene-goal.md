@@ -161,3 +161,22 @@ or named UV normal maps, object/world spaces, out-of-range strengths, arbitrary
 backfaces, specular normal guards, chained Bump nodes, Coat Normal or Tangent.
 The generic Bump output consumed through another vector node remains a separate
 contract. Do not count these as completed by this data-vector change.
+
+
+## Phase 14: Normal Map spaces and MikkTSpace (private 2.11.19)
+
+The [Normal Map implementation and validation](2026-10-09-cycles-normal-map.md)
+records 70 CPU/Metal conditions at 1280×720, including smooth geometry,
+nonuniform transforms, named/mirrored UV, linked and out-of-range Strength,
+object/world spaces, DirectX convention and a backface. All finite/error and
+0.003 Normal-pass MAE gates passed; nine comparison sheets were inspected.
+The earlier nonuniform tangent mismatch is repaired in this bounded scope.
+Original mesh/node settings and quality defaults are preserved. C46, C31 and
+C26 remain partial for the specific unresolved combinations listed in that doc.
+
+Public and actual installed Blender 2.11.17 are verified in the
+[deployment record](2026-10-09-deployment-2.11.17.md). 2.11.18 CI wheels passed
+30 Normal-vector conditions and standard spectral CPU/Metal material renders;
+final extension ZIP and user-profile verification are separate release gates.
+
+2.11.18 final ZIP and actual user Blender deployment now passed their gates: see [deployment evidence](2026-10-09-deployment-2.11.18.md). Phase14 was rerun after tangent-requirement cache invalidation; all 70 conditions and 38 existing graph regressions passed, with E37 22/22.

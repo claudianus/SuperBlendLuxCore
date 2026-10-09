@@ -33,3 +33,7 @@ docs live alongside in `doc/`.
 - [Normal data vectors for shader inputs](2026-10-09-normal-data-vectors.md)
 
 - [Verified Blender 2.11.17 deployment](2026-10-09-deployment-2.11.17.md)
+
+- [Cycles Normal Map spaces and MikkTSpace data](2026-10-09-cycles-normal-map.md)
+
+- [Verified Blender 2.11.18 deployment](2026-10-09-deployment-2.11.18.md)

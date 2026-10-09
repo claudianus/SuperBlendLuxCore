@@ -39,6 +39,12 @@ for index, (x, metallic, roughness) in enumerate(((-1.25, 0, .32), (0, .8, .2), 
     bsdf.inputs['Metallic'].default_value = metallic
     bsdf.inputs['Roughness'].default_value = roughness
     bsdf.inputs['Coat Weight'].default_value = .3
+    if os.environ.get('SUPERLUXCORE_AUDIT_NORMAL_MAP') == '1':
+        normal = nodes.new('ShaderNodeNormalMap')
+        normal.inputs['Color'].default_value = (.65, .6, .9, 1.)
+        normal.inputs['Strength'].default_value = .6
+        links.new(normal.outputs['Normal'], bsdf.inputs['Normal'])
+        obj.scale = (1., .8, 1.15)
     if index == 0:
         texture = nodes.new('ShaderNodeTexVoronoi')
         texture.voronoi_dimensions = '4D'
@@ -96,6 +102,7 @@ bpy.data.images['Render Result'].save_render(str(folder / 'render.png'), scene=s
 record = {'version': pysuperluxcore.Version(), 'native_path': str(native),
           'package_version': importlib.metadata.version('pysuperluxcore'),
           'device': cfg.config.device, 'spectral': bool(cfg.config.spectral_enable),
+          'normal_maps': os.environ.get('SUPERLUXCORE_AUDIT_NORMAL_MAP') == '1',
           'resolution': [1280, 720], 'samples': 32, 'seconds': elapsed,
           'finite': bool(np.isfinite(pixels).all()), 'rgb_mean': pixels[:, :, :3].mean(axis=(0, 1)).tolist(),
           'errors': [e.message for e in log.errors], 'warnings': [w.message for w in log.warnings]}

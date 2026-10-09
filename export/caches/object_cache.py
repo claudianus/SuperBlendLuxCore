@@ -13,6 +13,7 @@ from ... import utils
 import pysuperluxcore
 from .. import mesh_converter
 from .. import named_attributes
+from .. import normal_map_attributes
 from ..hair import (
     convert_hair,
     warn_about_missing_uvs,
@@ -518,6 +519,7 @@ class ObjectCache2:
         # Fresh export: drop any generic-attribute name→index maps a
         # previous session registered.
         named_attributes.clear()
+        normal_map_attributes.clear()
         # Persistent-scene delta bookkeeping: for every instancer, the
         # set of source objects it spawned duplis of (fast path) or a
         # marker that some of its instances were exported individually
@@ -1448,6 +1450,8 @@ class ObjectCache2:
             or depsgraph.id_type_updated("CURVES")
             or depsgraph.id_type_updated("VOLUME")
             or depsgraph.id_type_updated("POINTCLOUD")
+            or any(normal_map_attributes.changed(obj)
+                   for obj in depsgraph.objects if obj.type in MESH_OBJECTS)
         ) and not only_scene
 
     def update(self, exporter, depsgraph, superluxcore_scene, scene_props, context):
@@ -1474,8 +1478,16 @@ class ObjectCache2:
                 ),
             )
         }
-        if depsgraph.id_type_updated("OBJECT") or mesh_updated_names:
-            for dg_update in depsgraph.updates:
+        normal_updates = [obj for obj in depsgraph.objects
+                          if obj.type in MESH_OBJECTS and normal_map_attributes.changed(obj)]
+        if depsgraph.id_type_updated("OBJECT") or mesh_updated_names or normal_updates:
+            # Node graph edits need fresh tangent channels in the viewport.
+            from types import SimpleNamespace
+            updates = list(depsgraph.updates) + [
+                SimpleNamespace(id=obj, is_updated_geometry=True)
+                for obj in normal_updates
+            ]
+            for dg_update in updates:
                 obj = None
                 if dg_update.is_updated_geometry and isinstance(
                     dg_update.id, bpy.types.Object

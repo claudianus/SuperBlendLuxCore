@@ -31,6 +31,8 @@ def outputs(layer):
     # UV의 마스크는 UV=0 여부와 무관하며 실제 교차 여부를 사용한다.
     if getattr(layer, "use_pass_uv", False):
         names.add("DEPTH")
+    if layer.use_pass_normal:
+        names.update({"GEOMETRY_NORMAL", "POSITION"})
     if layer.use_pass_z or layer.use_pass_mist:
         names.update({"DEPTH", "POSITION"})
     if layer.use_pass_mist:

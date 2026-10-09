@@ -25,6 +25,7 @@ from . import (
     world,
     mesh_converter,
     recorded_scene,
+    normal_map_attributes,
 )
 from .light import WORLD_BACKGROUND_LIGHT_NAME
 from .caches.object_cache import (
@@ -1494,7 +1495,10 @@ class Exporter(object):
                         base_name, obj, mat_index, depsgraph, scratch
                     )
                 shapes.append(shape)
-            return (tuple(shapes), str(scratch))
+            # Tangent UV requirements change mesh channels even when only
+            # the material graph was edited. A material-only delta cannot
+            # add those channels to a cached final-render scene.
+            return (tuple(shapes), str(scratch), normal_map_attributes.requirements(obj))
         except Exception:
             return None
 

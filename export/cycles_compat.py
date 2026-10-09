@@ -534,7 +534,7 @@ def warn_cycles_light_flags(light, warned, obj_name):
 
 _PASS_OUTPUTS = (
     ("use_pass_z", ("DEPTH",)),
-    ("use_pass_normal", ("SHADING_NORMAL",)),
+    ("use_pass_normal", ("SHADING_NORMAL", "GEOMETRY_NORMAL", "POSITION")),
     ("use_pass_position", ("POSITION",)),
     ("use_pass_vector", ("MOTION_VECTOR",)),
     ("use_pass_uv", ("UV",)),

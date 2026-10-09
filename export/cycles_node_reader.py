@@ -6,6 +6,7 @@ from .. import utils
 from ..utils import node as utils_node
 from ..utils.errorlog import SuperLuxCoreErrorLog
 from . import named_attributes
+from . import normal_map_attributes
 from .image import ImageExporter
 import math
 
@@ -2630,34 +2631,20 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
         return _tex_helper(props, superluxcore_name, {"type": "makefloat3", "color": _output_is_color(output_socket), **{f"texture{i+1}": v for i, v in enumerate(channels)}})
 
     elif node.bl_idname == "ShaderNodeNormalMap":
-        if node.space != "TANGENT":
-            SuperLuxCoreErrorLog.add_warning(f"Unsupported normal map space: {node.space}", obj_name=obj_name)
-            return ERROR_VALUE
-
         prefix = "scene.textures."
-
+        spaces = {"TANGENT": 0, "OBJECT": 1, "WORLD": 2,
+                  "BLENDER_OBJECT": 3, "BLENDER_WORLD": 4}
         definitions = {
-            "type": "normalmap",
-            "texture": _socket(node.inputs["Color"], props, material, obj_name, group_node_stack),
+            "type": "cyclesnormalmap",
+            "color": _socket(node.inputs["Color"], props, material, obj_name, group_node_stack),
+            "strength": _socket(node.inputs["Strength"], props, material, obj_name, group_node_stack),
+            "space": spaces[node.space],
+            "invertgreen": getattr(node, "convention", "OPENGL") == "DIRECTX",
         }
-
-        strength_socket = node.inputs["Strength"]
-        if strength_socket.is_linked:
-            # Cycles Strength s interpolates from the unperturbed normal:
-            # in tangent-space color that is flat + s * (color - flat).
-            # (A scale texture around the normal map went through the
-            # height-field product rule and produced garbage normals.)
-            definitions["texture"] = _tex_mix(
-                _FLAT_NORMAL_COLOR, definitions["texture"],
-                _socket(strength_socket, props, material, obj_name, group_node_stack),
-                superluxcore_name + "_strength", props)
-            definitions["scale"] = 1.0
-        else:
-            definitions["scale"] = strength_socket.default_value
-        # Expose the normal-map direction to vector arithmetic as well as
-        # shader Normal inputs; legacy normalmap colour evaluation is black.
-        mapped = _tex_helper(props, superluxcore_name + "_normalmap", definitions)
-        definitions = {"type": "normalvector", "texture": mapped, "sourcebump": True}
+        if node.space == "TANGENT":
+            indices = normal_map_attributes.resolve(obj_name, node.uv_map)
+            if indices is not None:
+                definitions.update(zip(("normalindex", "tangentindex", "signindex"), indices))
     elif node.bl_idname == "ShaderNodeBump":
         if node.inputs["Distance"].is_linked:
             SuperLuxCoreErrorLog.add_warning("Bump node Distance socket is not supported", obj_name=obj_name)
@@ -4209,7 +4196,7 @@ def _normal_input(socket, props, material, obj_name, group_node_stack):
     if _is_textured(value):
         prefix = "scene.textures." + value
         kind = props.Get(prefix + ".type").GetString() if props.IsDefined(prefix + ".type") else ""
-        if kind in {"normalvector", "normalmap"}:
+        if kind in {"normalvector", "normalmap", "cyclesnormalmap"}:
             return value
         if kind == "mix" and props.IsDefined(prefix + ".bumpnormal") and props.Get(prefix + ".bumpnormal").GetBool():
             return value

@@ -1,7 +1,7 @@
 {
   "goal": "기존 Cycles 씬의 무변환 시각·논리 의미 호환",
   "complete": false,
-  "target_version": "2.11.18",
+  "target_version": "2.11.19",
   "public_package_verified": false,
   "baseline": "2026-10-09-remaining-issues.json",
   "node_census": {
@@ -214,7 +214,7 @@
       "priority": "P1",
       "scope": "패스 의미·식별자",
       "status": "부분 구현·검증",
-      "remaining": "패스의 카메라 깊이·Mist와 원래 Object/Material pass_index를 복원했고 잘못된 공통 ALBEDO 대체를 제거했다. 로브별 색·광원 분리·모션·Cryptomatte 메타데이터는 남아 있다.",
+      "remaining": "카메라 깊이·Mist·원래 pass_index와 Normal 패스의 앞/뒷면 방향을 복원했다. Normal의 DOF·스테레오·접선 경계, 로브별 색·광원·모션·Cryptomatte 메타데이터는 남아 있다.",
       "evidence": "2026-10-09-cycles-scene-goal.md"
     },
     {
@@ -252,7 +252,7 @@
       "priority": "P1",
       "scope": "일반 Normal 벡터",
       "status": "부분 구현·검증",
-      "remaining": "일반 Normal 벡터와 Normal Map 뒤 Vector Math/Mix를 방향 데이터로 평가하도록 수정하고 CPU·Metal 720p RGB 10조건 및 기본 분광 5조건을 검증했다. 앞/뒷면·비균일 변환, Bump 출력 합성 및 다른 closure 조합은 남아 있다.",
+      "remaining": "일반 Normal과 Normal Map 뒤 Vector Math/Mix의 방향 데이터 및 Normal Map의 비균일 변환·뒷면 경로를 표적 검증했다. Geometry Normal의 임의 뒷면, Bump 출력 합성과 다른 closure/specular guard 조합은 남아 있다.",
       "evidence": "2026-10-09-normal-data-vectors.md"
     },
     {
@@ -363,8 +363,8 @@
       "priority": "P2",
       "scope": "Normal Map",
       "status": "부분 구현·검증",
-      "remaining": "Normal Map 출력을 벡터 연산에 연결해도 검은 값으로 사라지지 않도록 수정했다. 비균일 스케일에서 탄젠트 변환 차이 MAE 0.1130을 재현했다. Tangent 외 공간·명명/미러 UV·Strength 범위는 남아 있다.",
-      "evidence": "2026-10-09-normal-data-vectors.md"
+      "remaining": "MikkTSpace 코너 데이터와 Tangent/Object/World·비균일 변환·명명/미러 UV·Strength 범위·DirectX·뒷면을 CPU·Metal 720p의 70조건에서 검증했다. UV 없음·채널 예산·변형/애니메이션·변위 전 기준·더 넓은 인스턴스·specular guard 조합은 남아 있다.",
+      "evidence": "2026-10-09-cycles-normal-map.md"
     },
     {
       "id": "C47",
@@ -469,18 +469,18 @@
       "evidence": "cycles-scene-goal-phase1/workflow"
     }
   ],
-  "public_version": "2.11.16",
+  "public_version": "2.11.18",
   "withdrawn_candidate": {
     "version": "2.11.14",
     "reason": "네 플랫폼 C++ 빌드는 성공했지만 공통 UV payload의 u_int가 실제 Metal shader 컴파일에 실패하여 엔진 후보를 초안으로 회수했다. Blender 확장은 미공개다."
   },
   "public_release": {
-    "version": "2.11.16",
-    "verified": true,
+    "version": "2.11.18",
+    "engine_source": "751e8dfafbb91f63fc8bb67659e693faed6ee4db",
+    "addon_source": "eab1753d565a1db107d2505f1084f35e870d8d67",
     "installed_in_user_blender": true,
-    "engine_source": "00e96a78ad7be788b3c2e1f76560eb255b0fbf10",
-    "addon_source": "42dc17b832eca363d3ca205e88019f0582cfeb06",
-    "evidence": "2026-10-09-deployment-2.11.16.md"
+    "verified": true,
+    "evidence": "2026-10-09-deployment-2.11.18.md"
   },
   "vector_divide": {
     "version": "2.11.16",
@@ -510,6 +510,19 @@
     "verified_private": true,
     "rgb_conditions_per_backend": 10,
     "spectral_conditions_per_backend": 5,
-    "evidence": "cycles-scene-goal-phase13"
+    "evidence": "cycles-scene-goal-phase13",
+    "public_package_verified": true
+  },
+  "normal_map": {
+    "version": "2.11.19",
+    "verified_private": true,
+    "plane_rgb_conditions_per_backend": 17,
+    "plane_spectral_conditions_per_backend": 8,
+    "smooth_rgb_conditions_per_backend": 6,
+    "smooth_spectral_conditions_per_backend": 4,
+    "evidence": "cycles-scene-goal-phase14",
+    "public_package_verified": false,
+    "regression_conditions": 38,
+    "settings_regression_passes": 22
   }
 }

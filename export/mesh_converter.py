@@ -9,6 +9,7 @@ import bpy
 
 from . import caches
 from . import named_attributes
+from . import normal_map_attributes
 from .. import utils
 from ..utils.errorlog import SuperLuxCoreErrorLog
 
@@ -17,6 +18,7 @@ if _needs_reload:
 
     importlib.reload(caches)
     importlib.reload(named_attributes)
+    importlib.reload(normal_map_attributes)
     importlib.reload(utils)
 
 
@@ -134,6 +136,7 @@ def convert(
             mesh, loop_vertices, len(rgb), obj.name
         )
         rgb += extra_cols
+        normal_map_attributes.collect(obj, mesh, loop_normals, rgb, alphas)
         # FACE-domain attrs are per polygon; loop_triangles.polygon_index
         # maps each exported triangle back to its attribute value.
         tri_polygon_index = (

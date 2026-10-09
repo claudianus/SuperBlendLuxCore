@@ -210,6 +210,20 @@ class FrameBufferFinal:
             if item.name == "Depth":
                 # 거리 단위를 유지하며 배경은 Blender의 Z 패스 규약을 사용한다.
                 buf = camera_depth(radial=scene.camera.data.type == "PANO")
+            elif item.name == "Normal":
+                # Native film normals retain mesh orientation. Cycles exposes
+                # the shader normal on the camera-facing side of the surface.
+                geometry = np.where(np.isfinite(read("GEOMETRY_NORMAL")), read("GEOMETRY_NORMAL"), 0.)
+                matrix = scene.camera.matrix_world
+                if scene.camera.data.type == "ORTHO":
+                    incoming = -np.asarray(matrix.to_quaternion() @ Vector((0, 0, -1)), dtype=np.float64)
+                    dot = geometry @ incoming
+                else:
+                    position = np.where(np.isfinite(read("POSITION")), read("POSITION"), 0.)
+                    incoming = np.asarray(matrix.translation, dtype=np.float64) - position
+                    dot = np.einsum('ij,ij->i', geometry, incoming)
+                side = np.where(dot < 0., -1., 1.).reshape(-1, 1)
+                buf = np.where(np.isfinite(buf), buf, 0.) * side
             elif item.name == "Mist":
                 mist = scene.world.mist_settings if scene.world else None
                 start = mist.start if mist else 5.
