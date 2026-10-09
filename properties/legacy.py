@@ -155,23 +155,16 @@ def _legacy_root(owner):
         return None
 
 
-# Property identifiers per bridged class, cached for the __getattribute__
-# fast path.
-_PROP_IDENTIFIERS = {}
-
-
 class LuxCoreLegacyBridge:
     def __getattribute__(self, name):
         value = super().__getattribute__(name)
         if name.startswith("_"):
             return value
         try:
-            cls = type(self)
-            props = _PROP_IDENTIFIERS.get(cls)
-            if props is None:
-                props = {p.identifier: p for p in cls.bl_rna.properties}
-                _PROP_IDENTIFIERS[cls] = props
-            prop = props.get(name)
+            # RNA descriptors can be rebuilt when Blender switches render
+            # engines. Retaining a descriptor across renders leaves a stale
+            # pointer; look up the current definition for this access.
+            prop = _prop_def(type(self), name)
             if prop is None:
                 return value
             # Only the root group bridges; nested groups reached through
