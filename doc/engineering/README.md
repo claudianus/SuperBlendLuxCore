@@ -31,3 +31,5 @@ docs live alongside in `doc/`.
 - [RNA descriptor lifetime during render-engine changes](2026-10-09-rna-descriptor-lifetime.md)
 
 - [Normal data vectors for shader inputs](2026-10-09-normal-data-vectors.md)
+
+- [Verified Blender 2.11.17 deployment](2026-10-09-deployment-2.11.17.md)
