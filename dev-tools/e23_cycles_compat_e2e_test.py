@@ -252,7 +252,7 @@ def render(scene, engine, tag, samples, denoise=True):
 
     if engine == "SUPERLUXCORE":
         scene.superluxcore.config.engine = "PATH"
-        scene.superluxcore.config.device = "CPU"
+        scene.superluxcore.config.device = os.environ.get("E23_TEST_DEVICE", "CPU")
         # Disable the camera tonemapper so the saved EXR carries raw
         # scene-linear radiance (use_autolinear defaults to on, which would
         # normalize every render to ~0.5 mean and break parity checks).

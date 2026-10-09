@@ -2767,10 +2767,10 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
         def mix_input(name, bl_socket):
             candidates = [s for s in node.inputs if s.name == name]
             for socket in candidates:
-                if socket.bl_idname == bl_socket and socket.enabled:
+                if socket.bl_idname.startswith(bl_socket) and socket.enabled:
                     return socket
             for socket in candidates:
-                if socket.bl_idname == bl_socket:
+                if socket.bl_idname.startswith(bl_socket):
                     return socket
             return candidates[0] if candidates else None
 
@@ -2796,14 +2796,13 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
             if early is not None:
                 return early
         elif data_type in {"FLOAT", "VECTOR"}:
-            # The mix amount is a texture, so a non-uniform vector factor works
-            # natively (elementwise)
-            definitions = {
-                "type": "mix",
-                "texture1": tex1,
-                "texture2": tex2,
-                "amount": fac,
-            }
+            # 엔진 Mix는 스칼라 계수만 사용하므로 벡터 계수와 외삽은 산술식으로 보존한다.
+            if getattr(node, "clamp_factor", True):
+                fac = _tex_mathfunc("max", fac, 0., superluxcore_name + "_factor_min", props)
+                fac = _tex_mathfunc("min", fac, 1., superluxcore_name + "_factor_max", props)
+            delta = _tex_binary("subtract", tex2, tex1, superluxcore_name + "_delta", props)
+            weighted = _tex_binary("scale", delta, fac, superluxcore_name + "_weighted", props)
+            return _tex_binary("add", tex1, weighted, superluxcore_name + "_mix", props)
         else:
             # ROTATION
             return _warn_unsupported(
@@ -2900,8 +2899,30 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
             ]
             return _combine3(cross[0], cross[1], cross[2],
                              superluxcore_name + "_cross", props)
-        elif operation == "REFLECT":
-            # r = i - 2 (i . n) n
+        elif operation in {"REFLECT", "REFRACT"}:
+            # Cycles는 두 번째 입력을 안전하게 정규화한 뒤 반사·굴절을 계산한다.
+            length2 = _tex_binary("dotproduct", vector2, vector2,
+                                  superluxcore_name + "_normal_len2", props)
+            length = _tex_binary("power", length2, .5, superluxcore_name + "_normal_len", props)
+            vector2 = _tex_binary("divide", vector2, length, superluxcore_name + "_normal", props)
+            if operation == "REFRACT":
+                eta = _socket(node.inputs["Scale"], props, material, obj_name, group_node_stack)
+                dot = _tex_binary("dotproduct", vector1, vector2, superluxcore_name + "_dot", props)
+                dot2 = _tex_binary("scale", dot, dot, superluxcore_name + "_dot2", props)
+                eta2 = _tex_binary("scale", eta, eta, superluxcore_name + "_eta2", props)
+                term = _tex_binary("subtract", 1., dot2, superluxcore_name + "_sin2", props)
+                term = _tex_binary("scale", eta2, term, superluxcore_name + "_term", props)
+                k = _tex_binary("subtract", 1., term, superluxcore_name + "_k", props)
+                positive = _tex_mathfunc("max", k, 0., superluxcore_name + "_positive", props)
+                root = _tex_binary("power", positive, .5, superluxcore_name + "_root", props)
+                amount = _tex_binary("scale", eta, dot, superluxcore_name + "_eta_dot", props)
+                amount = _tex_binary("add", amount, root, superluxcore_name + "_amount", props)
+                incoming = _tex_binary("scale", vector1, eta, superluxcore_name + "_incoming", props)
+                normal = _tex_binary("scale", vector2, amount, superluxcore_name + "_normal_scaled", props)
+                result = _tex_binary("subtract", incoming, normal, superluxcore_name + "_refract", props)
+                valid = _tex_binary("subtract", 1., _tex_lessthan(k, 0., superluxcore_name + "_tir", props),
+                                    superluxcore_name + "_valid", props)
+                return _tex_binary("scale", result, valid, superluxcore_name + "_result", props)
             dot = _tex_binary("dotproduct", vector1, vector2,
                               superluxcore_name + "_dot", props)
             two_dot = _tex_binary("scale", dot, 2.0, superluxcore_name + "_2d", props)
@@ -2945,6 +2966,16 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
         elif operation in {"MINIMUM", "MAXIMUM"}:
             return _tex_mathfunc("min" if operation == "MINIMUM" else "max",
                                  vector1, vector2, superluxcore_name, props)
+        elif operation == "WRAP":
+            # 입력 순서는 값, 최댓값, 최솟값이다. 폭 0은 최솟값을 반환한다.
+            minimum = _socket(node.inputs[2], props, material, obj_name, group_node_stack)
+            width = _tex_binary("subtract", vector2, minimum, superluxcore_name + "_width", props)
+            shifted = _tex_binary("subtract", vector1, minimum, superluxcore_name + "_shift", props)
+            wrapped = _tex_mathfunc("floormod", shifted, width, superluxcore_name + "_wrapped", props)
+            return _tex_binary("add", wrapped, minimum, superluxcore_name + "_wrap", props)
+        elif operation == "ROUND":
+            shifted = _tex_binary("add", vector1, .5, superluxcore_name + "_half", props)
+            return _tex_mathfunc("floor", shifted, 0., superluxcore_name + "_round", props)
         elif operation == "SNAP":
             definitions = {
                 "type": "mathfunc",
@@ -2964,7 +2995,7 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
             op = {"SINE": "sin", "COSINE": "cos", "TANGENT": "tan"}[operation]
             return _v3_mathfunc(op, vector1, superluxcore_name, props)
         else:
-            # Unsupported ops (WRAP, FLOORMOD, DIVIDE modes, REFRACT, ...):
+            # 지원하지 않는 향후 연산은 경고와 함께 첫 번째 입력을 전달한다.
             # pass through instead of blacking out
             if vector_out:
                 return _warn_unsupported(
