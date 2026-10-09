@@ -39,3 +39,5 @@ docs live alongside in `doc/`.
 - [Verified Blender 2.11.18 deployment](2026-10-09-deployment-2.11.18.md)
 
 - [Existing Cycles Diffuse Roughness](2026-10-09-diffuse-roughness.md)
+
+- [Existing Cycles Bump remaining contracts](2026-10-09-cycles-bump-audit.md)

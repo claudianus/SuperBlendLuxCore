@@ -245,7 +245,8 @@
       "priority": "P1",
       "scope": "Bump 연결·합성",
       "status": "미완료",
-      "remaining": "연결 Distance/Normal을 무시한다. Filter Width는 노드별 기본값 대신 트리 최대 기본값을 모든 bumped 재질에 적용한다. 다중 범프 체인 의미는 실행 검증이 필요하다. Blender도 Filter Width를 컴파일 시 값으로 사용하므로 연결 폭 자체의 차이는 확정하지 않는다."
+      "remaining": "720p CPU/Metal RGB·표준 스펙트럼 38조건 검수에서 16조건만 통과. 연결 Distance·Normal 무시, Bump 연쇄 및 Vector Math/Mix 법선 데이터 오류를 재현했다. 노드별 Filter Width, linked Normal·Distance, 방향 데이터 출력의 전용 구현이 필요하다.",
+      "evidence": "2026-10-09-cycles-bump-audit.md"
     },
     {
       "id": "C31",
@@ -544,5 +545,13 @@
       "bidir_silhouette_verified": false,
       "rgb_conditions": 4
     }
+  },
+  "bump_audit": {
+    "version": "2.11.19",
+    "conditions": 38,
+    "passed": 16,
+    "finite_renderer_error_free": 38,
+    "evidence": "cycles-scene-goal-phase16",
+    "complete": false
   }
 }
