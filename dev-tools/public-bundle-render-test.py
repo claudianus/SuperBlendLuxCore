@@ -13,7 +13,7 @@ import pysuperluxcore
 
 folder = Path(os.environ.get('SUPERLUXCORE_AUDIT_DIR', '/tmp/slc-public-bundle-render'))
 folder.mkdir(parents=True, exist_ok=True)
-expected = os.environ.get('SUPERLUXCORE_EXPECT_VERSION', '2.11.14')
+expected = os.environ.get('SUPERLUXCORE_EXPECT_VERSION', '2.11.15')
 native = Path(pysuperluxcore.pysuperluxcore.__file__).resolve()
 profile = Path(os.environ['BLENDER_USER_RESOURCES']).resolve()
 assert native.is_relative_to(profile), (native, profile)

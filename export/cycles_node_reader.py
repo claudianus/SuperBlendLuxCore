@@ -2464,27 +2464,24 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
         result = _tex_band(amount, values, interpolation, superluxcore_name, props)
         return _split_chan(result, 0, superluxcore_name + "_alpha", props) if alpha else result
     elif node.bl_idname == "ShaderNodeTexChecker":
-        prefix = "scene.textures."
-
-        # Note: Only "Object" texture coordinates are supported. Textured scale is not supported.
-        scale = Matrix()
+        # 연결 좌표·Scale과 기본 Generated를 유지하며 Color/Fac을 구분한다.
+        vector = _texture_coordinates(node, props, material, obj_name, group_node_stack, superluxcore_name)
+        scale = _socket(node.inputs["Scale"], props, material, obj_name, group_node_stack)
+        parity = 0.
         for i in range(3):
-            scale[i][i] = node.inputs["Scale"].default_value
-
-        # Compose a linked Mapping node transform (applied before the scale)
-        vector_link = utils_node.get_link(node.inputs["Vector"])
-        if vector_link is not None and \
-                vector_link.from_node.bl_idname == "ShaderNodeMapping":
-            scale = scale @ _mapping_matrix(*_mapping_node_values(
-                vector_link.from_node, obj_name))
-
-        definitions = {
-            "type": "checkerboard3d",
-            "texture1": _socket(node.inputs["Color2"], props, material, obj_name, group_node_stack),
-            "texture2": _socket(node.inputs["Color1"], props, material, obj_name, group_node_stack),
-            "mapping.type": "localmapping3d",
-            "mapping.transformation": utils.luxutils.matrix_to_list(scale),
-        }
+            tag = superluxcore_name + f"_checker{i}"
+            value = _tex_binary("scale", _split_chan(vector, i, tag + "_input", props), scale, tag + "_scale", props)
+            # Cycles가 정수 경계의 부동소수점 오차를 피하는 보정을 그대로 사용한다.
+            value = _tex_binary("scale", _tex_binary("add", value, .000001, tag + "_epsilon", props), .999999, tag + "_coordinate", props)
+            value = _tex_mathfunc("floor", value, None, tag + "_floor", props)
+            value = _tex_unary("abs", value, None, tag + "_abs", props)
+            parity = _tex_binary("add", parity, value, tag + "_parity", props)
+        factor = _tex_mathfunc("floormod", parity, 2., superluxcore_name + "_factor", props)
+        if output_socket.type == "VALUE":
+            return factor
+        return _tex_mix(_socket(node.inputs["Color2"], props, material, obj_name, group_node_stack),
+                        _socket(node.inputs["Color1"], props, material, obj_name, group_node_stack),
+                        factor, superluxcore_name, props)
     elif node.bl_idname == "ShaderNodeInvert":
         prefix = "scene.textures."
 

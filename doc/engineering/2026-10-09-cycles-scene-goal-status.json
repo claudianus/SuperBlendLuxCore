@@ -1,7 +1,7 @@
 {
   "goal": "기존 Cycles 씬의 무변환 시각·논리 의미 호환",
   "complete": false,
-  "target_version": "2.11.14",
+  "target_version": "2.11.15",
   "public_package_verified": false,
   "baseline": "2026-10-09-remaining-issues.json",
   "node_census": {
@@ -159,7 +159,7 @@
       "priority": "P1",
       "scope": "흡수+산란 볼륨 Add/Mix",
       "status": "부분 구현·검증",
-      "remaining": "자식 중 clear가 있으면 합성도 clear로 지정한다. scattering 값이 있어도 엔진 ClearVolume은 SigmaS=0이다.",
+      "remaining": "흡수+산란 합성의 clear 대체와 산란 계수 가중 위상은 수정했다. 720p 기본 스펙트럼에서 산란·발광은 복원되지만 고샘플 수렴과 방사량·밝기 차이를 더 검증해야 한다.",
       "evidence": "2026-10-09-cycles-scene-goal.md"
     },
     {
@@ -167,7 +167,7 @@
       "priority": "P1",
       "scope": "한쪽이 빈 볼륨 Mix",
       "status": "부분 구현·검증",
-      "remaining": "자식이 하나면 Factor를 적용하지 않고 그대로 반환한다. Factor=.25인 산란 입력도 전체 농도로 반환된다.",
+      "remaining": "한쪽이 빈 Mix에도 Factor를 적용하도록 수정했다. 720p의 복합·공간 산란, 양 끝 Factor 및 고샘플 농도·밝기 검증은 남아 있다.",
       "evidence": "2026-10-09-cycles-scene-goal.md"
     },
     {
@@ -175,7 +175,7 @@
       "priority": "P1",
       "scope": "Principled Volume 흑체",
       "status": "부분 구현·검증",
-      "remaining": "Blackbody Intensity=1, Temperature=1500의 상수 발광도 무시하며 경고가 없다. 연결 Temperature/Tint 일부에만 경고한다.",
+      "remaining": "상수 흑체 강도와 Temperature/Tint 발광을 복원하여 CPU·Metal 720p를 확인했다. 넓은 온도·강도 범위의 물리 방사량·단위 및 고샘플 수렴은 남아 있다.",
       "evidence": "2026-10-09-cycles-scene-goal.md"
     },
     {
@@ -198,7 +198,7 @@
       "priority": "P1",
       "scope": "바운스 수 가져오기",
       "status": "부분 구현·검증",
-      "remaining": "0 total/diffuse/glossy를 건너뛴다. transparent_bounces 대신 transparent_max_bounces를 읽어야 하며 투명·투과 깊이 분리도 필요하다.",
+      "remaining": "명시한 Cycles 바운스 값과 transparent_max_bounces를 원본 RNA 변경 없이 전달한다. 0 바운스 경계의 실제 광선 동작, 투명·굴절 분리와 복합 제작 씬 검증은 남아 있다.",
       "evidence": "2026-10-09-cycles-scene-goal.md"
     },
     {
@@ -206,7 +206,7 @@
       "priority": "P1",
       "scope": "컴포지터 패스 연결",
       "status": "부분 구현·검증",
-      "remaining": "Cycles 플래그로 필름 출력은 일부 생성되지만 update_render_passes는 Combined만 등록하고 _add_passes도 Cycles 패스를 추가하지 않는다. Depth/Albedo는 필름 생성 루프에서도 제외된다.",
+      "remaining": "Depth/Normal/Position/UV/IndexOB/IndexMA/Emit/Mist를 원래 Blender 패스·컴포지터 소켓으로 등록·전달하고 720p를 검증했다. 로브별 광원·색·모션·Cryptomatte 등 나머지 패스 계약은 남아 있다.",
       "evidence": "2026-10-09-cycles-scene-goal.md"
     },
     {
@@ -214,7 +214,7 @@
       "priority": "P1",
       "scope": "패스 의미·식별자",
       "status": "부분 구현·검증",
-      "remaining": "Diffuse/Glossy/Transmission Color를 모두 ALBEDO로 합친다. Object Index는 Blender pass_index와 다른 해시 ID이며 재질 ID도 직접 보존 경로가 없다. Cycles 패스 이름과 엔진 이름의 연결도 필요하다.",
+      "remaining": "패스의 카메라 깊이·Mist와 원래 Object/Material pass_index를 복원했고 잘못된 공통 ALBEDO 대체를 제거했다. 로브별 색·광원 분리·모션·Cryptomatte 메타데이터는 남아 있다.",
       "evidence": "2026-10-09-cycles-scene-goal.md"
     },
     {
@@ -337,15 +337,16 @@
       "id": "C43",
       "priority": "P2",
       "scope": "Brick·Checker·Gabor",
-      "status": "미완료",
-      "remaining": "Brick 색·배치·mortar smoothing·squash·연결 치수를 근사한다. Checker 연결 Scale은 경고 없이 무시한다. Gabor 3D·연결 파라미터·Orientation이 제한된다."
+      "status": "부분 구현·검증",
+      "remaining": "Checker의 연결 Scale, Color/Factor, Generated·Object·임의 Vector 소비를 CPU·Metal 720p에서 검증했다. Brick 색·배치·mortar smoothing·squash·연결 치수와 Gabor 3D·연결 파라미터·Orientation은 남아 있다.",
+      "evidence": "2026-10-09-cycles-scene-goal.md"
     },
     {
       "id": "C44",
       "priority": "P1",
       "scope": "텍스처 Vector 소비 경로",
       "status": "부분 구현·검증",
-      "remaining": "좌표 출력 자체와 텍스처 입력 매핑을 구분해야 한다. 다수 legacy texture의 임의 Vector·Generated·참조 Object 경로가 UV/local 기본값으로 대체된다. 좌표 단독 회귀 통과로 전체 재질을 보장할 수 없다.",
+      "remaining": "Checker는 연결 Vector·Scale과 Generated·Object·연속 Mapping을 실제 렌더로 검증했다. 다수 다른 legacy texture의 임의 Vector·Generated·참조 Object 소비 경로는 별도 검증과 수정이 필요하다.",
       "evidence": "2026-10-09-cycles-scene-goal.md"
     },
     {
@@ -353,7 +354,7 @@
       "priority": "P2",
       "scope": "좌표·Mapping·인스턴스",
       "status": "부분 구현·검증",
-      "remaining": "Texture Coordinate/UV Map의 원본 UV·음수·정수 타일·UV=1 경계를 CPU·Metal 720p로 검증했다. chained Mapping, 연결 TRS, Texture/Normal 타입, 인스턴스 공간, 변형 전 ORCO와 시간에 따른 공간은 남아 있다.",
+      "remaining": "원본 UV·음수·정수 타일·UV=1, Checker의 두 연속 Point Mapping과 Object 정수 평면의 안정성을 CPU·Metal 720p로 검증했다. 연결 TRS, Texture/Normal 타입, 인스턴스 공간, 변형 전 ORCO와 시간에 따른 좌표는 남아 있다.",
       "evidence": "2026-10-09-cycles-scene-goal.md"
     },
     {
@@ -397,7 +398,7 @@
       "priority": "P1",
       "scope": "공간 볼륨·위상·경계",
       "status": "미완료",
-      "remaining": "복합 볼륨 asymmetry는 산란 계수 가중 대신 단순 혼합이다. 텍스처 world volume은 구간당 한 번 평가하며 material step/interpolation/sampling과 겹친 경계가 다르다."
+      "remaining": "재질 볼륨 합성의 asymmetry는 산란 계수로 가중하도록 수정했다. 공간 world volume, step/interpolation/sampling, 겹친 경계 및 방사량·수렴 검증은 남아 있다."
     },
     {
       "id": "C52",
@@ -464,5 +465,10 @@
       "remaining": "중첩·음소거·출력 조합은 추가 제작 검증이 필요하다",
       "evidence": "cycles-scene-goal-phase1/workflow"
     }
-  ]
+  ],
+  "public_version": "2.11.13",
+  "withdrawn_candidate": {
+    "version": "2.11.14",
+    "reason": "네 플랫폼 C++ 빌드는 성공했지만 공통 UV payload의 u_int가 실제 Metal shader 컴파일에 실패하여 엔진 후보를 초안으로 회수했다. Blender 확장은 미공개다."
+  }
 }
