@@ -1,6 +1,6 @@
 # Cycles Vector Displacement Incoming direction
 
-검증한 소스의 수정이며 아직 공개 2.11.23 ZIP에 포함되지 않는다. 실제 사용자 설치는 검증된 공개 2.11.23을 유지한다. 전체 Cycles 호환 goal은 활성·미완료다.
+아래 private 후보 검수 이후2.11.24 공개 배포와 실제 사용자 설치를 완료했다. 후속 검증은 문서 하단과 배포 기록을 참조한다. 전체 Cycles 호환 goal은 활성·미완료다.
 
 Blender 5.2.1 LTS 소스 9e2066aef7ef7e20c142ad7bd3303138a4304c93의 intern/cycles/kernel/geom/shader_data.h::shader_setup_from_displace는 smooth shading을 강제한 뒤 wi=N으로 변위 그래프를 평가한다. SuperLuxCore는 명시적 Object/World 공간에서도 고정 +Z를 사용했다. Geometry Incoming을 Vector Displacement에 연결하면 원래 법선 대신 +Z 오프셋이 생겼다.
 
@@ -15,3 +15,8 @@ Blender 5.2.1 LTS 소스 9e2066aef7ef7e20c142ad7bd3303138a4304c93의 intern/cycl
 Private native SHA-256: `f5aa58004e4a97f228de244e2bf70a162d59085effe773188a22cb6e87461b26`. full wheel/site-packages/cached wheel과 Python metadata를 같은 후보로 맞추고 매 Blender 프로세스에서 native 및 핵심 exporter 5개 hash를 확인했다. Runtime version 2.11.23은 private build 표시이며 공개 be60dd8d native와 구분해야 한다.
 
 원본 evidence: workspace test-scenes/validation-2026-10-10/displacement-incoming-candidate. 공개 ZIP·타 플랫폼·NVIDIA 실제 렌더·제작 GUI 검증은 아직 별도 gate다.
+
+
+## 2.11.24 공개 배포 후속 검증
+
+이 수정은 공개2.11.24 engine와 addon ZIP에 포함되었고 실제 사용자 Blender도2.11.24로 설치했다. exact native SHA `c7439663dcbf734ce5296dee46bf3ed85d689c7381cbaa15330f4c24d0dff322`로 CI·fresh ZIP·actual 설치의591개 표적 회귀와45개 비교 시트를 확인했다. 위 private 후보 결과와 별도 빌드의 증거이며 같은 검사로 합산하지 않는다. [배포 검수 기록](2026-10-10-deployment-2.11.24.md)이 현재 상태를 설명한다. 전체 호환 goal과 각 문서의 잔여 범위는 미완료다.

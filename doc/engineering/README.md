@@ -64,6 +64,10 @@ docs live alongside in `doc/`.
 
 - [Verified private Cycles Vector Displacement Incoming direction](2026-10-10-cycles-displacement-incoming.md)
 
-- [Cycles Backfacing spectrum](2026-10-10-cycles-backfacing.md): front/back emission color/strength fix; 28 private CPU/Metal checks, public deployment pending.
+- [Cycles Backfacing spectrum](2026-10-10-cycles-backfacing.md): front/back emission color/strength fix; 28 private CPU/Metal checks; the scoped fix is included in verified 2.11.24 deployment.
 
 - [Valid zero, zero SSS and Microfiber sheen](2026-10-10-cycles-zero-subsurface-microfiber.md): 23 private acceptance checks, source-grounded local SSS limit and native fuzz mapping; positive SSS/Ashikhmin gaps remain.
+
+- [Current 2.11.24 standalone positive SSS boundary diagnostic](2026-10-10-cycles-positive-sss-diagnostic.md): confirmed remaining defect; auxiliary models excluded from production acceptance.
+
+- [Verified 2.11.24 Incoming, Backfacing, valid-zero and Microfiber deployment](2026-10-10-deployment-2.11.24.md): 591 guarded CI/fresh/actual CPU and Metal checks; full-scene goal remains active.

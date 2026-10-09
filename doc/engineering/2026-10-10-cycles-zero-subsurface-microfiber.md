@@ -14,6 +14,11 @@ Live export 9개, CPU 렌더 7개, Metal 렌더 7개의 표적 acceptance(23개)
 
 추가 positive-SSS 입력 불변성 진단1개는 별도로 남긴다. Scale .15/Roughness0/SUN 장면에서 native 평균은 Cycles의 약5.3%이며 영상 의미는 아직 호환되지 않는다. 이를 성공한 호환 조건으로 합산하지 않는다. bulk/interface·sampling·산란 파라미터와 method/IOR 계약을 추가 진단해야 한다. 이를 해결하려고 native 품질을 낮추거나 Cycles 억제 설정을 강제로 상속하지 않았다.
 
-소스 수정은 검증한 main 후보이며 공개 ZIP 반영은 미완료다. 2.11.24 engine 86c0bbf1fb180471fab2abf71c9d92734e9bce8c의 네 플랫폼 wheel/NVRTC CI는 37998654489에서 진행 중이다. 실제 사용자 설치는 공개2.11.23을 유지한다. 전체 Cycles 호환 goal은 활성·미완료다.
+소스 수정은 검증된 공개2.11.24 ZIP과 실제 사용자 설치에 반영했다. 2.11.24 engine 86c0bbf1fb180471fab2abf71c9d92734e9bce8c의 네 플랫폼 wheel/NVRTC CI 37998654489 및 bundle CI 38002226498은 성공했다. 전체 Cycles 호환 goal은 활성·미완료다.
 
 Evidence: workspace test-scenes/validation-2026-10-10/zero-subsurface-microfiber-candidate. Regression: dev-tools/cycles-zero-input-test.py 및 cycles-zero-render-test.py. Positive-SSS 진단, snapshot shader source, raw EXR/PNG와 원본 로그를 보존한다.
+
+
+## 2.11.24 공개 배포 후속 검증
+
+이 수정은 공개2.11.24 engine와 addon ZIP에 포함되었고 실제 사용자 Blender도2.11.24로 설치했다. exact native SHA `c7439663dcbf734ce5296dee46bf3ed85d689c7381cbaa15330f4c24d0dff322`로 CI·fresh ZIP·actual 설치의591개 표적 회귀와45개 비교 시트를 확인했다. 위 private 후보 결과와 별도 빌드의 증거이며 같은 검사로 합산하지 않는다. [배포 검수 기록](2026-10-10-deployment-2.11.24.md)이 현재 상태를 설명한다. 전체 호환 goal과 각 문서의 잔여 범위는 미완료다.
