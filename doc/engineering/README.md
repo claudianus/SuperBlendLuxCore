@@ -29,3 +29,5 @@ docs live alongside in `doc/`.
 [Verified 2.11.16 deployment](2026-10-09-deployment-2.11.16.md) records final ZIP and actual user Blender validation, source commits and artifact hashes.
 
 - [RNA descriptor lifetime during render-engine changes](2026-10-09-rna-descriptor-lifetime.md)
+
+- [Normal data vectors for shader inputs](2026-10-09-normal-data-vectors.md)

@@ -18,4 +18,4 @@ it is not a proof that every Blender RNA owner has the same lifetime.
 
 The crash trace was at `properties/legacy.py:187`, `engine/final.py:30`, then
 Blender `RNA_property_enum_get`. The bridge regression log is preserved at
-`../../../../test-scenes/validation-2026-10-09/rna-descriptor-lifetime/legacy-v17.log`.
+`../../../test-scenes/validation-2026-10-09/rna-descriptor-lifetime/legacy-v17.log`.

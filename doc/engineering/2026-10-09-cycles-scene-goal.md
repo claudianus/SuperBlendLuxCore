@@ -134,3 +134,30 @@ CPU·Metal 각각 720p·16샘플에서 RGB 13조건과 기본 분광 4조건을 
 Sphere·Tube는 카메라 방향이나 UV 대체값을 쓰지 않고 Blender의 원래 Vector를 [0,1] 상자에서 [-1,1]로 바꾼 뒤 투영한다. 기본 UV·Generated·연결 Mapping·축·영벡터의 RGB 10조건과 기본 분광 4조건을 CPU·Metal에서 검사했다. 축의 Metal `atan2(0,0)` NaN은 계산 후 0 곱셈으로 숨기지 않고 계산 전에 안전한 입력을 제공한다. 최종 RGB 최대 평균 차이는 CPU 0.00008499와 Metal 0.00008480 미만, 분광은 CPU 0.009334와 Metal 0.009452 미만이며 세 비교표를 직접 확인했다. 증거는 `cycles-scene-goal-phase12/`다.
 
 이 묶음은 Flat/Sphere/Tube의 표적 좌표 의미와 기본 이미지 방향을 검증했다. BOX의 부호별 면 방향·blend, Cubic/Smart/Mirror, UDIM·시간·임의 이미지 소스, 모든 파생 좌표·표면 미분·인스턴스/변형 전 ORCO의 제작 조합은 남아 있다.
+
+
+## Phase 13: Normal data vectors (private 2.11.18)
+
+
+Blender 5.2.1, private Release 2.11.18 build, 1280×720 Normal pass, 16 samples:
+ten RGB cases and five standard spectral cases on both CPU and actual Metal.
+All 30 cases passed finite-value and error checks. Maximum mean absolute
+component errors were 0.00007552 CPU RGB, 0.00008765 Metal RGB, 0.00007552 CPU
+spectral and 0.00010977 Metal spectral. Three comparison sheets were inspected:
+constant/negative/zero/geometry vectors, UV gradients, vector Mix, direct normal
+map, normal-map arithmetic, two-map Mix, and map/flat Mix have the expected
+orientation and pattern. Signed data are compared in EXR; PNG display clips
+negative components and is only the visual aid.
+
+Evidence: workspace `test-scenes/validation-2026-10-09/cycles-scene-goal-phase13`.
+Harness: add-on `dev-tools/cycles-normal-vector-test.py`.
+
+## Remaining compatibility scope
+
+The normal-map cases use an applied plane scale to isolate graph evaluation.
+A nonuniform object scale reproduced a legacy tangent-space mismatch (MAE
+0.1130), which is still open. These checks do not validate MikkTSpace, mirrored
+or named UV normal maps, object/world spaces, out-of-range strengths, arbitrary
+backfaces, specular normal guards, chained Bump nodes, Coat Normal or Tangent.
+The generic Bump output consumed through another vector node remains a separate
+contract. Do not count these as completed by this data-vector change.

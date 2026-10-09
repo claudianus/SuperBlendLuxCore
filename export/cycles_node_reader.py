@@ -2654,6 +2654,10 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
             definitions["scale"] = 1.0
         else:
             definitions["scale"] = strength_socket.default_value
+        # Expose the normal-map direction to vector arithmetic as well as
+        # shader Normal inputs; legacy normalmap colour evaluation is black.
+        mapped = _tex_helper(props, superluxcore_name + "_normalmap", definitions)
+        definitions = {"type": "normalvector", "texture": mapped, "sourcebump": True}
     elif node.bl_idname == "ShaderNodeBump":
         if node.inputs["Distance"].is_linked:
             SuperLuxCoreErrorLog.add_warning("Bump node Distance socket is not supported", obj_name=obj_name)
@@ -4197,50 +4201,20 @@ _FLAT_NORMAL_COLOR = [0.5, 0.5, 1.0]
 
 
 def _normal_input(socket, props, material, obj_name, group_node_stack):
-    """Convert a shader Normal input, recognizing normal-map blends.
-
-    Mix(Vector, fac, A, B) where one side is a Normal Map and the other the
-    unperturbed Geometry/Texture Coordinate normal (the classic "flat in
-    puddles" setup) is a normal map whose tangent-space color is lerped
-    toward flat. The engine mix texture would bump it as a height field
-    (a (t2 - t1) * grad(fac) term between a normal map and a normal
-    vector), turning a mirror puddle into noise.
-    """
+    """Interpret linked shader normals as direction vectors, preserving Bump nodes."""
     link = utils_node.get_link(socket)
-    mix = link.from_node if link is not None else None
-    if (mix is not None and mix.bl_idname == "ShaderNodeMix" and
-            getattr(mix, "data_type", "") == "VECTOR" and
-            getattr(mix, "factor_mode", "UNIFORM") == "UNIFORM"):
-        def src(i):
-            l = mix.inputs[i].links[0] if mix.inputs[i].is_linked else None
-            return (l.from_node, l.from_socket.name) if l else (None, None)
-
-        def is_flat(node_sock):
-            n, sock = node_sock
-            return n is not None and (
-                (n.bl_idname == "ShaderNodeNewGeometry" and sock == "Normal") or
-                (n.bl_idname == "ShaderNodeTexCoord" and sock == "Normal"))
-
-        a, b = src(4), src(5)
-        nm_first = a[0] is not None and a[0].bl_idname == "ShaderNodeNormalMap" and is_flat(b)
-        nm_second = b[0] is not None and b[0].bl_idname == "ShaderNodeNormalMap" and is_flat(a)
-        if nm_first or nm_second:
-            nm = a[0] if nm_first else b[0]
-            if nm.space == "TANGENT":
-                name = utils.sanitize_superluxcore_name(
-                    material.name + mix.name + "_nmix")
-                color = _socket(nm.inputs["Color"], props, material, obj_name, group_node_stack)
-                strength = _socket(nm.inputs["Strength"], props, material, obj_name, group_node_stack)
-                color = _tex_mix(_FLAT_NORMAL_COLOR, color, strength, name + "_str", props)
-                fac = _socket(mix.inputs[0], props, material, obj_name, group_node_stack)
-                # lerp(A, B, fac): weight of the normal map is (1 - fac)
-                # when it is A, fac when it is B
-                color = (_tex_mix(color, _FLAT_NORMAL_COLOR, fac, name + "_fac", props)
-                         if nm_first else
-                         _tex_mix(_FLAT_NORMAL_COLOR, color, fac, name + "_fac", props))
-                return _tex_helper(props, name, {
-                    "type": "normalmap", "texture": color, "scale": 1.0})
-    return _socket(socket, props, material, obj_name, group_node_stack)
+    value = _socket(socket, props, material, obj_name, group_node_stack)
+    if link is None:
+        return value
+    if _is_textured(value):
+        prefix = "scene.textures." + value
+        kind = props.Get(prefix + ".type").GetString() if props.IsDefined(prefix + ".type") else ""
+        if kind in {"normalvector", "normalmap"}:
+            return value
+        if kind == "mix" and props.IsDefined(prefix + ".bumpnormal") and props.Get(prefix + ".bumpnormal").GetBool():
+            return value
+    return _tex_helper(props, "normal_input_" + str(socket.as_pointer()),
+                       {"type": "normalvector", "texture": value})
 
 
 def _squared_roughness_to_linear(socket, props, material, superluxcore_name, obj_name, group_node):
