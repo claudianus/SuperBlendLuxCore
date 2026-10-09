@@ -78,7 +78,8 @@ for mode in ('BUMP', 'DISPLACEMENT', 'BOTH'):
         links.new(diffuse.outputs[0], material_out.inputs['Surface'])
         displacement = nodes.new('ShaderNodeDisplacement')
         links.new(displacement.outputs[0], material_out.inputs['Displacement'])
-        displacement.inputs['Height'].default_value = .8
+        displacement.inputs['Height'].default_value = (
+            0.0 if os.environ.get('SUPERLUXCORE_AUDIT_ZERO_HEIGHT') == '1' else .8)
         for name, value in (('Midlevel', .5), ('Scale', .4)):
             source = nodes.new('ShaderNodeValue')
             source.outputs[0].default_value = value

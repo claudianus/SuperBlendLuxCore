@@ -106,7 +106,10 @@ cases = [('object_linked', 'OBJECT', ''), ('tangent_linked', 'TANGENT', ''),
          ('world_shared_instances', 'WORLD', 'instances'),
          ('linked_scale_gradient', 'OBJECT', 'scale'), ('tangent_negative_scale', 'TANGENT', 'negative_scale'),
          ('object_curved_no_uv', 'OBJECT', 'curved_no_uv'), ('tangent_curved_no_uv', 'TANGENT', 'curved_no_uv'),
-         ('world_curved_no_uv', 'WORLD', 'curved_no_uv')]
+         ('world_curved_no_uv', 'WORLD', 'curved_no_uv'),
+         ('object_zero_midlevel', 'OBJECT', 'zero_midlevel'),
+         ('world_zero_midlevel', 'WORLD', 'zero_midlevel'),
+         ('tangent_zero_midlevel', 'TANGENT', 'zero_midlevel')]
 selected = set(filter(None, os.environ.get('SUPERLUXCORE_AUDIT_CASES', '').split(',')))
 if selected:
     assert selected <= {case[0] for case in cases}, selected
@@ -165,6 +168,9 @@ for tag, space, feature in cases:
     displacement.inputs['Vector'].default_value = (.8, .65, .9, 1)
     links.new(displacement.outputs[0], out.inputs['Displacement'])
     for name, value in [('Scale', .4), ('Midlevel', .5)]:
+        if feature == 'zero_midlevel' and name == 'Midlevel':
+            displacement.inputs[name].default_value = 0.0
+            continue
         source = nodes.new('ShaderNodeValue')
         source.outputs[0].default_value = value
         links.new(source.outputs[0], displacement.inputs[name])

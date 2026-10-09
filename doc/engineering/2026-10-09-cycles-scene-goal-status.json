@@ -712,5 +712,19 @@
     "native_sha256": "0c1210e5287f1fd7c21576b1b3bf0af565c6cc272bc62d54006462e4cefd30f5",
     "evidence": "2026-10-10-cycles-vector-displacement.md",
     "remaining": "C29 remains incomplete; final package and actual deployment still need validation"
+  },
+  "zero_displacement_inputs_candidate": {
+    "version": "2.11.22",
+    "native_sha256": "e5198b1edc3e9f30222d54b098f91c03d097f37277db5774260dc254fa3dad7c",
+    "vector_zero_midlevel_cpu": 3,
+    "vector_zero_midlevel_metal": 3,
+    "scalar_zero_height_cpu": 6,
+    "scalar_zero_height_metal": 6,
+    "node_export_conditions": 1023,
+    "node_export_exceptions": 0,
+    "node_export_warning_conditions": 239,
+    "public": false,
+    "installed_actual": false,
+    "evidence": "2026-10-10-cycles-vector-displacement.md"
   }
 }

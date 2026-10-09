@@ -21,7 +21,11 @@ def _filter_glossy_active():
 from math import degrees, log
 from mathutils import Euler, Matrix, Vector
 
-ERROR_VALUE = 0
+class _UnsupportedValue(int):
+    """A numeric fallback whose identity distinguishes valid zero inputs."""
+
+
+ERROR_VALUE = _UnsupportedValue(0)
 MISSING_IMAGE_COLOR = [1, 0, 1]
 # Neutral fallbacks for unsupported outputs; never silently return black
 
@@ -251,7 +255,7 @@ def export_displacement(link, props, material, obj_name):
                 'Displacement node "%s": world space is not supported, '
                 "object space is used instead" % node.name, obj_name=obj_name)
         height = _socket(node.inputs["Height"], props, material, obj_name, None)
-        if height == ERROR_VALUE:
+        if height is ERROR_VALUE:
             return None
         scale = _socket(node.inputs["Scale"], props, material, obj_name, None)
         midlevel = _socket(node.inputs["Midlevel"], props, material, obj_name, None)
@@ -265,7 +269,7 @@ def export_displacement(link, props, material, obj_name):
         vector = _socket(node.inputs["Vector"], props, material, obj_name, None)
         scale = _socket(node.inputs["Scale"], props, material, obj_name, None)
         midlevel = _socket(node.inputs["Midlevel"], props, material, obj_name, None)
-        if any(value == ERROR_VALUE for value in (vector, scale, midlevel)):
+        if any(value is ERROR_VALUE for value in (vector, scale, midlevel)):
             return None
         name = str(node.as_pointer()) + "_shape_vector_displacement"
         vector = _tex_binary("scale", _tex_binary("subtract", vector, midlevel,

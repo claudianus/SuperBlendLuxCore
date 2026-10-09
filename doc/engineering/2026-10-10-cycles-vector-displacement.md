@@ -35,9 +35,18 @@ Runtime native SHA-256:
 
 시험 코드는 `dev-tools/cycles-vector-displacement-test.py`, 기존 normal/bump/displacement scripts와 native 저장소의 `displacement-space-properties-test.py`/`mikktspace-properties-test.py`다. 원본 EXR/PNG/NPY, metrics, 실패 진단과 각 수정 단계의 지문·로그는 workspace `test-scenes/validation-2026-10-10/vector-displacement-2.11.22`에 보존한다. 공개/설치 검증 결과는 별도 배포 문서로 기록한다.
 
+## 배포 전 0 입력 경계 검증
+
+새 플랫폼 빌드의 pybind11 초기화 ABI는 native 저장소에서 모든 binding 파일에 같은 compile definition을 적용해 수정했다. Linux·Windows의 실제 설치 import/렌더 smoke 단계가 통과했다. 현재 macOS ARM CI 휠의 native SHA-256은 `e5198b1edc3e9f30222d54b098f91c03d097f37277db5774260dc254fa3dad7c`이며 전체 휠 출처/번들/사용자 설치 검증은 별도 게이트다.
+
+미지원 값을 나타내던 숫자 `0` 때문에 연결되지 않은 Vector Displacement `Midlevel=0`과 scalar Displacement `Height=0`이 변위를 통째로 생략했다. 숫자 대체 동작은 유지하면서 미지원 표시의 객체 identity로 두 변위 입력 검사를 구분한다. 다른 reader 비교 동작은 바꾸지 않는다. Object/World/Tangent의 미연결 `Midlevel=0` 세 조건을 CPU와 Metal에서 1280×720, Spectral ON으로 검증했다. `Height=0`의 BUMP/DISPLACEMENT/BOTH 상수 및 기존 UV gradient 여섯 조건도 양쪽에서 검증했다. 정상 0을 오류로 세지 않으며 원본 씬 입력은 변경하지 않는다.
+
+현재 Blender에서 전체 출력·열거·연결 입력 변환 검수 1,023조건은 예외 0, 경고 239조건, RNA에서 지정 불가인 ROTATION 1조건을 기록했다. 이는 호출 회귀 결과이며 경고를 지원 완료로 세거나 영상 합격률로 환산하지 않는다. 확대된 전체 native/Blender 회귀와 공개 ZIP 검증은 계속 진행한다.
+
 ## 남은 acceptance 범위
 
 - Vector BUMP/BOTH, scalar World 및 연결 Normal 입력.
+- true displacement의 Geometry Incoming 방향 및 곡면 Bump 평가 미분값.
 - adaptive/cage displacement, flat nonplanar polygon과 그룹 출력의 더 넓은 검사.
 - 다중 재질 경계의 원본 버텍스 공유, 변위 후 Normal Map attribute 갱신.
 - 제작 규모 프레임/viewport/F12, 혼합 재질·형상과 다른 플랫폼의 실제 Blender/GPU 렌더.
