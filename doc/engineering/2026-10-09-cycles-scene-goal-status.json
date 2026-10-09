@@ -900,12 +900,23 @@
     "actual_installed": true
   },
   "incoming_displacement_candidate": {
-    "private_candidate_in_progress": true,
+    "private_candidate_in_progress": false,
     "public_fixed": false,
     "source_contract": "Blender 5.2.1 shader_setup_from_displace wi=N",
     "baseline_version": "2.11.23",
     "baseline_failed_conditions": 12,
-    "scope": "Object/World Incoming geometry; curved Bump remains separate"
+    "scope": "Object/World Incoming geometry; curved Bump remains separate",
+    "verified_private": true,
+    "native_sha256": "f5aa58004e4a97f228de244e2bf70a162d59085effe773188a22cb6e87461b26",
+    "geometry_conditions": 12,
+    "legacy_geometry_equal": 4,
+    "native_regressions": 29,
+    "blender_conditions_per_backend": 52,
+    "total_targeted_checks": 149,
+    "comparison_sheets_reviewed": 10,
+    "evidence": "2026-10-10-cycles-displacement-incoming.md",
+    "engine_source": "4256c562ab46cdd6f50f030a8804739cf0d998ac",
+    "main_merged": true
   },
   "deployment_2_11_21": {
     "version": "2.11.21",
@@ -931,5 +942,13 @@
     "gui_hot_reload_verified": false,
     "actual_metal_gpu_verified": true,
     "intel_ci_runtime_smoke": "skipped_gpu_unavailable"
+  },
+  "backfacing_color_candidate": {
+    "baseline_version": "2.11.23",
+    "cpu_failed_conditions": 4,
+    "scope": "Geometry Backfacing color and emission Strength consumers front/back",
+    "fixed": false,
+    "public_fixed": false,
+    "diagnostic_in_progress": true
   }
 }

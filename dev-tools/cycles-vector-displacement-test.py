@@ -110,6 +110,9 @@ cases = [('object_linked', 'OBJECT', ''), ('tangent_linked', 'TANGENT', ''),
          ('object_zero_midlevel', 'OBJECT', 'zero_midlevel'),
          ('world_zero_midlevel', 'WORLD', 'zero_midlevel'),
          ('tangent_zero_midlevel', 'TANGENT', 'zero_midlevel')]
+cases += [(f'{space.lower()}_{feature}', space, feature)
+          for feature in ('incoming_plane', 'incoming_curved', 'incoming_negative')
+          for space in ('OBJECT', 'WORLD')]
 selected = set(filter(None, os.environ.get('SUPERLUXCORE_AUDIT_CASES', '').split(',')))
 if selected:
     assert selected <= {case[0] for case in cases}, selected
@@ -127,8 +130,8 @@ for tag, space, feature in cases:
         bpy.data.meshes.remove(old_mesh)
     plane.location = (0, 0, 0)
     plane.rotation_euler = (.3, .4, .2)
-    plane.scale = (-1.4 if feature == 'negative_scale' else 1.4, .8, 1.2)
-    if feature == 'curved_no_uv':
+    plane.scale = (-1.4 if feature in ('negative_scale', 'incoming_negative') else 1.4, .8, 1.2)
+    if feature in ('curved_no_uv', 'incoming_curved'):
         bpy.ops.mesh.primitive_uv_sphere_add(segments=24, ring_count=16, radius=1)
         sphere = bpy.context.object
         plane.data = sphere.data
@@ -194,6 +197,13 @@ for tag, space, feature in cases:
         for node in nodes:
             if node.bl_idname == 'ShaderNodeValue':
                 node.outputs[0].default_value = .04 if any(link.to_socket.name == 'Scale' for link in node.outputs[0].links) else 0
+    if feature.startswith('incoming_'):
+        geometry = nodes.new('ShaderNodeNewGeometry')
+        links.new(geometry.outputs['Incoming'], displacement.inputs['Vector'])
+        for node in nodes:
+            if node.bl_idname == 'ShaderNodeValue':
+                node.outputs[0].default_value = .15 if any(
+                    link.to_socket.name == 'Scale' for link in node.outputs[0].links) else 0.0
     def fingerprint():
         def value(socket):
             v = socket.default_value

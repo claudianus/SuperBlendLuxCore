@@ -61,3 +61,5 @@ docs live alongside in `doc/`.
 - [Verified 2.11.22 public ZIP and macOS Blender deployment, with confirmed CUDA limitation](2026-10-10-deployment-2.11.22.md)
 
 - [Verified 2.11.23 CUDA compile fix, four-platform ZIP and macOS deployment](2026-10-10-deployment-2.11.23.md)
+
+- [Verified private Cycles Vector Displacement Incoming direction](2026-10-10-cycles-displacement-incoming.md)
