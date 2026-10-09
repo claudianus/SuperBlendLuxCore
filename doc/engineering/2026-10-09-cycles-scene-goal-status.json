@@ -281,7 +281,7 @@
       "priority": "P1",
       "scope": "Diffuse Roughness",
       "status": "부분 구현·검증",
-      "remaining": "Diffuse Roughness의 상수·연결 입력을 네이티브 EON roughmatte에 전달하고 CPU·Metal 720p RGB/기본 분광 16조건을 검증했다. 전체 색·입사각·백색로 에너지 및 복합 closure 제작 조합의 검증은 남아 있다.",
+      "remaining": "상수·연결 Roughness 720p 16조건 통과. 백색로 CPU PDF 방향·광원 코사인·뒤집힌 면 계약을 수정하여 표준 스펙트럼 PATH CPU/Metal 앞·뒷면 및 BIDIR CPU 10조건 중앙 평균 1% 에너지 검증을 통과했다. 색·입사각 전범위 및 복합 클로저 제작 씬은 미검증. BIDIR matte/roughmatte 공통 실루엣 검은 테두리는 별도 잔여 문제다. 새 수정 소스의 CI·배포본 검증 후 공개한다.",
       "evidence": "2026-10-09-diffuse-roughness.md"
     },
     {
@@ -532,6 +532,17 @@
     "rgb_conditions_per_backend": 4,
     "spectral_conditions_per_backend": 4,
     "evidence": "cycles-scene-goal-phase15",
-    "public_package_verified": false
+    "public_package_verified": false,
+    "release_gate": "Private native repair verified: ten spectral and four RGB white-furnace cases, noise halt off, central energy within 1%; fresh four-platform CI and bundle validation pending",
+    "white_furnace": {
+      "spectral_conditions": 10,
+      "central_energy_tolerance": 0.01,
+      "native_sample_limit": 128,
+      "cycles_sample_limit": 32,
+      "noise_halt": false,
+      "evidence": "cycles-scene-goal-phase15/furnace-after-pdf-fix",
+      "bidir_silhouette_verified": false,
+      "rgb_conditions": 4
+    }
   }
 }
