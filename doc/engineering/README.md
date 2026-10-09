@@ -45,3 +45,5 @@ docs live alongside in `doc/`.
 - [Cycles Bump direction and linked-input semantics](2026-10-09-cycles-bump-direction.md)
 
 - [Verified 2.11.19 public ZIP and actual Blender deployment](2026-10-09-deployment-2.11.19.md)
+
+- [Cycles Add Shader closure sums and transparent transport](2026-10-09-cycles-add-shader.md)

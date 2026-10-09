@@ -1742,14 +1742,6 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
             return _socket(node.inputs[0], props, material, obj_name,
                            group_node_stack, superluxcore_name)
 
-        # Adding a Transparent BSDF is adding nothing -> pass the other side (exact)
-        if link1.from_node.bl_idname == "ShaderNodeBsdfTransparent":
-            return _socket(node.inputs[1], props, material, obj_name,
-                           group_node_stack, superluxcore_name)
-        if link2.from_node.bl_idname == "ShaderNodeBsdfTransparent":
-            return _socket(node.inputs[0], props, material, obj_name,
-                           group_node_stack, superluxcore_name)
-
         def emission_of(emission_node):
             # Recreate the emission texture the Emission branch below produces
             color = _socket(emission_node.inputs["Color"], props, material,
@@ -1777,9 +1769,8 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
                 "emission.efficency": 0,
             }
         elif is_emission1 or is_emission2:
-            # SuperLuxCore has no additive material type; exact approach for the common
-            # "Emission + surface shader" case: attach the emission to the other
-            # material's emission slot
+            # Attach a standalone emission to a surface with no emission slot.
+            # Existing emission is summed through the additive closure below.
             emission_link = link1 if is_emission1 else link2
             base_socket = node.inputs[1] if is_emission1 else node.inputs[0]
             base_name = _socket(base_socket, props, material, obj_name,
@@ -1797,11 +1788,13 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
                 except AttributeError:
                     already_has_emission = False
 
-            if already_has_emission:
-                _warn_unsupported(
-                    node, "adding emission to a material that already emits is not "
-                    "supported; using a 50/50 mix instead", None, obj_name)
-            else:
+            # Null is skipped during intersection. Composite materials can
+            # inherit emission from children even without their own emission
+            # slot; setting that slot would replace the inherited emission.
+            base_type = props.Get("scene.materials." + base_name + ".type").GetString()
+            can_attach_emission = (not already_has_emission and
+                                   base_type not in {"null", "mix", "glossycoating", "twosided"})
+            if can_attach_emission:
                 emission = emission_of(emission_link.from_node)
                 if _is_zero(emission):
                     # Adding a statically black emission adds nothing.
@@ -1814,14 +1807,7 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
                 }))
                 return base_name
 
-        if not is_emission1 and not is_emission2:
-            # Approximation: SuperLuxCore materials cannot be added; a 50/50 mix halves
-            # the combined energy of both closures but keeps them visible
-            _warn_unsupported(
-                node, "SuperLuxCore materials cannot be added; approximated by a 50/50 "
-                "mix (energy is halved)", None, obj_name)
-
-        if (is_emission1 != is_emission2 and already_has_emission) or \
+        if (is_emission1 != is_emission2 and not can_attach_emission) or \
                 (not is_emission1 and not is_emission2):
             def add_mat_socket(index):
                 mat_name = _socket(node.inputs[index], props, material, obj_name,
@@ -1836,7 +1822,11 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
                 "material1": add_mat_socket(0),
                 "material2": add_mat_socket(1),
                 "amount": 0.5,
+                "additive": True,
             }
+            # A provisional emission+surface export may have used this name.
+            # Preserve the re-exported children; the sum owns no emission slot.
+            props.DeleteAll(props.GetAllNames(prefix + superluxcore_name + "."))
     elif node.bl_idname == "ShaderNodeBsdfDiffuse":
         prefix = "scene.materials."
         roughness = _socket(node.inputs["Roughness"], props, material, obj_name, group_node_stack)

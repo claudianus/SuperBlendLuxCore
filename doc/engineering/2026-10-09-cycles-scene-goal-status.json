@@ -310,8 +310,9 @@
       "id": "C39",
       "priority": "P1",
       "scope": "일반 Add Shader",
-      "status": "미완료",
-      "remaining": "표면 closure 두 개를 50/50 Mix로 바꿔 에너지를 절반으로 만든다. Transparent가 들어간 Add는 그 자식을 제거한다. 발광 특례와 일반 합성을 구분해야 한다."
+      "status": "부분 구현·검증",
+      "remaining": "표면 Add를 실제 closure 합산으로 구현하고 Null/Mix 선택 보정, 중첩 발광 상속, 필름 알파를 CPU·Metal 및 표적 CPU BIDIR에서 검증했다. HDR/시간·뷰 의존 가중치, 유색 스펙트럼 방사량, 다층 투명 기하, 볼륨 합성, 복합 light group/cache, 전체 BIDIR/VCM, viewport/F12 및 타 플랫폼 실렌더는 남아 있다.",
+      "evidence": "2026-10-09-cycles-add-shader.md"
     },
     {
       "id": "C40",
@@ -582,5 +583,30 @@
     "public_package_verified": true,
     "native_sha256": "9112a87f70ba270a2fb44e892347f7636f2534b2f413de778a148c22d30c36d0",
     "evidence": "2026-10-09-deployment-2.11.19.md"
+  },
+  "add_shader": {
+    "version": "2.11.20",
+    "verified_private": true,
+    "complete": false,
+    "native_sha256": "36ee7ab9928edbbb0a06e5899df57a9f17d9c20379c746bb22835c7fdcb917dc",
+    "current_hash_checks": 120,
+    "passed": 120,
+    "rgb_energy_per_backend": 14,
+    "spectral_energy_per_backend": 16,
+    "spectral_alpha_per_backend": 4,
+    "emitter_receivers_per_backend": 5,
+    "bidir_shader_conditions": 5,
+    "bidir_emitter_conditions": 3,
+    "bump_regressions": 8,
+    "normal_map_regressions": 16,
+    "large_film_actual_renders": 9,
+    "spectral_beauty_renders": 1,
+    "comparison_sheets_inspected": 4,
+    "beauty_images_inspected": 1,
+    "public_package_verified": false,
+    "evidence": "phase17/current-36ee7ab",
+    "earlier_candidate_106_passes_followed_by_emitter_failure": true,
+    "default_terminator": "CHIANG",
+    "engine_source": "2f0304832"
   }
 }
