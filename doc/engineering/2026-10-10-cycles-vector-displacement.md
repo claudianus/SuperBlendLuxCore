@@ -1,6 +1,6 @@
 # Cycles Vector Displacement: verified 2.11.22 candidate
 
-기존 Cycles Object/Tangent/World Vector Displacement와 연결 Scale·Midlevel을 원본 노드·UV·메시 수정 없이 native 변위로 렌더한다. SuperLuxCore의 OpenPBR·Spectral 기본 품질과 전송 추정기를 유지한다. 현재 공개·실제 사용자 설치본은 검증된 2.11.21이며, 2.11.22의 공개 ZIP/설치 검증은 아직 완료하지 않았다. 전체 제작 씬 호환 goal은 활성 상태다.
+기존 Cycles Object/Tangent/World Vector Displacement와 연결 Scale·Midlevel을 원본 노드·UV·메시 수정 없이 native 변위로 렌더한다. SuperLuxCore의 OpenPBR·Spectral 기본 품질과 전송 추정기를 유지한다. 2.11.22의 공개 ZIP과 macOS CPU·Metal 사용자 설치 검증은 완료했다. Windows/Linux NVIDIA CUDA 컴파일 결함은 확인됐으며 2.11.23 수정본을 검증 중이다. 상세 범위는 [배포 기록](2026-10-10-deployment-2.11.22.md)을 따른다. 전체 제작 씬 호환 goal은 활성 상태다.
 
 ## 구현과 Blender 소스 대조
 
@@ -41,7 +41,7 @@ Runtime native SHA-256:
 
 미지원 값을 나타내던 숫자 `0` 때문에 연결되지 않은 Vector Displacement `Midlevel=0`과 scalar Displacement `Height=0`이 변위를 통째로 생략했다. 숫자 대체 동작은 유지하면서 미지원 표시의 객체 identity로 두 변위 입력 검사를 구분한다. 다른 reader 비교 동작은 바꾸지 않는다. Object/World/Tangent의 미연결 `Midlevel=0` 세 조건을 CPU와 Metal에서 1280×720, Spectral ON으로 검증했다. `Height=0`의 BUMP/DISPLACEMENT/BOTH 상수 및 기존 UV gradient 여섯 조건도 양쪽에서 검증했다. 정상 0을 오류로 세지 않으며 원본 씬 입력은 변경하지 않는다.
 
-현재 Blender에서 전체 출력·열거·연결 입력 변환 검수 1,023조건은 예외 0, 경고 239조건, RNA에서 지정 불가인 ROTATION 1조건을 기록했다. 이는 호출 회귀 결과이며 경고를 지원 완료로 세거나 영상 합격률로 환산하지 않는다. 확대된 전체 native/Blender 회귀와 공개 ZIP 검증은 계속 진행한다.
+현재 Blender에서 전체 출력·열거·연결 입력 변환 검수 1,023조건은 예외 0, 경고 239조건, RNA에서 지정 불가인 ROTATION 1조건을 기록했다. 이는 호출 회귀 결과이며 경고를 지원 완료로 세거나 영상 합격률로 환산하지 않는다. 확대된 CI 121개, 추가 Height=0 12개, 최종 ZIP 104개, 실제 macOS 설치 104개 검사를 통과했다. 이 결과는 CUDA를 검증한 것이 아니며 확인된 CUDA 결함을 별도로 기록한다.
 
 ## 남은 acceptance 범위
 

@@ -57,3 +57,5 @@ docs live alongside in `doc/`.
 - [Verified 2.11.21 public ZIP and actual Blender deployment](2026-10-10-deployment-2.11.21.md)
 
 - [Cycles Vector Displacement spaces, shared geometry and Mikk data](2026-10-10-cycles-vector-displacement.md)
+
+- [Verified 2.11.22 public ZIP and macOS Blender deployment, with confirmed CUDA limitation](2026-10-10-deployment-2.11.22.md)

@@ -1,13 +1,13 @@
 {
   "goal": "기존 Cycles 씬의 무변환 시각·논리 의미 호환",
   "complete": false,
-  "target_version": "2.11.22",
+  "target_version": "2.11.23",
   "public_package_verified": true,
   "baseline": "2026-10-09-remaining-issues.json",
   "node_census": {
     "conditions": 1023,
     "exceptions": 0,
-    "warning_conditions": 250
+    "warning_conditions": 239
   },
   "issues": [
     {
@@ -237,9 +237,10 @@
       "id": "C29",
       "priority": "P1",
       "scope": "벡터 변위",
-      "status": "부분 해결: 2.11.22 격리 CPU·Metal의 true Vector Displacement 42조건 검증",
+      "status": "부분 해결: 2.11.22 공개 ZIP·실제 macOS CPU·Metal true Vector Displacement 48조건 검증",
       "remaining": "Vector BUMP/BOTH, scalar World/linked Normal, adaptive/cage, flat nonplanar/mixed-material vertex boundaries, displaced Normal Map data, group outputs and production workflow acceptance",
-      "evidence": "2026-10-10-cycles-vector-displacement.md"
+      "evidence": "2026-10-10-cycles-vector-displacement.md",
+      "public_regression_evidence": "2026-10-10-deployment-2.11.22.md"
     },
     {
       "id": "C30",
@@ -700,18 +701,19 @@
   "vector_displacement_candidate": {
     "version": "2.11.22",
     "verified_private": true,
-    "public_package_verified": false,
-    "installed_actual_user": false,
-    "cpu_vector_conditions": 21,
-    "metal_vector_conditions": 21,
+    "public_package_verified": true,
+    "installed_actual_user": true,
+    "cpu_vector_conditions": 24,
+    "metal_vector_conditions": 24,
     "cpu_regression_conditions": 22,
     "metal_regression_conditions": 22,
     "native_displacement_conditions": 16,
     "native_mikk_conditions": 13,
-    "total_targeted_checks": 115,
-    "native_sha256": "0c1210e5287f1fd7c21576b1b3bf0af565c6cc272bc62d54006462e4cefd30f5",
+    "total_targeted_checks": 121,
+    "native_sha256": "e5198b1edc3e9f30222d54b098f91c03d097f37277db5774260dc254fa3dad7c",
     "evidence": "2026-10-10-cycles-vector-displacement.md",
-    "remaining": "C29 remains incomplete; final package and actual deployment still need validation"
+    "remaining": "C29 remains partial: vector BUMP/BOTH, scalar World/Normal, Incoming/curved Bump evaluation, displaced attributes and production workflows",
+    "deployment_evidence": "2026-10-10-deployment-2.11.22.md"
   },
   "zero_displacement_inputs_candidate": {
     "version": "2.11.22",
@@ -723,8 +725,51 @@
     "node_export_conditions": 1023,
     "node_export_exceptions": 0,
     "node_export_warning_conditions": 239,
-    "public": false,
-    "installed_actual": false,
-    "evidence": "2026-10-10-cycles-vector-displacement.md"
+    "public": true,
+    "installed_actual": true,
+    "evidence": "2026-10-10-cycles-vector-displacement.md",
+    "deployment_evidence": "2026-10-10-deployment-2.11.22.md"
+  },
+  "deployment_2_11_22": {
+    "version": "2.11.22",
+    "engine_source": "bd1bfff02c4661ca2a41fefb595b8280fc06e16f",
+    "addon_source": "9fcf4e873e04acbda387568f3d0ff0e708053a57",
+    "native_sha256": "e5198b1edc3e9f30222d54b098f91c03d097f37277db5774260dc254fa3dad7c",
+    "ci_conditions": 121,
+    "ci_extra_height_zero": 12,
+    "final_counts": {
+      "cpu": 52,
+      "metal": 52
+    },
+    "actual_counts": {
+      "cpu": 52,
+      "metal": 52
+    },
+    "total_targeted_checks": 341,
+    "node_export_conditions": 1023,
+    "node_export_exceptions": 0,
+    "node_export_warning_conditions": 239,
+    "vector_qa_sheets_reviewed": 18,
+    "zero_input_qa_sheets_reviewed": 3,
+    "native_beauty_images_reviewed": 6,
+    "cycles_beauty_references_reviewed": 3,
+    "public_package_verified": true,
+    "actual_macos_cpu_metal_verified": true,
+    "nvidia_cuda_verified": false,
+    "confirmed_cuda_compile_defect": true,
+    "cuda_fix_ci_version": "2.11.23",
+    "goal": "active incomplete",
+    "evidence": "2026-10-10-deployment-2.11.22.md",
+    "wheel_ci": 37984419834,
+    "bundle_ci": 37987937078
+  },
+  "cuda_fix_candidate": {
+    "version": "2.11.23",
+    "engine_source": "8f2aa09c40620ff7cca6b226a74fb44433963755",
+    "ci": 37989036418,
+    "nvrtc_gate_passed": true,
+    "public_package_verified": false,
+    "actual_installed_verified": false,
+    "nvidia_hardware_render_verified": false
   }
 }
