@@ -116,18 +116,65 @@ jobs:
 
           echo "BLENDER_ROOT=${INSTALL_DIR}" >> $GITHUB_ENV
 
+      # CUDA is never exercised on the macOS dev machines nor on GPU-less CI,
+      # so a CUDA-only kernel compile error ships unnoticed (v2.11.21: no
+      # Windows/Linux NVIDIA render at all). Before bundling, compile the
+      # engine kernels the wheels were built from with the NVRTC we ship.
+      - name: Resolve engine commit of the wheels tag
+        id: engine
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          sha=$(gh api "repos/${ENGINE_REPO}/commits/${WHEELS_TAG}" --jq .sha)
+          echo "Engine wheels ${WHEELS_TAG} -> ${ENGINE_REPO}@${sha}"
+          echo "sha=${sha}" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout engine sources at the wheels commit
+        uses: actions/checkout@v6
+        with:
+          repository: ${{ env.ENGINE_REPO }}
+          ref: ${{ steps.engine.outputs.sha }}
+          path: engine-src
+          sparse-checkout: |
+            include
+            src
+            dev-tools
+
+      - name: CUDA kernel compile gate (bundled NVRTC)
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ ! -f engine-src/dev-tools/cuda_kernel_check.py ]; then
+            echo "::error::${ENGINE_REPO}@${{ steps.engine.outputs.sha }} has no dev-tools/cuda_kernel_check.py - refusing to bundle unchecked CUDA kernels"
+            exit 1
+          fi
+          python -m pip install --require-hashes --no-deps -r cmake/bundled-wheels-linux.txt
+          python engine-src/dev-tools/cuda_kernel_check.py --repo engine-src --jobs 4
+          # Keep the engine checkout out of the add-on bundle.
+          rm -rf engine-src
+
       # pysuperluxcore is NOT on PyPI: without bundled wheels the extension
       # would try (and fail) to `pip download` it at first launch.
       - name: Fetch engine wheels (cp313)
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
+          CHECKED_SHA: ${{ steps.engine.outputs.sha }}
         run: |
           set -euo pipefail
           mkdir -p wheels
           gh release download "${WHEELS_TAG}" -R "${ENGINE_REPO}" \
             -p 'pysuperluxcore-*-cp313-cp313-*.whl' -D wheels --clobber
           ls -l wheels
+          # wheels-latest is a moving tag: the wheels must be the ones whose
+          # kernels were just compiled.
+          now=$(gh api "repos/${ENGINE_REPO}/commits/${WHEELS_TAG}" --jq .sha)
+          if [ "${now}" != "${CHECKED_SHA}" ]; then
+            echo "::error::${WHEELS_TAG} moved from ${CHECKED_SHA} to ${now} during the build - rerun"
+            exit 1
+          fi
 
       # Blender does not resolve wheel dependencies; without NVRTC the CUDA
       # backend fails to initialise. --require-hashes verifies the download
