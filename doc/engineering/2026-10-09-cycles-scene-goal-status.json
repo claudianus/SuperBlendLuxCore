@@ -281,9 +281,9 @@
       "id": "C34",
       "priority": "P1",
       "scope": "Principled 모델·SSS",
-      "status": "미완료",
-      "remaining": "Principled distribution/subsurface_method와 넓은 RandomWalk/Burley/Skin·SSS IOR·coat/fuzz/thin-film 의미는 미완료다. standalone SSS의 영 반경/Scale 경로는 공개2.11.27에서 검수했지만 양수 SSS의 공개27 Metal 실패(mean ratio 0.0476042)는 정식 어댑터에서 아직 해결 배포되지 않았다. 별도 native CPU/Metal eye-only RANDOM_WALK 후보는 현재 모듈의 CPU 33조건·실제 M5 Pro Metal 17조건과 720p 128spp CPU/Metal 14쌍을 직접 검수했다. 물체별 material partition·복제 경계, 진입 AOV, Generated 기반 영 Scale 처리가 확인됐고 CUDA NVRTC 컴파일도 통과했다. adjoint/LT/BIDIR의 비국소 density/PDF/MIS, mixed/Add/Principled, Skin/Burley/Legacy, spectral physical/partial/dynamic Radius, 임의의 작은 양수 정밀도, 출구 Normal/Bump·ray context, Volume·제작/애니메이션/GUI/플랫폼 GPU 실행 검증과 정식 어댑터 전환은 남아 있다. 실험용 eye-only 제한을 제작 기본 설정으로 사용하지 않는다. 후속 opaque Mix/Add 후보는 현재 CPU 39조건·Metal 29조건 및 변경 없는 혼합 그래프 720p CPU/Metal 6쌍을 검수했다. 명시적 opacity/Normal/Bump/Volume 혼합, Principled 및 adjoint 제작 경로는 계속 미완료다. 후속 Transparent BSDF 혼합과 안쪽 진입·탈출 면은 현재 CPU 50조건·Metal 51조건 및 기존 그래프의 720p CPU/Metal 8쌍으로 검수했다. Add 밝기는 0.5388 실패에서 CPU 1.0246/Metal 1.0223으로 복원했고, 512spp 보조 검증에서 Alpha 잔여가 감소했다. 정식 제작 경로는 계속 미완료다. 후속 재질 갱신 후보에서 나중에 생성한 하위 그래프를 연결한 뒤 SSS/Transparent/Matte/발광으로 반복 교체하는 CPU 24·실제 Metal 48조건과 Blender recorded 재질 업데이트의 720p CPU/Metal 6종을 검수했다. stale 부모 캐시로 SSS가 로컬 확산으로 바뀌던 결함과 부모 삼각형 광원 누락을 수정했고, live edit의 SSS 지원 범위 우회도 차단했다. GUI 및 제작 기본 SSS 경로는 계속 미완료다. 후속 실제 CPU 역방향 후보는 균일 계수·거친 경계의 LIGHTCPU 전송, 원래 재질/Cryptomatte ID와 일반 표면으로의 전송을 구현했다. 로컬 및 exact-commit CI 전체 휠 각각의 CPU50/adjoint22/Metal51/일반5 조건과 변경 없는 그래프의 720p 각6쌍을 직접 검수했고, 모든 플랫폼 휠과 롤링 게시도 완료했다. GPU 역방향, 공간 PDF·혼합/BIDIR·MIS, 텍스처 계수·재질 분할 및 정식 제작 어댑터 전환은 계속 남아 있다. 순수 광원 경로의 색 노이즈를 제작 품질로 인정하지 않았다. 후속 sharp CPU 후보는 기본 Roughness0의 균일 standalone 경계를 카메라에 연결했다. 로컬 및 exact-commit CI 전체 휠 각각 CPU50/rough22/sharp18/Metal51/일반5와 기존 유리 회귀를 통과하고, 원본 그래프의 각720p3세트를 직접 검수했다. 곡면·비균일 스케일·오목한 기하·일반 표면 전송을 포함한 sharp raw RGB 평균 오차 최댓값은 CI0.715%였다. 실제 path.vertexconnection.enable 지원 범위 우회도 막았다. 순수 광원 추적의 색 노이즈, 작은 manifold root basin 분산과 제작용 전체 SSS 경로는 계속 미완료다. 후속 CPU hybrid·Metropolis 강제 수락·PSR partition·Metal mirror return을 수정하고 exact CI·실제 공통 코어를 배포했다. 낮은 샘플 spectral·rough PSR 실패는 보존했고 동일3% 기준의 CPU50/hybrid23 확대 독립 시드 회귀는 최대1.7592%로 통과했다. 정식 어댑터 전환, 초기 정규화와 색 노이즈 수렴은 남아 있다. 후속 Metropolis 초기화 수정은 native main2536c5169에서 최초 균등 제안 정규화 전의 큰 누적 기여와 CPU 공유 평균 게시 race를 수정했다. 로컬 startup18·동시 warmup 종료3·검은 CPU 필름3, CPU50/hybrid23·rough22·Metal57·PSR3·일반15 및 변경 없는720p 원본 PNG12장을 검수했다. 순수 sharp18 회귀도 모두 통과했다. 후속 exact CI CPU50/hybrid23·rough22/sharp18·Metal57·PSR3·일반15·검은 필름3과 원본720p PNG12장을 검수했고, 네 플랫폼 서명된 롤링 게시 및 실제 공통 코어 전체 wheel 배포를 완료했다. 실제 설치본 CPU/Metal720p2장과 PSR3을 검수했으며 평균 채널 차이는 최대0.1246%였다. 정식 어댑터·사용자 설정은 유지했고 작업용 임시 프로필은 정리했다. 색 입자 노이즈와 정식 제작 SSS 어댑터 전환은 계속 남아 있다.",
-      "evidence": "2026-10-10-cycles-bssrdf-hybrid-transport.md"
+      "status": "미완료: native CPU/Metal eye·CPU sharp adjoint/hybrid 및 Metal rough adjoint/hybrid 로컬 검증; 제작 어댑터 전환 미완료",
+      "remaining": "정식 양수 SSS 어댑터와 Principled/Skin/Burley/Legacy 의미는 아직 미완료다. 균일 standalone RANDOM_WALK 후보의 CPU·Metal eye, CPU rough/sharp adjoint 및 hybrid, Metal rough adjoint/hybrid의 검증은 각 후보 기록으로 구분한다. 최신 rough GPU 후보는 device42/geometry8/hybrid6, 기존 CPU50/hybrid23/rough22/sharp18/Metal57, 실제 GPU light PSR3, sampler4, 일반15/black3 및 원본 그래프를 유지한 720p 3묶음·이미지6장 검수와 원시 EXR 평균 기준을 통과했다. 제작 분광 노이즈 수렴, GPU sharp 카메라 연결, textured/mixed/partitioned reverse와 spatial PDF/MIS, 물리적·partial/dynamic spectral Radius, 작은 양수 정밀도, Normal/Bump·opacity·Volume, 전체 씬·애니메이션·GUI·타 플랫폼 GPU 실행과 정식 기본 경로 전환이 남아 있다. 이번 최신 후보의 exact CI와 실제 설치는 아직 진행 전이다. 실험 제한을 제작 품질 기본값으로 적용하지 않는다.",
+      "evidence": "2026-10-11-cycles-bssrdf-device-adjoint.md"
     },
     {
       "id": "C35",
@@ -1877,7 +1877,8 @@
       "정식 어댑터 양수 SSS와 전체 제작 씬 호환"
     ],
     "ci_hybrid_max_relative_channel_mean_error": 0.017592046505121795,
-    "final_fixture_revision": "All pairs eye65536/light81920; spectral and rough PSR independent seeds131/817/919"
+    "final_fixture_revision": "All pairs eye65536/light81920; spectral and rough PSR independent seeds131/817/919",
+    "historical_psr_scope": "GPU eye paths with native CPU light fallback at 8192 total tasks; combined transport, not an all-device light pass"
   },
   "rolling_core_deployment_2026_10_11": {
     "native_commit": "ce7195b66ddf828353f13186b44e4086cff5417c",
@@ -1959,7 +1960,8 @@
     "actual_stable_adapter_runtime_python_files_preserved": 266,
     "actual_all_python_files_preserved": 374,
     "actual_settings_preserved": true,
-    "ci_temporary_profile_removed": true
+    "ci_temporary_profile_removed": true,
+    "historical_psr_scope": "GPU eye paths with native CPU light fallback at 8192 total tasks; combined transport, not an all-device light pass"
   },
   "rolling_startup_core_deployment_2026_10_11": {
     "native_source_commit": "2536c51691f089ee55be6283fc5778ee71e94819",
@@ -1975,5 +1977,53 @@
     "gui_hot_reload_verified": false,
     "full_goal_complete": false,
     "evidence": "2026-10-11-metropolis-startup.md"
+  },
+  "native_bssrdf_device_adjoint_candidate": {
+    "status": "Native main merged; local rough device transport and unchanged 720p graph verified; exact platform CI and core installation pending; full Cycles goal active",
+    "evidence": "2026-10-11-cycles-bssrdf-device-adjoint.md",
+    "local_native_sha256": "1f71800d1a2e40eb20fd3fd9e9905f03974e149b2715d2562c15278dcad8d551",
+    "local_wheel_sha256": "e047a30312d00f42c5c9d4bb4865af5d5c284a5942590b2a98b2fb6348c52714",
+    "local_device_adjoint_conditions": 42,
+    "local_geometry_conditions": 8,
+    "local_device_hybrid_conditions": 6,
+    "local_cpu_conditions": 50,
+    "local_cpu_hybrid_conditions": 23,
+    "local_cpu_rough_conditions": 22,
+    "local_cpu_sharp_conditions": 18,
+    "local_metal_eye_conditions": 57,
+    "local_all_device_psr_conditions": 3,
+    "local_light_sampler_conditions": 4,
+    "local_guarded_ordinary_conditions": 15,
+    "local_black_film_conditions": 3,
+    "local_fresh_preflight_conditions": 12,
+    "local_device_adjoint_max_relative_channel_error": 0.021388574323205834,
+    "local_device_geometry_max_relative_channel_error": 0.0101188765866454,
+    "local_device_hybrid_max_relative_channel_error": 0.013984321387138702,
+    "local_psr_max_relative_channel_error": 0.020012607777782233,
+    "local_light_sampler_max_relative_channel_error": 0.0019449989244027864,
+    "local_720p_comparison_sets": 3,
+    "local_original_pngs_directly_reviewed": 6,
+    "local_hybrid_body_region_errors": [
+      0.003209493032407047,
+      0.0034007117296957993
+    ],
+    "local_cycles_graphs_unchanged": true,
+    "local_temporary_profile_removed": true,
+    "gpu_adjoint_implemented": "Uniform standalone rough closure, light-only and disjoint hybrid; explicit private device/adjoint flags",
+    "sharp_gpu_camera_connections_implemented": false,
+    "production_noise_convergence_accepted": false,
+    "production_bssrdf_adapter_switched": false,
+    "actual_core_deployed": false,
+    "platform_ci_complete": false,
+    "main_merged": true,
+    "full_goal_complete": false,
+    "remaining": [
+      "GPU sharp camera connections",
+      "Textured/mixed/partitioned reverse kernels and spatial PDF/MIS",
+      "Physical spectral Radius and broad Cycles/Principled/Skin/Burley/legacy closure semantics",
+      "Conspicuous chromatic hybrid grain and production convergence",
+      "Production adapter exposure, full scene/workflow/GUI/animation/platform GPU runtime verification"
+    ],
+    "native_main_commit": "c2915a73a325bd2e5d0e2f999298051bf9af5d32"
   }
 }
