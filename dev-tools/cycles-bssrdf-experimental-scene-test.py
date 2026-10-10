@@ -75,7 +75,7 @@ def fingerprint():
                'objects': sorted((o.name, o.type, list(o.matrix_world),
                                    o.instance_type, o.instance_collection.name if o.instance_collection else '')
                                   for o in s.objects),
-               'cycles_samples': s.cycles.samples}
+               'cycles_samples': s.cycles.samples, 'film_transparent': s.render.film_transparent}
     return hashlib.sha256(json.dumps(payload, sort_keys=True, default=list).encode()).hexdigest()
 
 
@@ -101,10 +101,14 @@ variants = {
 for name, mode in (('mix-diffuse', 'mix'), ('add-diffuse', 'add'),
                    ('textured-mix-diffuse', 'textured')):
     variants[name] = dict(variants['colored'], mixed=mode)
+for name, mode, nested in (('mix-transparent', 'mix', False), ('add-transparent', 'add', False),
+                           ('checker-transparent', 'textured', False), ('nested-transparent', 'mix', True)):
+    variants[name] = dict(variants['colored'], mixed=mode, transparent=True, nested_null=nested)
 records = []
 for case in os.environ.get('SUPERLUXCORE_BSSRDF_VARIANTS', ','.join(variants)).split(','):
     variant = variants[case]
     cfg.config.spectral_enable = variant['spectral']
+    s.render.film_transparent = bool(variant.get('transparent'))
     nodes, links = mat.node_tree.nodes, mat.node_tree.links
     nodes.clear()
     output = nodes.new('ShaderNodeOutputMaterial')
@@ -123,8 +127,15 @@ for case in os.environ.get('SUPERLUXCORE_BSSRDF_VARIANTS', ','.join(variants)).s
         checker.inputs['Scale'].default_value = 5.
         links.new(checker.outputs['Color'], target.inputs['Color'])
     if variant.get('mixed'):
-        diffuse = nodes.new('ShaderNodeBsdfDiffuse')
-        diffuse.inputs['Color'].default_value = (.08, .18, .55, 1.)
+        diffuse = nodes.new('ShaderNodeBsdfTransparent' if variant.get('transparent') and not variant.get('nested_null') else 'ShaderNodeBsdfDiffuse')
+        diffuse.inputs['Color'].default_value = (1., 1., 1., 1.) if diffuse.bl_idname == 'ShaderNodeBsdfTransparent' else (.08, .18, .55, 1.)
+        if variant.get('nested_null'):
+            clear = nodes.new('ShaderNodeBsdfTransparent')
+            inner = nodes.new('ShaderNodeMixShader')
+            inner.inputs[0].default_value = .7
+            links.new(diffuse.outputs[0], inner.inputs[1])
+            links.new(clear.outputs[0], inner.inputs[2])
+            diffuse = inner
         mode = variant['mixed']
         blend = nodes.new('ShaderNodeAddShader' if mode == 'add' else 'ShaderNodeMixShader')
         offset = 0 if mode == 'add' else 1
@@ -189,6 +200,9 @@ for case in os.environ.get('SUPERLUXCORE_BSSRDF_VARIANTS', ','.join(variants)).s
               'native_rgb_mean': b.mean(axis=(0, 1)).tolist(),
               'native_cycles_mean_ratio': float(b.mean() / max(a.mean(), 1e-8)),
               'pixel_mae': float(np.abs(a - b).mean()),
+              'cycles_alpha_mean': float(images['CYCLES'][:, :, 3].mean()),
+              'native_alpha_mean': float(images['SUPERLUXCORE'][:, :, 3].mean()),
+              'alpha_mae': float(np.abs(images['CYCLES'][:, :, 3] - images['SUPERLUXCORE'][:, :, 3]).mean()),
               'native_sha256': hashlib.sha256(Path(pysuperluxcore.pysuperluxcore.__file__).read_bytes()).hexdigest(),
               'directly_reviewed': False, 'full_compatibility_verified': False}
     records.append(record)
