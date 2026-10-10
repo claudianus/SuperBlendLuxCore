@@ -24,3 +24,7 @@ Release native 후보는version2.11.24의 private build로 공개 wheel과 구�
 CUDA/NVIDIA·공개 ZIP·실제 사용자 설치는 다음 gate다. 현재 공개/실제 설치판은2.11.24다. native 품질 기본값, PDF/MIS/RR, 일반OpenPBR는 변경하지 않았다. 양수SSS 등 남은 호환 범위는 계속 작업한다.
 
 증거: workspace `test-scenes/validation-2026-10-10/bump-filter-zero-candidate`.
+
+## Verified 2.11.25 follow-up
+
+이 문서의 private 수정을 exactCI wheel, 최종 ZIP 및 실제 사용자 Blender의 CPU·Metal에서 재검수하고2.11.25로 배포했다. native SHA `e66147e203246a867f30e5e4e9008fa64a4c7a1767adbd1a92b2f1b2c4bafaa0`, frozen addon `bf3e0f50bc531d8a931f03f4de9fc606aa8869a3`다. 배포 검사627개와 비교시트61장, 기본 native beauty2장의 범위·한계는 [배포 검수 기록](2026-10-10-deployment-2.11.25.md)에 따로 기록한다. private 후보의 native/version/hash는 역사적 증거로 그대로 남긴다. 일반 양수 standalone SSS 등 잔여 호환 범위는 계속 작업한다.

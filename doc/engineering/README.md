@@ -68,10 +68,12 @@ docs live alongside in `doc/`.
 
 - [Valid zero, zero SSS and Microfiber sheen](2026-10-10-cycles-zero-subsurface-microfiber.md): 23 private acceptance checks, source-grounded local SSS limit and native fuzz mapping; positive SSS/Ashikhmin gaps remain.
 
-- [Current 2.11.24 standalone positive SSS boundary diagnostic](2026-10-10-cycles-positive-sss-diagnostic.md): confirmed remaining defect; auxiliary models excluded from production acceptance.
+- [Current 2.11.25 standalone positive SSS boundary diagnostic](2026-10-10-cycles-positive-sss-diagnostic.md): confirmed remaining defect; auxiliary models excluded from production acceptance.
 
 - [Verified 2.11.24 Incoming, Backfacing, valid-zero and Microfiber deployment](2026-10-10-deployment-2.11.24.md): 591 guarded CI/fresh/actual CPU and Metal checks; full-scene goal remains active.
 
-- [Cycles Bump zero Filter Width](2026-10-10-cycles-bump-zero-filter.md): 78 private CPU/Metal, spectral and smooth geometry checks; public deployment pending.
+- [Cycles Bump zero Filter Width](2026-10-10-cycles-bump-zero-filter.md): 78 private CPU/Metal, spectral and smooth geometry checks; scoped fix included in verified 2.11.25 deployment.
 
-- [Cycles standalone SSS all-channel local diffuse limit](2026-10-10-cycles-sss-local-limit.md): 58 private adapter checks and 5 reviewed sheets; ordinary positive SSS remains open; 2.11.25 deployment pending.
+- [Cycles standalone SSS all-channel local diffuse limit](2026-10-10-cycles-sss-local-limit.md): 58 private adapter checks and 5 reviewed sheets; scoped fix included in2.11.25; ordinary positive SSS remains open.
+
+- [Verified 2.11.25 Bump zero-width and SSS local diffuse deployment](2026-10-10-deployment-2.11.25.md): 627 guarded CI/fresh/actual checks; goal remains active and incomplete.

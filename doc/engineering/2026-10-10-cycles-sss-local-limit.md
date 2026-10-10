@@ -26,3 +26,7 @@ Blender 5.2.1 LTS source `9e2066aef7ef7e20c142ad7bd3303138a4304c93`의 `intern/c
 exact 2.11.25 CI wheel, frozen addon ZIP 및 실제 사용자 Blender 검수·배포는 다음 gate다. 일반 양수 Radius standalone SSS의 brightness/boundary 실패와 Nvidia 실장비, 다른 플랫폼 GPU, GUI hot reload는 완료 주장 대상이 아니다.
 
 증거: workspace `test-scenes/validation-2026-10-10/sss-local-diffuse-limit-candidate`.
+
+## Verified 2.11.25 follow-up
+
+이 문서의 private 수정을 exactCI wheel, 최종 ZIP 및 실제 사용자 Blender의 CPU·Metal에서 재검수하고2.11.25로 배포했다. native SHA `e66147e203246a867f30e5e4e9008fa64a4c7a1767adbd1a92b2f1b2c4bafaa0`, frozen addon `bf3e0f50bc531d8a931f03f4de9fc606aa8869a3`다. 배포 검사627개와 비교시트61장, 기본 native beauty2장의 범위·한계는 [배포 검수 기록](2026-10-10-deployment-2.11.25.md)에 따로 기록한다. private 후보의 native/version/hash는 역사적 증거로 그대로 남긴다. 일반 양수 standalone SSS 등 잔여 호환 범위는 계속 작업한다.

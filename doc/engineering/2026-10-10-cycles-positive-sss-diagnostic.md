@@ -32,3 +32,9 @@ Cycles 선형 RGB 전체 평균은 0.0257641170, 수정하지 않은 native 결�
 진입 시의 IOR·Roughness·Normal 및 closure weight, 원본 메서드의 내부 산란 계수, 출구 Normal·diffuse 처리, 물체와 volume 경계 상태를 함께 다뤄야 한다. 임의의 shadow override나 IOR 제거를 정식 수정으로 취급하지 않는다. 텍스처가 경계에서 평가되는 의미, mixed closures, per-channel/dynamic zero radius, Skin/Burley/Legacy, CPU·Metal 공통 경로와 양방향 PDF/MIS를 검수해야 한다. 기본 OpenPBR 품질 정책을 변경하지 않는다.
 
 증거는 작업 공간 `test-scenes/validation-2026-10-10/zero-subsurface-microfiber-candidate/positive-sss-source-mapping-24`와 `positive-sss-exit-diagnostic-24`에 원본 소스, scripts, runtime identity, EXR/PNG, 로그, strict/제외 proof로 보존한다.
+
+## Exact 2.11.25 recheck
+
+새 frozen adapter와 exact2.11.25 CI native `e66147e203246a867f30e5e4e9008fa64a4c7a1767adbd1a92b2f1b2c4bafaa0`에서 동일한720p spectral64spp Metal 조건을 다시 검수했다. Cycles literal mean0.0257641170, native0.0013159815로 native/Cycles 비0.0510781이며 두 이미지를 직접 확인했다. native는 여전히 거의 검게 보이며 영상 호환은 실패다. 원본 graph는 그대로이고 native/linked Mean 차이 검사는 통과하지만 그 `passed` 필드는 cross-engine SSS 호환을 뜻하지 않는다. 이 진단을 배포 수용 검사627개에 포함하지 않는다. 이번 모든 채널 local diffuse limit 수정과 일반 양수 Radius의 이 결함은 구분한다. 증거는 `test-scenes/validation-2026-10-10/compatibility-deployment-2.11.25/positive-sss-diagnostic`에 보존한다.
+
+추가 constant RGB(0,0,0)→SSS Scale 연결을 현재 native/source guard로 export 진단했다. `_socket`의 Color→Float가 `dotproduct` texture wrapper가 되므로 현재 local-limit resolver가 이를 상수0으로 해석하지 못하고 OpenPBR를 유지한다. 예상한 local diffuse routing과 다르다. graph는 그대로이며 이 추가 probe는 render를 실행하지 않았고 수용 검사 수에 포함하지 않는다. Value Scale와 RGB Radius의 검증 범위를 RGB Scale 전반으로 일반화하지 않는다. 증거: `compatibility-deployment-2.11.25/sss-rgb-scale-probe`.
