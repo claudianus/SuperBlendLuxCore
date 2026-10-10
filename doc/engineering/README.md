@@ -6,6 +6,7 @@ docs live alongside in `doc/`.
 
 | File | Contents |
 |---|---|
+| [2026-10-10-cycles-bssrdf-device-transport.md](2026-10-10-cycles-bssrdf-device-transport.md) | Private CPU/Metal nonlocal SSS, 14 reviewed 720p pairs, CUDA gate and remaining production requirements |
 | [legacy-compat.md](legacy-compat.md) | Legacy upstream file compatibility |
 | [deployment.md](deployment.md) | Deployment: installed extension, wheel chain, external render |
 | [windows-extension-packaging.md](windows-extension-packaging.md) | Windows extension zip: local build, CI auto-release, bundled NVRTC for RTX/CUDA |

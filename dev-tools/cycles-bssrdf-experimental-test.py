@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
-"""Private CPU transport diagnostic for unchanged Cycles RANDOM_WALK graphs.
+"""Private CPU/Metal diagnostic for unchanged Cycles RANDOM_WALK graphs.
 
-The release adapter is deliberately left unchanged: nonlocal Metal, adjoint
+The release adapter is deliberately left unchanged: default-quality/adjoint
 transport and mixed closures still need implementation. This harness patches
 only the in-process exporter, verifies the full staged package identity, then
 runs the existing 720p literal/linked fixture without editing its Cycles graph.
@@ -61,8 +61,12 @@ def experimental_node(node, output_socket, props, material, superluxcore_name=No
         if value is reader.ERROR_VALUE:
             raise RuntimeError('BSSRDF input could not be exported: ' + name)
         definitions[key] = value
-    definitions['bumptex'] = reader._normal_input(node.inputs['Normal'], props,
-                                                 material, obj_name, group_node_stack)
+    normal_socket = node.inputs['Normal']
+    normal = reader._normal_input(normal_socket, props, material, obj_name, group_node_stack)
+    # The unlinked zero is the ordinary shading-normal default. Serializing
+    # it as a constant bump texture creates a false unsupported-bump context.
+    if normal_socket.is_linked or not reader._is_zero(normal):
+        definitions['bumptex'] = normal
     props.Set(utils.luxutils.create_props('scene.materials.' + superluxcore_name + '.',
                                          definitions))
     exported.append({'object': obj_name, 'material': material.name,
@@ -75,7 +79,11 @@ def experimental_config(*args, **kwargs):
     props = original_config(*args, **kwargs)
     # These are explicit limitations of a private diagnostic, not shipping
     # quality defaults and not production compatibility acceptance.
-    overrides = {'renderengine.type': 'PATHCPU',
+    device = os.environ.get('SUPERLUXCORE_BSSRDF_DEVICE', 'CPU')
+    assert device in ('CPU', 'METAL'), device
+    overrides = {'renderengine.type': 'PATHCPU' if device == 'CPU' else 'PATHOCL',
+                 'path.cyclesbssrdf.experimental.device.enable': device == 'METAL',
+                 'opencl.cpu.use': False, 'opencl.gpu.use': True,
                  'path.cyclesbssrdf.experimental.enable': True,
                  'path.hybridbackforward.enable': False,
                  'path.lighttracing.enable': False,
@@ -106,5 +114,6 @@ finally:
     folder = Path(os.environ['SUPERLUXCORE_AUDIT_DIR'])
     (folder / 'experimental-export.json').write_text(json.dumps({
         'experimental': True, 'production_acceptance': False,
-        'cpu_eye_only': True, 'native_sha256': identity['native_sha256'],
+        'cpu_eye_only': os.environ.get('SUPERLUXCORE_BSSRDF_DEVICE', 'CPU') == 'CPU',
+        'device': os.environ.get('SUPERLUXCORE_BSSRDF_DEVICE', 'CPU'), 'native_sha256': identity['native_sha256'],
         'exported': exported}, ensure_ascii=False, indent=2, default=str) + '\n')

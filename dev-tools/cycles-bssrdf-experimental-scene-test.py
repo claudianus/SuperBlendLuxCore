@@ -3,7 +3,7 @@
 
 Construct ordinary Cycles graphs; rendering must not edit their node inputs,
 links, method or original Cycles settings. These private eye-only results
-are never counted as production/Metal/adjoint compatibility acceptance.
+are never counted as production/default-quality/adjoint compatibility acceptance.
 """
 import hashlib
 import importlib
@@ -164,7 +164,7 @@ for case in os.environ.get('SUPERLUXCORE_BSSRDF_VARIANTS', ','.join(variants)).s
     a, b = images['CYCLES'][:, :, :3], images['SUPERLUXCORE'][:, :, :3]
     record = {'case': case, 'experimental': True, 'production_acceptance': False,
               'graph_sha256': before, 'graph_unchanged': True,
-              'spectral': variant['spectral'], 'device': 'CPU',
+              'spectral': variant['spectral'], 'device': os.environ.get('SUPERLUXCORE_BSSRDF_DEVICE', 'CPU'),
               'resolution': [1280, 720], 'samples': s.cycles.samples,
               'cycles_rgb_mean': a.mean(axis=(0, 1)).tolist(),
               'native_rgb_mean': b.mean(axis=(0, 1)).tolist(),

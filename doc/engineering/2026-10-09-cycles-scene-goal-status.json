@@ -282,8 +282,8 @@
       "priority": "P1",
       "scope": "Principled 모델·SSS",
       "status": "미완료",
-      "remaining": "Principled distribution/subsurface_method와 넓은 RandomWalk/Burley/Skin·SSS IOR·coat/fuzz/thin-film 의미는 미완료다. standalone SSS all-channel local diffuse, RGB/Vector coercion, 상수 Math/Clamp/중첩 Scale·Radius zero routing은 공개2.11.27 CPU·Metal720p/최종ZIP/실제설치에서 검수했다. 공개27의 일반 양수 standalone SSS는 exact27 Metal mean ratio0.0476042로 여전히 실패다. 별도 native CPU eye-only random-walk 후보는 진입 AOV·흡수·RGB 동적/부분 Radius와720p 표적 씬을 검수했다. Metal·adjoint/PDF·mixed/Principled·spectral partial/dynamic Radius·작은 양수 정밀도·Metal material-group payload·출구 ray context·제작/GUI/플랫폼은 아직 남아 있으며 release adapter를 전환하지 않았다. CPU material partition·정적/모션 instance group은 native33/exporter3와720p7쌍에서 검수했다. 애니메이션 실렌더·Metal BSSRDF·정식 adapter 전환은 남아 있다.",
-      "evidence": "2026-10-10-cycles-zero-subsurface-microfiber.md"
+      "remaining": "Principled distribution/subsurface_method와 넓은 RandomWalk/Burley/Skin·SSS IOR·coat/fuzz/thin-film 의미는 미완료다. standalone SSS의 영 반경/Scale 경로는 공개2.11.27에서 검수했지만 양수 SSS의 공개27 Metal 실패(mean ratio 0.0476042)는 정식 어댑터에서 아직 해결 배포되지 않았다. 별도 native CPU/Metal eye-only RANDOM_WALK 후보는 현재 모듈의 CPU 33조건·실제 M5 Pro Metal 17조건과 720p 128spp CPU/Metal 14쌍을 직접 검수했다. 물체별 material partition·복제 경계, 진입 AOV, Generated 기반 영 Scale 처리가 확인됐고 CUDA NVRTC 컴파일도 통과했다. adjoint/LT/BIDIR의 비국소 density/PDF/MIS, mixed/Add/Principled, Skin/Burley/Legacy, spectral physical/partial/dynamic Radius, 임의의 작은 양수 정밀도, 출구 Normal/Bump·ray context, Volume·제작/애니메이션/GUI/플랫폼 GPU 실행 검증과 정식 어댑터 전환은 남아 있다. 실험용 eye-only 제한을 제작 기본 설정으로 사용하지 않는다.",
+      "evidence": "2026-10-10-cycles-bssrdf-device-transport.md"
     },
     {
       "id": "C35",
@@ -1562,5 +1562,39 @@
     "main_merged": true,
     "evidence": "2026-10-10-cycles-bssrdf-object-groups.md",
     "remaining": "Metal nonlocal walk and object-group payloads; adjoint/LT/BIDIR and PDF/MIS; mixed/Add/Principled; Skin/Burley/Legacy; spectral Radius mapping; tiny-positive precision; exit ray context; Volume combinations; production/animated rendering/GUI/platform verification"
+  },
+  "native_bssrdf_device_candidate": {
+    "experimental": true,
+    "native_sha256": "4cfb861d93b8d10b8509418e5c48ae928fda30082e3260b3d1bac95ebaba835d",
+    "metadata_version": "2.11.27",
+    "cpu_contract_conditions": 33,
+    "metal_contract_conditions": 17,
+    "ordinary_emission_regression_conditions": 5,
+    "reviewed_720p_pairs": 14,
+    "samples": 128,
+    "resolution": [
+      1280,
+      720
+    ],
+    "actual_backend": "Apple M5 Pro METAL_GPU",
+    "wavefront_modes": [
+      "off",
+      "on"
+    ],
+    "unchanged_cycles_graphs": true,
+    "material_partitions_and_instances_verified": true,
+    "generated_zero_scale_precision_fixed": true,
+    "cuda_nvrtc_compile_passed": true,
+    "native_main_commit": "33ae1bd3c1ce60aee0dfc42ffeb2a0a4122755e3",
+    "platform_ci_url": "https://github.com/claudianus/SuperLuxCore/actions/runs/38029335102",
+    "platform_ci_status": "in_progress",
+    "production_acceptance_conditions": 0,
+    "public27_sss_fix_deployed": false,
+    "actual_user_install_modified": false,
+    "quality_defaults_changed": false,
+    "full_goal_complete": false,
+    "main_merged": true,
+    "evidence": "2026-10-10-cycles-bssrdf-device-transport.md",
+    "remaining": "adjoint/LT/BIDIR/PDF/MIS; mixed/Add/Principled; Skin/Burley/Legacy; spectral physical/partial/dynamic Radius; arbitrary tiny-positive Radius; exit Normal/Bump/ray context; Volume; production/animation/GUI/platform GPU runtime; release adapter transition"
   }
 }
