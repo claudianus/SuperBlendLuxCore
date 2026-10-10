@@ -2837,14 +2837,37 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
         # Resolve constant Value/RGB outputs without changing the graph.
         # Cycles tests the float32 product of Scale and each Radius channel
         # before remapping it for the selected BSSRDF method.
-        def constant_input(value):
-            if _is_textured(value):
-                key = "scene.textures." + value
-                if props.IsDefined(key + ".type") and props.Get(key + ".type").GetString() in \
-                        ("constfloat1", "constfloat3"):
-                    values = props.Get(key + ".value").Get()
-                    return values[0] if len(values) == 1 else values
-            return value
+        def constant_input(value, seen=()):
+            if not _is_textured(value) or value in seen or len(seen) >= 16:
+                return value
+            key = "scene.textures." + value
+            if not props.IsDefined(key + ".type"):
+                return value
+            kind = props.Get(key + ".type").GetString()
+            if kind in ("constfloat1", "constfloat3"):
+                values = props.Get(key + ".value").Get()
+                return values[0] if len(values) == 1 else values
+            # _socket emits data-channel coercion wrappers for Color/Vector
+            # outputs connected to scalar Scale. Resolve only constant
+            # operands; geometry/texture-dependent values stay in the bulk
+            # path. Keep the wrapper's actual luma/average coefficients.
+            if kind not in ("dotproduct", "makefloat3"):
+                return value
+            operands = []
+            for channel in range(1, 3 if kind == "dotproduct" else 4):
+                prop = key + ".texture" + str(channel)
+                if not props.IsDefined(prop):
+                    return value
+                values = props.Get(prop).Get()
+                operand = values[0] if len(values) == 1 else values
+                operand = constant_input(operand, seen + (value,))
+                if _is_textured(operand):
+                    return value
+                operands.append(operand)
+            if kind == "makefloat3":
+                return operands if all(isinstance(v, (int, float)) for v in operands) else value
+            folded = _const_binary("dotproduct", *operands)
+            return c_float(folded).value if folded is not None else value
 
         constant_scale = constant_input(scale)
         constant_radius = constant_input(radius)

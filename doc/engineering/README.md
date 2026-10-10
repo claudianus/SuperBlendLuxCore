@@ -77,3 +77,5 @@ docs live alongside in `doc/`.
 - [Cycles standalone SSS all-channel local diffuse limit](2026-10-10-cycles-sss-local-limit.md): 58 private adapter checks and 5 reviewed sheets; scoped fix included in2.11.25; ordinary positive SSS remains open.
 
 - [Verified 2.11.25 Bump zero-width and SSS local diffuse deployment](2026-10-10-deployment-2.11.25.md): 627 guarded CI/fresh/actual checks; goal remains active and incomplete.
+
+- [Cycles SSS constant RGB/Vector Scale coercion](2026-10-10-cycles-sss-scale-coercion.md): private CPU/Metal46 checks and6 reviewed sheets;2.11.26 deployment pending, full goal active.

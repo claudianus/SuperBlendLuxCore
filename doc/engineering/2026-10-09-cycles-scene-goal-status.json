@@ -1,8 +1,8 @@
 {
   "goal": "기존 Cycles 씬의 무변환 시각·논리 의미 호환",
   "complete": false,
-  "target_version": "2.11.25",
-  "public_package_verified": true,
+  "target_version": "2.11.26",
+  "public_package_verified": false,
   "baseline": "2026-10-09-remaining-issues.json",
   "node_census": {
     "conditions": 1023,
@@ -1268,5 +1268,36 @@
     "evidence": "2026-10-10-deployment-2.11.25.md",
     "installed_in_user_blender": true,
     "verified": true
+  },
+  "sss_scale_coercion_candidate": {
+    "candidate_native_version": "2.11.25",
+    "native_sha256": "e66147e203246a867f30e5e4e9008fa64a4c7a1767adbd1a92b2f1b2c4bafaa0",
+    "reader_sha256": "0435ad6ec9c1c5ed6f1bd50845fb8964639437d56a003f5512dbd774b6df09a0",
+    "private_cpu_checks": 23,
+    "private_metal_checks": 23,
+    "private_total_checks": 46,
+    "new_unchanged_graph_conditions": 10,
+    "existing_sss_local_limit_regressions": 13,
+    "new_paired_720p_spectral64spp_conditions_per_backend": 6,
+    "existing_paired_sss_conditions_per_backend": 10,
+    "new_export_only_controls_per_backend": 4,
+    "qa_sheets_reviewed": 6,
+    "baseline_export_failed_conditions": 6,
+    "baseline_rgb_zero_mean_ratio": 0.04945496751091307,
+    "graph_unchanged": true,
+    "main_merged": true,
+    "public_package_verified": false,
+    "actual_user_installed": false,
+    "ordinary_positive_sss_compatible": false,
+    "native_quality_defaults_changed": false,
+    "goal_complete": false,
+    "target_version": "2.11.26",
+    "canonical_fixture_export_checks": 10,
+    "canonical_fixture_export_passed": true,
+    "version_26_native_build_verified": false,
+    "evidence": "2026-10-10-cycles-sss-scale-coercion.md",
+    "candidate_verified": true,
+    "portable_fixture_export_checks": 10,
+    "portable_fixture_export_passed": true
   }
 }
