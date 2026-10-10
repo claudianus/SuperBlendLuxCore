@@ -2851,11 +2851,13 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
             # outputs connected to scalar Scale. Resolve only constant
             # operands; geometry/texture-dependent values stay in the bulk
             # path. Keep the wrapper's actual luma/average coefficients.
-            if kind not in ("dotproduct", "makefloat3"):
+            if kind not in ("dotproduct", "makefloat3", "add", "subtract", "scale", "divide", "clamp"):
                 return value
             operands = []
-            for channel in range(1, 3 if kind == "dotproduct" else 4):
-                prop = key + ".texture" + str(channel)
+            names = ("texture", "min", "max") if kind == "clamp" else tuple(
+                "texture" + str(channel) for channel in range(1, 4 if kind == "makefloat3" else 3))
+            for name in names:
+                prop = key + "." + name
                 if not props.IsDefined(prop):
                     return value
                 values = props.Get(prop).Get()
@@ -2866,8 +2868,21 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
                 operands.append(operand)
             if kind == "makefloat3":
                 return operands if all(isinstance(v, (int, float)) for v in operands) else value
-            folded = _const_binary("dotproduct", *operands)
-            return c_float(folded).value if folded is not None else value
+            # Shader Math uses float32 at every operation. Quantize each
+            # folded result before a parent or the strict radius limit reads it.
+            if kind == "clamp":
+                texture, lower, upper = operands
+                if not isinstance(lower, (int, float)) or not isinstance(upper, (int, float)):
+                    return value
+                channels = texture if isinstance(texture, (list, tuple)) else [texture]
+                folded = [min(max(v, lower), upper) for v in channels]
+                if not isinstance(texture, (list, tuple)):
+                    folded = folded[0]
+            else:
+                folded = _const_binary(kind, *operands)
+            if folded is None:
+                return value
+            return [c_float(v).value for v in folded] if isinstance(folded, (list, tuple)) else c_float(folded).value
 
         constant_scale = constant_input(scale)
         constant_radius = constant_input(radius)

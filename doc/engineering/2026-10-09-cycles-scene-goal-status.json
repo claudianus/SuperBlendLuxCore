@@ -1,7 +1,7 @@
 {
   "goal": "기존 Cycles 씬의 무변환 시각·논리 의미 호환",
   "complete": false,
-  "target_version": "2.11.26",
+  "target_version": "2.11.27",
   "public_package_verified": true,
   "baseline": "2026-10-09-remaining-issues.json",
   "node_census": {
@@ -282,7 +282,7 @@
       "priority": "P1",
       "scope": "Principled 모델·SSS",
       "status": "미완료",
-      "remaining": "Principled distribution/subsurface_method와 넓은 RandomWalk/Burley/Skin·SSS IOR·coat/fuzz/thin-film 의미는 미완료다. standalone SSS all-channel local diffuse 및 상수 RGB/Vector Scale wrapper는 공개2.11.26 CPU·Metal720p/최종ZIP/실제설치에서 검수했다. 일반 양의 반경 standalone SSS는 exact2.11.26 mean ratio0.0493380으로 여전히 실패다. 상수 Math·Clamp·중첩 입력은 추가 baseline18조건 중13조건에서 local diffuse routing이 실패했고 별도 후보를 검수 중이다. 동적·부분채널 Radius와 Ashikhmin Sheen 및 제작/GUI/플랫폼 검수는 남아 있다.",
+      "remaining": "Principled distribution/subsurface_method와 넓은 RandomWalk/Burley/Skin·SSS IOR·coat/fuzz/thin-film 의미는 미완료다. standalone SSS all-channel local diffuse 및 상수 RGB/Vector Scale wrapper는 공개2.11.26 CPU·Metal720p/최종ZIP/실제설치에서 검수했다. 일반 양의 반경 standalone SSS는 exact2.11.26 mean ratio0.0493380으로 여전히 실패다. 상수 Math·Clamp·중첩 입력은 추가 baseline18조건 중13조건에서 local diffuse routing이 실패했고 후속 후보의 CPU·Metal82조건과5 비교시트를 통과했으며 native27/최종ZIP/실제설치 검수가 남아 있다. 동적·부분채널 Radius와 Ashikhmin Sheen 및 제작/GUI/플랫폼 검수는 남아 있다.",
       "evidence": "2026-10-10-cycles-zero-subsurface-microfiber.md"
     },
     {
@@ -1399,5 +1399,36 @@
     "evidence": "2026-10-10-deployment-2.11.26.md",
     "installed_in_user_blender": true,
     "verified": true
+  },
+  "sss_constant_expression_candidate": {
+    "candidate_native_version": "2.11.26",
+    "native_sha256": "43c2f6df5193e4b5953fc533c3fd0ef945486f108d2048b4ceedb55779c42a31",
+    "reader_sha256": "7dd35540ac9a1fcffdbd4b1aeb2684957f51164e799a30b93cc6d271fcb6a235",
+    "fixture_sha256": "93875a8c5b4e7165b962fb09d9f2857e55538dd31f97a2fff9c1593730e31465",
+    "private_cpu_checks": 41,
+    "private_metal_checks": 41,
+    "private_total_checks": 82,
+    "new_unchanged_graph_conditions": 18,
+    "new_paired_720p_spectral64spp_conditions_per_backend": 13,
+    "new_export_only_controls_per_backend": 5,
+    "existing_sss_conditions_per_backend": 23,
+    "qa_sheets_reviewed": 5,
+    "portable_fixture_export_checks": 18,
+    "portable_fixture_ast_unchanged": true,
+    "baseline_export_failed_conditions": 13,
+    "baseline_math_add_zero_mean_ratio": 0.04934157018225809,
+    "graph_unchanged": true,
+    "main_merged": true,
+    "public_package_verified": false,
+    "actual_user_installed": false,
+    "ordinary_positive_sss_compatible": false,
+    "native_quality_defaults_changed": false,
+    "goal_complete": false,
+    "target_version": "2.11.27",
+    "evidence": "2026-10-10-cycles-sss-constant-expression.md",
+    "candidate_verified": true,
+    "version_27_native_build_verified": false,
+    "canonical_fixture_export_checks": 18,
+    "canonical_fixture_export_passed": true
   }
 }

@@ -81,3 +81,5 @@ docs live alongside in `doc/`.
 - [Cycles SSS constant RGB/Vector Scale coercion](2026-10-10-cycles-sss-scale-coercion.md): 46 private CPU/Metal checks and6 reviewed sheets; verified public2.11.26 deployment with86 guarded checks and9 sheets.
 
 - [Verified 2.11.26 SSS RGB/Vector Scale coercion deployment](2026-10-10-deployment-2.11.26.md):86 guarded CI/fresh/actual checks; full goal remains active and incomplete.
+
+- [Cycles SSS constant arithmetic inputs](2026-10-10-cycles-sss-constant-expression.md):82 private CPU/Metal conditions,5 reviewed sheets; native27/ZIP/actual deployment pending, full goal active.
