@@ -83,13 +83,13 @@ def experimental_config(*args, **kwargs):
     # These are explicit limitations of a private diagnostic, not shipping
     # quality defaults and not production compatibility acceptance.
     device = os.environ.get('SUPERLUXCORE_BSSRDF_DEVICE', 'CPU')
-    assert device in ('CPU', 'METAL', 'LIGHTCPU'), device
-    overrides = {'renderengine.type': {'CPU': 'PATHCPU', 'METAL': 'PATHOCL', 'LIGHTCPU': 'LIGHTCPU'}[device],
+    assert device in ('CPU', 'METAL', 'LIGHTCPU', 'CPUHYBRID'), device
+    overrides = {'renderengine.type': {'CPU': 'PATHCPU', 'METAL': 'PATHOCL', 'LIGHTCPU': 'LIGHTCPU', 'CPUHYBRID': 'PATHCPU'}[device],
                  'path.cyclesbssrdf.experimental.device.enable': device == 'METAL',
-                 'path.cyclesbssrdf.experimental.adjoint.enable': device == 'LIGHTCPU',
+                 'path.cyclesbssrdf.experimental.adjoint.enable': device in ('LIGHTCPU', 'CPUHYBRID'),
                  'opencl.cpu.use': False, 'opencl.gpu.use': True,
                  'path.cyclesbssrdf.experimental.enable': True,
-                 'path.hybridbackforward.enable': False,
+                 'path.hybridbackforward.enable': device == 'CPUHYBRID',
                  'path.lighttracing.enable': False,
                  'path.lighttracing.auto': False,
                  'path.lighttracing.only': False,
@@ -117,6 +117,13 @@ def experimental_halt(scene):
         props.Set(pysuperluxcore.Property('batch.haltspp', [0, samples]))
         exported_halts.append([0, samples])
         print('BSSRDF_DIAGNOSTIC_LIGHT_HALT', [0, samples], flush=True)
+    elif os.environ.get('SUPERLUXCORE_BSSRDF_DEVICE') == 'CPUHYBRID':
+        samples = int(os.environ.get('SUPERLUXCORE_BSSRDF_LIGHT_SAMPLES',
+                                     str(utils.get_halt_conditions(scene).samples)))
+        budget = [int(utils.get_halt_conditions(scene).samples), samples]
+        props.Set(pysuperluxcore.Property('batch.haltspp', budget))
+        exported_halts.append(budget)
+        print('BSSRDF_DIAGNOSTIC_HYBRID_HALT', budget, flush=True)
     return props
 
 
@@ -140,6 +147,7 @@ finally:
         'experimental': True, 'production_acceptance': False,
         'cpu_eye_only': os.environ.get('SUPERLUXCORE_BSSRDF_DEVICE', 'CPU') == 'CPU',
         'adjoint_light_only': os.environ.get('SUPERLUXCORE_BSSRDF_DEVICE') == 'LIGHTCPU',
+        'cpu_hybrid': os.environ.get('SUPERLUXCORE_BSSRDF_DEVICE') == 'CPUHYBRID',
         'light_samples_override': os.environ.get('SUPERLUXCORE_BSSRDF_LIGHT_SAMPLES'),
         'exported_light_halts': exported_halts,
         'device': os.environ.get('SUPERLUXCORE_BSSRDF_DEVICE', 'CPU'), 'native_sha256': identity['native_sha256'],

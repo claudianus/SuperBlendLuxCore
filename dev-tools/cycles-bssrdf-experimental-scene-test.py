@@ -70,16 +70,28 @@ def fingerprint():
                                getattr(n, 'falloff', ''), getattr(n, 'operation', '')) for n in nodes),
                'links': sorted((l.from_node.name, l.from_socket.name,
                                 l.to_node.name, l.to_socket.name) for l in material.node_tree.links)}
-    payload = {'materials': [(material.name, graph(material)) for material in obj.data.materials],
+    payload = {'materials': sorted((material.name, graph(material))
+                                  for material in bpy.data.materials if material.use_nodes),
+               'world': graph(s.world),
+               'lights': sorted((o.name, o.data.type, o.data.energy, list(o.data.color),
+                                 getattr(o.data, 'angle', 0.))
+                                for o in s.objects if o.type == 'LIGHT'),
                'material_indices': [p.material_index for p in obj.data.polygons],
                'objects': sorted((o.name, o.type, list(o.matrix_world),
                                    o.instance_type, o.instance_collection.name if o.instance_collection else '')
                                   for o in s.objects),
-               'cycles_samples': s.cycles.samples, 'film_transparent': s.render.film_transparent}
+               'cycles_samples': s.cycles.samples, 'cycles_filter_glossy': s.cycles.blur_glossy,
+               'film_transparent': s.render.film_transparent}
     return hashlib.sha256(json.dumps(payload, sort_keys=True, default=list).encode()).hexdigest()
 
 
 variants = {
+    'hybrid-glass-sharp': {'color': (.55, .2, .08, 1.), 'radius': (1., .3, .2),
+                          'scale': .8, 'roughness': 0., 'anisotropy': 0.,
+                          'spectral': True, 'glass_caster': True},
+    'hybrid-glass-rough': {'color': (.45, .45, .45, 1.), 'radius': (1., .3, .2),
+                          'scale': .8, 'roughness': .4, 'anisotropy': 0.,
+                          'spectral': True, 'glass_caster': True},
     'sharp-colored': {'color': (.55, .2, .08, 1.), 'radius': (1., .3, .2),
                       'scale': .2, 'roughness': 0., 'anisotropy': 0., 'spectral': True},
     'rough-anisotropic': {'color': (.45, .45, .45, 1.), 'radius': (1., .2, .1),
@@ -107,8 +119,31 @@ for name, mode, nested in (('mix-transparent', 'mix', False), ('add-transparent'
                            ('checker-transparent', 'textured', False), ('nested-transparent', 'mix', True)):
     variants[name] = dict(variants['colored'], mixed=mode, transparent=True, nested_null=nested)
 records = []
+original_filter_glossy = s.cycles.blur_glossy
 for case in os.environ.get('SUPERLUXCORE_BSSRDF_VARIANTS', ','.join(variants)).split(','):
     variant = variants[case]
+    caster = None
+    if variant.get('glass_caster'):
+        # A closed slab, rather than an open dielectric interface, keeps the
+        # authored Cycles scene's exterior medium and energy well defined.
+        sun.data.energy = 0.
+        s.world.node_tree.nodes['Background'].inputs['Color'].default_value = (1., 1., 1., 1.)
+        s.world.node_tree.nodes['Background'].inputs['Strength'].default_value = 1.
+        s.cycles.blur_glossy = 0.
+        bpy.ops.mesh.primitive_cube_add(size=2., location=(0., 1.3, 0.))
+        caster = bpy.context.object
+        caster.name = 'Unchanged Cycles sharp glass slab'
+        caster.scale = (3., .05, 3.)
+        caster_material = bpy.data.materials.new('Unchanged Cycles Glass BSDF')
+        caster_material.use_nodes = True
+        caster_material.node_tree.nodes.clear()
+        glass = caster_material.node_tree.nodes.new('ShaderNodeBsdfGlass')
+        glass.inputs['Color'].default_value = (1., 1., 1., 1.)
+        glass.inputs['Roughness'].default_value = 0.
+        glass.inputs['IOR'].default_value = 1.5
+        glass_output = caster_material.node_tree.nodes.new('ShaderNodeOutputMaterial')
+        caster_material.node_tree.links.new(glass.outputs[0], glass_output.inputs['Surface'])
+        caster.data.materials.append(caster_material)
     cfg.config.spectral_enable = variant['spectral']
     s.render.film_transparent = bool(variant.get('transparent'))
     nodes, links = mat.node_tree.nodes, mat.node_tree.links
@@ -222,4 +257,10 @@ for case in os.environ.get('SUPERLUXCORE_BSSRDF_VARIANTS', ','.join(variants)).s
         bpy.data.materials.remove(second_material)
         for face in obj.data.polygons:
             face.material_index = 0
+    if caster:
+        bpy.data.objects.remove(caster, do_unlink=True)
+        bpy.data.materials.remove(caster_material)
+        sun.data.energy = 1.
+        s.world.node_tree.nodes['Background'].inputs['Strength'].default_value = 0.
+        s.cycles.blur_glossy = original_filter_glossy
 print('BSSRDF_SCENE_COMPLETE', len(records), flush=True)
