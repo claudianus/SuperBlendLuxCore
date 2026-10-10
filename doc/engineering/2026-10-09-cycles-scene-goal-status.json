@@ -282,7 +282,7 @@
       "priority": "P1",
       "scope": "Principled 모델·SSS",
       "status": "미완료",
-      "remaining": "Principled distribution/subsurface_method와 넓은 RandomWalk/Burley/Skin·SSS IOR·coat/fuzz/thin-film 의미는 미완료다. standalone SSS의 영 반경/Scale 경로는 공개2.11.27에서 검수했지만 양수 SSS의 공개27 Metal 실패(mean ratio 0.0476042)는 정식 어댑터에서 아직 해결 배포되지 않았다. 별도 native CPU/Metal eye-only RANDOM_WALK 후보는 현재 모듈의 CPU 33조건·실제 M5 Pro Metal 17조건과 720p 128spp CPU/Metal 14쌍을 직접 검수했다. 물체별 material partition·복제 경계, 진입 AOV, Generated 기반 영 Scale 처리가 확인됐고 CUDA NVRTC 컴파일도 통과했다. adjoint/LT/BIDIR의 비국소 density/PDF/MIS, mixed/Add/Principled, Skin/Burley/Legacy, spectral physical/partial/dynamic Radius, 임의의 작은 양수 정밀도, 출구 Normal/Bump·ray context, Volume·제작/애니메이션/GUI/플랫폼 GPU 실행 검증과 정식 어댑터 전환은 남아 있다. 실험용 eye-only 제한을 제작 기본 설정으로 사용하지 않는다. 후속 opaque Mix/Add 후보는 현재 CPU 39조건·Metal 29조건 및 변경 없는 혼합 그래프 720p CPU/Metal 6쌍을 검수했다. 명시적 opacity/Normal/Bump/Volume 혼합, Principled 및 adjoint 제작 경로는 계속 미완료다. 후속 Transparent BSDF 혼합과 안쪽 진입·탈출 면은 현재 CPU 50조건·Metal 51조건 및 기존 그래프의 720p CPU/Metal 8쌍으로 검수했다. Add 밝기는 0.5388 실패에서 CPU 1.0246/Metal 1.0223으로 복원했고, 512spp 보조 검증에서 Alpha 잔여가 감소했다. 정식 제작 경로는 계속 미완료다. 후속 재질 갱신 후보에서 나중에 생성한 하위 그래프를 연결한 뒤 SSS/Transparent/Matte/발광으로 반복 교체하는 CPU 24·실제 Metal 48조건과 Blender recorded 재질 업데이트의 720p CPU/Metal 6종을 검수했다. stale 부모 캐시로 SSS가 로컬 확산으로 바뀌던 결함과 부모 삼각형 광원 누락을 수정했고, live edit의 SSS 지원 범위 우회도 차단했다. GUI 및 제작 기본 SSS 경로는 계속 미완료다.",
+      "remaining": "Principled distribution/subsurface_method와 넓은 RandomWalk/Burley/Skin·SSS IOR·coat/fuzz/thin-film 의미는 미완료다. standalone SSS의 영 반경/Scale 경로는 공개2.11.27에서 검수했지만 양수 SSS의 공개27 Metal 실패(mean ratio 0.0476042)는 정식 어댑터에서 아직 해결 배포되지 않았다. 별도 native CPU/Metal eye-only RANDOM_WALK 후보는 현재 모듈의 CPU 33조건·실제 M5 Pro Metal 17조건과 720p 128spp CPU/Metal 14쌍을 직접 검수했다. 물체별 material partition·복제 경계, 진입 AOV, Generated 기반 영 Scale 처리가 확인됐고 CUDA NVRTC 컴파일도 통과했다. adjoint/LT/BIDIR의 비국소 density/PDF/MIS, mixed/Add/Principled, Skin/Burley/Legacy, spectral physical/partial/dynamic Radius, 임의의 작은 양수 정밀도, 출구 Normal/Bump·ray context, Volume·제작/애니메이션/GUI/플랫폼 GPU 실행 검증과 정식 어댑터 전환은 남아 있다. 실험용 eye-only 제한을 제작 기본 설정으로 사용하지 않는다. 후속 opaque Mix/Add 후보는 현재 CPU 39조건·Metal 29조건 및 변경 없는 혼합 그래프 720p CPU/Metal 6쌍을 검수했다. 명시적 opacity/Normal/Bump/Volume 혼합, Principled 및 adjoint 제작 경로는 계속 미완료다. 후속 Transparent BSDF 혼합과 안쪽 진입·탈출 면은 현재 CPU 50조건·Metal 51조건 및 기존 그래프의 720p CPU/Metal 8쌍으로 검수했다. Add 밝기는 0.5388 실패에서 CPU 1.0246/Metal 1.0223으로 복원했고, 512spp 보조 검증에서 Alpha 잔여가 감소했다. 정식 제작 경로는 계속 미완료다. 후속 재질 갱신 후보에서 나중에 생성한 하위 그래프를 연결한 뒤 SSS/Transparent/Matte/발광으로 반복 교체하는 CPU 24·실제 Metal 48조건과 Blender recorded 재질 업데이트의 720p CPU/Metal 6종을 검수했다. stale 부모 캐시로 SSS가 로컬 확산으로 바뀌던 결함과 부모 삼각형 광원 누락을 수정했고, live edit의 SSS 지원 범위 우회도 차단했다. GUI 및 제작 기본 SSS 경로는 계속 미완료다. 후속 실제 CPU 역방향 후보는 균일 계수·거친 경계의 LIGHTCPU 전송, 원래 재질/Cryptomatte ID와 일반 표면으로의 전송을 구현했다. 로컬 및 exact-commit CI 전체 휠 각각의 CPU50/adjoint22/Metal51/일반5 조건과 변경 없는 그래프의 720p 각6쌍을 직접 검수했고, 모든 플랫폼 휠과 롤링 게시도 완료했다. 기본 Roughness0의 날카로운 카메라 경계, GPU 역방향, 공간 PDF·혼합/BIDIR·MIS, 텍스처 계수·재질 분할 및 정식 제작 어댑터 전환은 계속 남아 있다. 순수 광원 경로의 색 노이즈를 제작 품질로 인정하지 않았다.",
       "evidence": "2026-10-10-cycles-bssrdf-transparent-transport.md"
     },
     {
@@ -1741,7 +1741,17 @@
     "full_goal_complete": false,
     "native_main_commit": "2db47e4e3f23d4f94909031a45acf8715922b3db",
     "main_merged": true,
-    "platform_ci_status": "in_progress",
-    "platform_ci_url": "https://github.com/claudianus/SuperLuxCore/actions/runs/38044014182"
+    "platform_ci_status": "completed/success",
+    "platform_ci_url": "https://github.com/claudianus/SuperLuxCore/actions/runs/38044014182",
+    "rolling_wheel_publication": "completed/success; exact native commit tag and ARM asset digest verified",
+    "ci_native_sha256": "791a00cc33ba9ca843d13d05771311872d5fe4959f077856d40a87508fad3312",
+    "ci_arm_wheel_sha256": "7b63f68bdea8adf0acd5e484efe0739fda8466b1f775ec7b6ff34541c4d11ca9",
+    "fresh_ci_cpu_contracts": 50,
+    "fresh_ci_adjoint_contracts": 22,
+    "fresh_ci_metal_contracts": 51,
+    "fresh_ci_ordinary_contracts": 5,
+    "fresh_ci_ordinary_skips": 0,
+    "fresh_ci_blender_comparison_sets": 6,
+    "fresh_ci_directly_reviewed": true
   }
 }

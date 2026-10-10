@@ -133,3 +133,35 @@ The public 2.11.27 positive-radius SSS defect is not repaired by a private
 opt-in diagnostic. Production deployment must retain SuperLuxCore quality and
 enable the real adapter only after those contracts are verified. The goal is
 active; this implementation does not narrow or complete it.
+
+## Exact-commit CI wheel delivery
+
+Native main commit `2db47e4e3f23d4f94909031a45acf8715922b3db` passed
+[CI 38044014182](https://github.com/claudianus/SuperLuxCore/actions/runs/38044014182):
+actual CUDA NVRTC, macOS ARM/Intel, Windows and Linux wheels, attestation and
+rolling `wheels-latest` publication all completed successfully. The rolling
+tag points to that exact commit, and the published ARM asset digest equals
+the downloaded artifact. This publishes the native experimental implementation;
+it does not switch the production Blender SSS adapter.
+
+The untouched complete ARM CI wheel has SHA-256
+`7b63f68bdea8adf0acd5e484efe0739fda8466b1f775ec7b6ff34541c4d11ca9`; its loaded native library SHA-256 is
+`791a00cc33ba9ca843d13d05771311872d5fe4959f077856d40a87508fad3312`. An independent profile verifies all 459 package/runtime
+files and 266 add-on Python files before rendering. Fresh CI build checks:
+CPU 50 PASS, adjoint/preflight/identity/live-edit 22 PASS, actual Metal 51 PASS,
+and ordinary transport 5 PASS with no SKIP. The maximum fresh paired furnace
+per-channel mean error is 2.5874%.
+
+The CI wheel also renders the same two unchanged Cycles graphs on CPU, Metal
+and LIGHTCPU at 1280x720: six additional pairs, directly inspected at original
+resolution. Cycles/eye use 128 spp and light tracing uses 512 light spp. Mean
+ratios range 1.01170-1.02537; opaque alpha MAE is zero. Pure LIGHTCPU still has
+substantial chromatic grain and is not accepted as production quality. The
+six decoded Cycles reference images equal the previously reviewed references.
+All raw outputs, images, logs, provenance and the complete CI wheel are retained
+under the evidence folder's `fresh-ci` subtree.
+
+All three repositories have only main and their primary worktree, with local
+main/origin/main/GitHub main aligned and no uncommitted changes after delivery.
+The user's existing installed native library and Cycles reader hashes remain
+unchanged. The full Cycles scene goal remains active and incomplete.
