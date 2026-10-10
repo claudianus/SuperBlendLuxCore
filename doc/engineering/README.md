@@ -1,5 +1,7 @@
 # Engineering notes
 
+- [Sparse Metropolis startup repair and remaining production SSS work](2026-10-11-metropolis-startup.md)
+
 Deep implementation notes, debugging findings and platform gotchas
 extracted from the old monolithic `AGENTS.md`. Feature/user-facing
 docs live alongside in `doc/`.

@@ -282,7 +282,7 @@
       "priority": "P1",
       "scope": "Principled 모델·SSS",
       "status": "미완료",
-      "remaining": "Principled distribution/subsurface_method와 넓은 RandomWalk/Burley/Skin·SSS IOR·coat/fuzz/thin-film 의미는 미완료다. standalone SSS의 영 반경/Scale 경로는 공개2.11.27에서 검수했지만 양수 SSS의 공개27 Metal 실패(mean ratio 0.0476042)는 정식 어댑터에서 아직 해결 배포되지 않았다. 별도 native CPU/Metal eye-only RANDOM_WALK 후보는 현재 모듈의 CPU 33조건·실제 M5 Pro Metal 17조건과 720p 128spp CPU/Metal 14쌍을 직접 검수했다. 물체별 material partition·복제 경계, 진입 AOV, Generated 기반 영 Scale 처리가 확인됐고 CUDA NVRTC 컴파일도 통과했다. adjoint/LT/BIDIR의 비국소 density/PDF/MIS, mixed/Add/Principled, Skin/Burley/Legacy, spectral physical/partial/dynamic Radius, 임의의 작은 양수 정밀도, 출구 Normal/Bump·ray context, Volume·제작/애니메이션/GUI/플랫폼 GPU 실행 검증과 정식 어댑터 전환은 남아 있다. 실험용 eye-only 제한을 제작 기본 설정으로 사용하지 않는다. 후속 opaque Mix/Add 후보는 현재 CPU 39조건·Metal 29조건 및 변경 없는 혼합 그래프 720p CPU/Metal 6쌍을 검수했다. 명시적 opacity/Normal/Bump/Volume 혼합, Principled 및 adjoint 제작 경로는 계속 미완료다. 후속 Transparent BSDF 혼합과 안쪽 진입·탈출 면은 현재 CPU 50조건·Metal 51조건 및 기존 그래프의 720p CPU/Metal 8쌍으로 검수했다. Add 밝기는 0.5388 실패에서 CPU 1.0246/Metal 1.0223으로 복원했고, 512spp 보조 검증에서 Alpha 잔여가 감소했다. 정식 제작 경로는 계속 미완료다. 후속 재질 갱신 후보에서 나중에 생성한 하위 그래프를 연결한 뒤 SSS/Transparent/Matte/발광으로 반복 교체하는 CPU 24·실제 Metal 48조건과 Blender recorded 재질 업데이트의 720p CPU/Metal 6종을 검수했다. stale 부모 캐시로 SSS가 로컬 확산으로 바뀌던 결함과 부모 삼각형 광원 누락을 수정했고, live edit의 SSS 지원 범위 우회도 차단했다. GUI 및 제작 기본 SSS 경로는 계속 미완료다. 후속 실제 CPU 역방향 후보는 균일 계수·거친 경계의 LIGHTCPU 전송, 원래 재질/Cryptomatte ID와 일반 표면으로의 전송을 구현했다. 로컬 및 exact-commit CI 전체 휠 각각의 CPU50/adjoint22/Metal51/일반5 조건과 변경 없는 그래프의 720p 각6쌍을 직접 검수했고, 모든 플랫폼 휠과 롤링 게시도 완료했다. GPU 역방향, 공간 PDF·혼합/BIDIR·MIS, 텍스처 계수·재질 분할 및 정식 제작 어댑터 전환은 계속 남아 있다. 순수 광원 경로의 색 노이즈를 제작 품질로 인정하지 않았다. 후속 sharp CPU 후보는 기본 Roughness0의 균일 standalone 경계를 카메라에 연결했다. 로컬 및 exact-commit CI 전체 휠 각각 CPU50/rough22/sharp18/Metal51/일반5와 기존 유리 회귀를 통과하고, 원본 그래프의 각720p3세트를 직접 검수했다. 곡면·비균일 스케일·오목한 기하·일반 표면 전송을 포함한 sharp raw RGB 평균 오차 최댓값은 CI0.715%였다. 실제 path.vertexconnection.enable 지원 범위 우회도 막았다. 순수 광원 추적의 색 노이즈, 작은 manifold root basin 분산과 제작용 전체 SSS 경로는 계속 미완료다. 후속 CPU hybrid·Metropolis 강제 수락·PSR partition·Metal mirror return을 수정하고 exact CI·실제 공통 코어를 배포했다. 낮은 샘플 spectral·rough PSR 실패는 보존했고 동일3% 기준의 CPU50/hybrid23 확대 독립 시드 회귀는 최대1.7592%로 통과했다. 정식 어댑터 전환, 초기 정규화와 색 노이즈 수렴은 남아 있다.",
+      "remaining": "Principled distribution/subsurface_method와 넓은 RandomWalk/Burley/Skin·SSS IOR·coat/fuzz/thin-film 의미는 미완료다. standalone SSS의 영 반경/Scale 경로는 공개2.11.27에서 검수했지만 양수 SSS의 공개27 Metal 실패(mean ratio 0.0476042)는 정식 어댑터에서 아직 해결 배포되지 않았다. 별도 native CPU/Metal eye-only RANDOM_WALK 후보는 현재 모듈의 CPU 33조건·실제 M5 Pro Metal 17조건과 720p 128spp CPU/Metal 14쌍을 직접 검수했다. 물체별 material partition·복제 경계, 진입 AOV, Generated 기반 영 Scale 처리가 확인됐고 CUDA NVRTC 컴파일도 통과했다. adjoint/LT/BIDIR의 비국소 density/PDF/MIS, mixed/Add/Principled, Skin/Burley/Legacy, spectral physical/partial/dynamic Radius, 임의의 작은 양수 정밀도, 출구 Normal/Bump·ray context, Volume·제작/애니메이션/GUI/플랫폼 GPU 실행 검증과 정식 어댑터 전환은 남아 있다. 실험용 eye-only 제한을 제작 기본 설정으로 사용하지 않는다. 후속 opaque Mix/Add 후보는 현재 CPU 39조건·Metal 29조건 및 변경 없는 혼합 그래프 720p CPU/Metal 6쌍을 검수했다. 명시적 opacity/Normal/Bump/Volume 혼합, Principled 및 adjoint 제작 경로는 계속 미완료다. 후속 Transparent BSDF 혼합과 안쪽 진입·탈출 면은 현재 CPU 50조건·Metal 51조건 및 기존 그래프의 720p CPU/Metal 8쌍으로 검수했다. Add 밝기는 0.5388 실패에서 CPU 1.0246/Metal 1.0223으로 복원했고, 512spp 보조 검증에서 Alpha 잔여가 감소했다. 정식 제작 경로는 계속 미완료다. 후속 재질 갱신 후보에서 나중에 생성한 하위 그래프를 연결한 뒤 SSS/Transparent/Matte/발광으로 반복 교체하는 CPU 24·실제 Metal 48조건과 Blender recorded 재질 업데이트의 720p CPU/Metal 6종을 검수했다. stale 부모 캐시로 SSS가 로컬 확산으로 바뀌던 결함과 부모 삼각형 광원 누락을 수정했고, live edit의 SSS 지원 범위 우회도 차단했다. GUI 및 제작 기본 SSS 경로는 계속 미완료다. 후속 실제 CPU 역방향 후보는 균일 계수·거친 경계의 LIGHTCPU 전송, 원래 재질/Cryptomatte ID와 일반 표면으로의 전송을 구현했다. 로컬 및 exact-commit CI 전체 휠 각각의 CPU50/adjoint22/Metal51/일반5 조건과 변경 없는 그래프의 720p 각6쌍을 직접 검수했고, 모든 플랫폼 휠과 롤링 게시도 완료했다. GPU 역방향, 공간 PDF·혼합/BIDIR·MIS, 텍스처 계수·재질 분할 및 정식 제작 어댑터 전환은 계속 남아 있다. 순수 광원 경로의 색 노이즈를 제작 품질로 인정하지 않았다. 후속 sharp CPU 후보는 기본 Roughness0의 균일 standalone 경계를 카메라에 연결했다. 로컬 및 exact-commit CI 전체 휠 각각 CPU50/rough22/sharp18/Metal51/일반5와 기존 유리 회귀를 통과하고, 원본 그래프의 각720p3세트를 직접 검수했다. 곡면·비균일 스케일·오목한 기하·일반 표면 전송을 포함한 sharp raw RGB 평균 오차 최댓값은 CI0.715%였다. 실제 path.vertexconnection.enable 지원 범위 우회도 막았다. 순수 광원 추적의 색 노이즈, 작은 manifold root basin 분산과 제작용 전체 SSS 경로는 계속 미완료다. 후속 CPU hybrid·Metropolis 강제 수락·PSR partition·Metal mirror return을 수정하고 exact CI·실제 공통 코어를 배포했다. 낮은 샘플 spectral·rough PSR 실패는 보존했고 동일3% 기준의 CPU50/hybrid23 확대 독립 시드 회귀는 최대1.7592%로 통과했다. 정식 어댑터 전환, 초기 정규화와 색 노이즈 수렴은 남아 있다. 후속 Metropolis 초기화 수정은 native main2536c5169에서 최초 균등 제안 정규화 전의 큰 누적 기여와 CPU 공유 평균 게시 race를 수정했다. 로컬 startup18·동시 warmup 종료3·검은 CPU 필름3, CPU50/hybrid23·rough22·Metal57·PSR3·일반15 및 변경 없는720p 원본 PNG12장을 검수했다. 순수 sharp18 회귀도 모두 통과했다. 정확한 CI 아티팩트 검증과 설치 배포는 진행 중이다. 색 입자 노이즈와 정식 제작 SSS 어댑터 전환은 계속 남아 있다.",
       "evidence": "2026-10-10-cycles-bssrdf-hybrid-transport.md"
     },
     {
@@ -1888,5 +1888,48 @@
     "stable_artist_zip_replaced": false,
     "production_bssrdf_adapter_switched": false,
     "evidence": "2026-10-10-cycles-bssrdf-hybrid-transport.md"
+  },
+  "native_metropolis_startup_candidate": {
+    "status": "native main merged; complete local transport/sampler/device/720p validation passed; exact CI deployment pending",
+    "evidence": "2026-10-11-metropolis-startup.md",
+    "native_main_commit": "2536c51691f089ee55be6283fc5778ee71e94819",
+    "main_merged": true,
+    "ci_url": "https://github.com/claudianus/SuperLuxCore/actions/runs/38068653417",
+    "ci_complete": false,
+    "exact_ci_artifact_verified": false,
+    "actual_core_deployed": false,
+    "local_native_sha256": "2147c5aaf6ebef88acb4a3eabceaccaf55c7dfa3d3b627fc25496a16a69cc807",
+    "local_wheel_sha256": "5a1e9ee9c320fa403a0da1f14e4e6b9fb564cf53b847de536aaf89c5d718bbfe",
+    "local_startup_conditions": 18,
+    "local_concurrent_warmup_exit_conditions": 3,
+    "local_max_startup_relative_error": 0.0249626121453,
+    "local_cpu_black_film_conditions": 3,
+    "local_cpu_conditions": 50,
+    "local_hybrid_conditions": 23,
+    "local_rough_conditions": 22,
+    "local_sharp_complete": true,
+    "local_metal_conditions": 57,
+    "local_psr_conditions": 3,
+    "local_guarded_ordinary_conditions": 15,
+    "local_720p_original_pngs_directly_reviewed": 12,
+    "local_hybrid_body_region_errors": [
+      0.00329523437375037,
+      0.01968919627922659
+    ],
+    "local_metal_eye_body_region_errors": [
+      0.007202613268598048,
+      0.001481107511600845
+    ],
+    "production_bssrdf_adapter_switched": false,
+    "production_quality_accepted": false,
+    "full_goal_complete": false,
+    "remaining": [
+      "finite-budget uniform normalizer variance and chromatic grain",
+      "GPU adjoint, textured/mixed reverse transport and spatial PDF/MIS",
+      "positive-radius production SSS adapter and broader Cycles closure semantics",
+      "production workflow, GUI and full-scene compatibility verification"
+    ],
+    "local_sharp_conditions": 18,
+    "local_temporary_profile_removed": true
   }
 }
