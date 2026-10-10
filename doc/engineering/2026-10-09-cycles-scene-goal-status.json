@@ -8,9 +8,9 @@
     "conditions": 1023,
     "exceptions": 0,
     "warning_conditions": 240,
-    "last_verified_version": "2.11.26 exact CI wheel and frozen adapter",
-    "reader_sha256": "0435ad6ec9c1c5ed6f1bd50845fb8964639437d56a003f5512dbd774b6df09a0",
-    "evidence": "2026-10-10-deployment-2.11.26.md"
+    "last_verified_version": "2.11.27 exact CI wheel and frozen adapter",
+    "reader_sha256": "7dd35540ac9a1fcffdbd4b1aeb2684957f51164e799a30b93cc6d271fcb6a235",
+    "evidence": "2026-10-10-deployment-2.11.27.md"
   },
   "issues": [
     {
@@ -282,7 +282,7 @@
       "priority": "P1",
       "scope": "Principled 모델·SSS",
       "status": "미완료",
-      "remaining": "Principled distribution/subsurface_method와 넓은 RandomWalk/Burley/Skin·SSS IOR·coat/fuzz/thin-film 의미는 미완료다. standalone SSS all-channel local diffuse 및 상수 RGB/Vector Scale wrapper는 공개2.11.26 CPU·Metal720p/최종ZIP/실제설치에서 검수했다. 일반 양의 반경 standalone SSS는 exact2.11.26 mean ratio0.0493380으로 여전히 실패다. 상수 Math·Clamp·중첩 입력은 추가 baseline18조건 중13조건에서 local diffuse routing이 실패했고 후속 후보의 CPU·Metal82조건과5 비교시트를 통과했으며 native27/최종ZIP/실제설치 검수가 남아 있다. 동적·부분채널 Radius와 Ashikhmin Sheen 및 제작/GUI/플랫폼 검수는 남아 있다.",
+      "remaining": "Principled distribution/subsurface_method와 넓은 RandomWalk/Burley/Skin·SSS IOR·coat/fuzz/thin-film 의미는 미완료다. standalone SSS all-channel local diffuse, RGB/Vector coercion, 상수 Math/Clamp/중첩 Scale·Radius zero routing은 공개2.11.27 CPU·Metal720p/최종ZIP/실제설치에서 검수했다. 일반 양수 standalone SSS는 exact27 mean ratio0.0476042로 여전히 실패다. 동적·부분채널 Radius, 다른 그래프 표현식, Ashikhmin Sheen 및 제작/GUI/플랫폼 검수는 남아 있다.",
       "evidence": "2026-10-10-cycles-zero-subsurface-microfiber.md"
     },
     {
@@ -480,34 +480,34 @@
       "evidence": "cycles-scene-goal-phase1/workflow"
     }
   ],
-  "public_version": "2.11.26",
+  "public_version": "2.11.27",
   "withdrawn_candidate": {
     "version": "2.11.14",
     "reason": "네 플랫폼 C++ 빌드는 성공했지만 공통 UV payload의 u_int가 실제 Metal shader 컴파일에 실패하여 엔진 후보를 초안으로 회수했다. Blender 확장은 미공개다."
   },
   "public_release": {
-    "version": "2.11.26",
-    "engine_source": "40f07d9248c12b396776e3ff901f68bfb07b514b",
-    "addon_source": "cf15b9ea76553ced859ec77a57fb19ac9c54c0f6",
-    "native_sha256": "43c2f6df5193e4b5953fc533c3fd0ef945486f108d2048b4ceedb55779c42a31",
-    "wheel_ci": 38013084262,
-    "bundle_ci": 38015030851,
+    "version": "2.11.27",
+    "engine_source": "3c0aff0ff3b262305bd78d3082556f76c3aeb16a",
+    "addon_source": "70822369438f41f168216085af3d649cf9aac128",
+    "native_sha256": "d29c2387496c2bb94700b7cbe09a4bb9cdde5c6f225056c6309e8dd3d752b2bf",
+    "wheel_ci": 38016464226,
+    "bundle_ci": 38018750061,
     "counts": {
       "ci": {
-        "cpu": 23,
-        "metal": 23
+        "cpu": 41,
+        "metal": 41
       },
       "final": {
-        "cpu": 10,
-        "metal": 10
+        "cpu": 18,
+        "metal": 18
       },
       "actual": {
-        "cpu": 10,
-        "metal": 10
+        "cpu": 18,
+        "metal": 18
       }
     },
-    "total_targeted_checks": 86,
-    "qa_sheets_reviewed": 9,
+    "total_targeted_checks": 154,
+    "qa_sheets_reviewed": 17,
     "native_beauty_images_reviewed": 2,
     "native_beauty_samples": 128,
     "node_census_conditions": 1023,
@@ -520,23 +520,23 @@
     "nvidia_hardware_render_verified": false,
     "other_platform_blender_gpu_render_verified": false,
     "intel_ci_runtime_smoke": "skipped",
-    "exact_installed_python_files": 373,
+    "exact_installed_python_files": 374,
     "fresh_process_registration_diagnostics": 0,
     "upgrade_cli_registration_diagnostics": 3,
     "gui_hot_reload_verified": false,
     "positive_standalone_sss_compatible": false,
-    "positive_sss_current_version": "2.11.26",
-    "positive_sss_current_mean_ratio": 0.04933798914184892,
+    "positive_sss_current_version": "2.11.27",
+    "positive_sss_current_mean_ratio": 0.047604179582063484,
     "native_quality_defaults_changed": false,
     "native_implementation_unchanged_from": "2.11.25",
     "goal": "active incomplete",
     "public_package_verified": true,
     "actual_installed": true,
-    "engine_release": "https://github.com/claudianus/SuperLuxCore/releases/tag/wheels-v2.11.26",
-    "addon_release": "https://github.com/claudianus/SuperBlendLuxCore/releases/tag/v2.11.26",
+    "engine_release": "https://github.com/claudianus/SuperLuxCore/releases/tag/wheels-v2.11.27",
+    "addon_release": "https://github.com/claudianus/SuperBlendLuxCore/releases/tag/v2.11.27",
     "release_tag_sources_verified": true,
     "public_asset_digests_match_attested_bundles": true,
-    "evidence": "2026-10-10-deployment-2.11.26.md",
+    "evidence": "2026-10-10-deployment-2.11.27.md",
     "installed_in_user_blender": true,
     "verified": true
   },
@@ -627,30 +627,30 @@
     "public_runtime_native_sha256": "79b47dca82b4692aba120aa32adaf339457bfc49c5f822ca1f0f2b7dd83b6324",
     "public_evidence": "2026-10-09-deployment-2.11.20.md"
   },
-  "deployed_version": "2.11.26",
+  "deployed_version": "2.11.27",
   "deployment": {
-    "version": "2.11.26",
-    "engine_source": "40f07d9248c12b396776e3ff901f68bfb07b514b",
-    "addon_source": "cf15b9ea76553ced859ec77a57fb19ac9c54c0f6",
-    "native_sha256": "43c2f6df5193e4b5953fc533c3fd0ef945486f108d2048b4ceedb55779c42a31",
-    "wheel_ci": 38013084262,
-    "bundle_ci": 38015030851,
+    "version": "2.11.27",
+    "engine_source": "3c0aff0ff3b262305bd78d3082556f76c3aeb16a",
+    "addon_source": "70822369438f41f168216085af3d649cf9aac128",
+    "native_sha256": "d29c2387496c2bb94700b7cbe09a4bb9cdde5c6f225056c6309e8dd3d752b2bf",
+    "wheel_ci": 38016464226,
+    "bundle_ci": 38018750061,
     "counts": {
       "ci": {
-        "cpu": 23,
-        "metal": 23
+        "cpu": 41,
+        "metal": 41
       },
       "final": {
-        "cpu": 10,
-        "metal": 10
+        "cpu": 18,
+        "metal": 18
       },
       "actual": {
-        "cpu": 10,
-        "metal": 10
+        "cpu": 18,
+        "metal": 18
       }
     },
-    "total_targeted_checks": 86,
-    "qa_sheets_reviewed": 9,
+    "total_targeted_checks": 154,
+    "qa_sheets_reviewed": 17,
     "native_beauty_images_reviewed": 2,
     "native_beauty_samples": 128,
     "node_census_conditions": 1023,
@@ -663,23 +663,23 @@
     "nvidia_hardware_render_verified": false,
     "other_platform_blender_gpu_render_verified": false,
     "intel_ci_runtime_smoke": "skipped",
-    "exact_installed_python_files": 373,
+    "exact_installed_python_files": 374,
     "fresh_process_registration_diagnostics": 0,
     "upgrade_cli_registration_diagnostics": 3,
     "gui_hot_reload_verified": false,
     "positive_standalone_sss_compatible": false,
-    "positive_sss_current_version": "2.11.26",
-    "positive_sss_current_mean_ratio": 0.04933798914184892,
+    "positive_sss_current_version": "2.11.27",
+    "positive_sss_current_mean_ratio": 0.047604179582063484,
     "native_quality_defaults_changed": false,
     "native_implementation_unchanged_from": "2.11.25",
     "goal": "active incomplete",
     "public_package_verified": true,
     "actual_installed": true,
-    "engine_release": "https://github.com/claudianus/SuperLuxCore/releases/tag/wheels-v2.11.26",
-    "addon_release": "https://github.com/claudianus/SuperBlendLuxCore/releases/tag/v2.11.26",
+    "engine_release": "https://github.com/claudianus/SuperLuxCore/releases/tag/wheels-v2.11.27",
+    "addon_release": "https://github.com/claudianus/SuperBlendLuxCore/releases/tag/v2.11.27",
     "release_tag_sources_verified": true,
     "public_asset_digests_match_attested_bundles": true,
-    "evidence": "2026-10-10-deployment-2.11.26.md",
+    "evidence": "2026-10-10-deployment-2.11.27.md",
     "installed_in_user_blender": true,
     "verified": true
   },
@@ -755,28 +755,28 @@
     }
   },
   "previous_public_release": {
-    "version": "2.11.25",
-    "engine_source": "48c4659d0691f007a2d9c8a36d3d5c58778bf0a8",
-    "addon_source": "bf3e0f50bc531d8a931f03f4de9fc606aa8869a3",
-    "native_sha256": "e66147e203246a867f30e5e4e9008fa64a4c7a1767adbd1a92b2f1b2c4bafaa0",
-    "wheel_ci": 38007003671,
-    "bundle_ci": 38010633568,
+    "version": "2.11.26",
+    "engine_source": "40f07d9248c12b396776e3ff901f68bfb07b514b",
+    "addon_source": "cf15b9ea76553ced859ec77a57fb19ac9c54c0f6",
+    "native_sha256": "43c2f6df5193e4b5953fc533c3fd0ef945486f108d2048b4ceedb55779c42a31",
+    "wheel_ci": 38013084262,
+    "bundle_ci": 38015030851,
     "counts": {
       "ci": {
-        "cpu": 188,
-        "metal": 143
+        "cpu": 23,
+        "metal": 23
       },
       "final": {
-        "cpu": 74,
-        "metal": 74
+        "cpu": 10,
+        "metal": 10
       },
       "actual": {
-        "cpu": 74,
-        "metal": 74
+        "cpu": 10,
+        "metal": 10
       }
     },
-    "total_targeted_checks": 627,
-    "qa_sheets_reviewed": 61,
+    "total_targeted_checks": 86,
+    "qa_sheets_reviewed": 9,
     "native_beauty_images_reviewed": 2,
     "native_beauty_samples": 128,
     "node_census_conditions": 1023,
@@ -789,48 +789,49 @@
     "nvidia_hardware_render_verified": false,
     "other_platform_blender_gpu_render_verified": false,
     "intel_ci_runtime_smoke": "skipped",
-    "exact_installed_python_files": 372,
+    "exact_installed_python_files": 373,
     "fresh_process_registration_diagnostics": 0,
     "upgrade_cli_registration_diagnostics": 3,
     "gui_hot_reload_verified": false,
     "positive_standalone_sss_compatible": false,
-    "positive_sss_current_version": "2.11.25",
-    "positive_sss_current_mean_ratio": 0.05107807490671092,
+    "positive_sss_current_version": "2.11.26",
+    "positive_sss_current_mean_ratio": 0.04933798914184892,
     "native_quality_defaults_changed": false,
+    "native_implementation_unchanged_from": "2.11.25",
     "goal": "active incomplete",
     "public_package_verified": true,
     "actual_installed": true,
-    "engine_release": "https://github.com/claudianus/SuperLuxCore/releases/tag/wheels-v2.11.25",
-    "addon_release": "https://github.com/claudianus/SuperBlendLuxCore/releases/tag/v2.11.25",
+    "engine_release": "https://github.com/claudianus/SuperLuxCore/releases/tag/wheels-v2.11.26",
+    "addon_release": "https://github.com/claudianus/SuperBlendLuxCore/releases/tag/v2.11.26",
     "release_tag_sources_verified": true,
     "public_asset_digests_match_attested_bundles": true,
-    "evidence": "2026-10-10-deployment-2.11.25.md",
+    "evidence": "2026-10-10-deployment-2.11.26.md",
     "installed_in_user_blender": true,
     "verified": true
   },
   "previous_deployment": {
-    "version": "2.11.25",
-    "engine_source": "48c4659d0691f007a2d9c8a36d3d5c58778bf0a8",
-    "addon_source": "bf3e0f50bc531d8a931f03f4de9fc606aa8869a3",
-    "native_sha256": "e66147e203246a867f30e5e4e9008fa64a4c7a1767adbd1a92b2f1b2c4bafaa0",
-    "wheel_ci": 38007003671,
-    "bundle_ci": 38010633568,
+    "version": "2.11.26",
+    "engine_source": "40f07d9248c12b396776e3ff901f68bfb07b514b",
+    "addon_source": "cf15b9ea76553ced859ec77a57fb19ac9c54c0f6",
+    "native_sha256": "43c2f6df5193e4b5953fc533c3fd0ef945486f108d2048b4ceedb55779c42a31",
+    "wheel_ci": 38013084262,
+    "bundle_ci": 38015030851,
     "counts": {
       "ci": {
-        "cpu": 188,
-        "metal": 143
+        "cpu": 23,
+        "metal": 23
       },
       "final": {
-        "cpu": 74,
-        "metal": 74
+        "cpu": 10,
+        "metal": 10
       },
       "actual": {
-        "cpu": 74,
-        "metal": 74
+        "cpu": 10,
+        "metal": 10
       }
     },
-    "total_targeted_checks": 627,
-    "qa_sheets_reviewed": 61,
+    "total_targeted_checks": 86,
+    "qa_sheets_reviewed": 9,
     "native_beauty_images_reviewed": 2,
     "native_beauty_samples": 128,
     "node_census_conditions": 1023,
@@ -843,22 +844,23 @@
     "nvidia_hardware_render_verified": false,
     "other_platform_blender_gpu_render_verified": false,
     "intel_ci_runtime_smoke": "skipped",
-    "exact_installed_python_files": 372,
+    "exact_installed_python_files": 373,
     "fresh_process_registration_diagnostics": 0,
     "upgrade_cli_registration_diagnostics": 3,
     "gui_hot_reload_verified": false,
     "positive_standalone_sss_compatible": false,
-    "positive_sss_current_version": "2.11.25",
-    "positive_sss_current_mean_ratio": 0.05107807490671092,
+    "positive_sss_current_version": "2.11.26",
+    "positive_sss_current_mean_ratio": 0.04933798914184892,
     "native_quality_defaults_changed": false,
+    "native_implementation_unchanged_from": "2.11.25",
     "goal": "active incomplete",
     "public_package_verified": true,
     "actual_installed": true,
-    "engine_release": "https://github.com/claudianus/SuperLuxCore/releases/tag/wheels-v2.11.25",
-    "addon_release": "https://github.com/claudianus/SuperBlendLuxCore/releases/tag/v2.11.25",
+    "engine_release": "https://github.com/claudianus/SuperLuxCore/releases/tag/wheels-v2.11.26",
+    "addon_release": "https://github.com/claudianus/SuperBlendLuxCore/releases/tag/v2.11.26",
     "release_tag_sources_verified": true,
     "public_asset_digests_match_attested_bundles": true,
-    "evidence": "2026-10-10-deployment-2.11.25.md",
+    "evidence": "2026-10-10-deployment-2.11.26.md",
     "installed_in_user_blender": true,
     "verified": true
   },
@@ -1047,7 +1049,7 @@
     "deployed_native_sha256": "c7439663dcbf734ce5296dee46bf3ed85d689c7381cbaa15330f4c24d0dff322",
     "deployment_evidence": "2026-10-10-deployment-2.11.24.md"
   },
-  "next_candidate_version": "2.11.27",
+  "next_candidate_version": null,
   "zero_subsurface_microfiber_candidate": {
     "verified_private": true,
     "public_fixed": true,
@@ -1070,11 +1072,11 @@
   "standalone_positive_sss": {
     "priority": "P1",
     "status": "confirmed remaining visual defect",
-    "version": "2.11.26",
-    "native_sha256": "43c2f6df5193e4b5953fc533c3fd0ef945486f108d2048b4ceedb55779c42a31",
+    "version": "2.11.27",
+    "native_sha256": "d29c2387496c2bb94700b7cbe09a4bb9cdde5c6f225056c6309e8dd3d752b2bf",
     "source_graph_unchanged": true,
     "spectral_metal_720p_64spp": true,
-    "native_cycles_mean_ratio": 0.04933798914184892,
+    "native_cycles_mean_ratio": 0.047604179582063484,
     "production_acceptance": false,
     "evidence": "2026-10-10-cycles-positive-sss-diagnostic.md",
     "images_reviewed": true
@@ -1419,16 +1421,76 @@
     "baseline_math_add_zero_mean_ratio": 0.04934157018225809,
     "graph_unchanged": true,
     "main_merged": true,
-    "public_package_verified": false,
-    "actual_user_installed": false,
+    "public_package_verified": true,
+    "actual_user_installed": true,
     "ordinary_positive_sss_compatible": false,
     "native_quality_defaults_changed": false,
     "goal_complete": false,
     "target_version": "2.11.27",
     "evidence": "2026-10-10-cycles-sss-constant-expression.md",
     "candidate_verified": true,
-    "version_27_native_build_verified": false,
+    "version_27_native_build_verified": true,
     "canonical_fixture_export_checks": 18,
-    "canonical_fixture_export_passed": true
+    "canonical_fixture_export_passed": true,
+    "public_version": "2.11.27",
+    "public_targeted_checks": 154,
+    "public_qa_sheets_reviewed": 17,
+    "public_native_sha256": "d29c2387496c2bb94700b7cbe09a4bb9cdde5c6f225056c6309e8dd3d752b2bf",
+    "public_evidence": "2026-10-10-deployment-2.11.27.md"
+  },
+  "deployment_2_11_27": {
+    "version": "2.11.27",
+    "engine_source": "3c0aff0ff3b262305bd78d3082556f76c3aeb16a",
+    "addon_source": "70822369438f41f168216085af3d649cf9aac128",
+    "native_sha256": "d29c2387496c2bb94700b7cbe09a4bb9cdde5c6f225056c6309e8dd3d752b2bf",
+    "wheel_ci": 38016464226,
+    "bundle_ci": 38018750061,
+    "counts": {
+      "ci": {
+        "cpu": 41,
+        "metal": 41
+      },
+      "final": {
+        "cpu": 18,
+        "metal": 18
+      },
+      "actual": {
+        "cpu": 18,
+        "metal": 18
+      }
+    },
+    "total_targeted_checks": 154,
+    "qa_sheets_reviewed": 17,
+    "native_beauty_images_reviewed": 2,
+    "native_beauty_samples": 128,
+    "node_census_conditions": 1023,
+    "node_census_exceptions": 0,
+    "node_census_warning_conditions": 240,
+    "engine_nvrtc_programs_passed": 23,
+    "bundle_nvrtc_programs_passed": 23,
+    "four_wheel_and_bundle_attestations_verified": true,
+    "actual_macos_cpu_metal_verified": true,
+    "nvidia_hardware_render_verified": false,
+    "other_platform_blender_gpu_render_verified": false,
+    "intel_ci_runtime_smoke": "skipped",
+    "exact_installed_python_files": 374,
+    "fresh_process_registration_diagnostics": 0,
+    "upgrade_cli_registration_diagnostics": 3,
+    "gui_hot_reload_verified": false,
+    "positive_standalone_sss_compatible": false,
+    "positive_sss_current_version": "2.11.27",
+    "positive_sss_current_mean_ratio": 0.047604179582063484,
+    "native_quality_defaults_changed": false,
+    "native_implementation_unchanged_from": "2.11.25",
+    "goal": "active incomplete",
+    "public_package_verified": true,
+    "actual_installed": true,
+    "engine_release": "https://github.com/claudianus/SuperLuxCore/releases/tag/wheels-v2.11.27",
+    "addon_release": "https://github.com/claudianus/SuperBlendLuxCore/releases/tag/v2.11.27",
+    "release_tag_sources_verified": true,
+    "public_asset_digests_match_attested_bundles": true,
+    "evidence": "2026-10-10-deployment-2.11.27.md",
+    "installed_in_user_blender": true,
+    "verified": true
   }
 }

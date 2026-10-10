@@ -27,7 +27,7 @@ RGB 혼합은 채널별 연산, HSV 기반 모드, Factor 클램프·외삽과 �
 
 ## 현재 범위와 다음 작업
 
-목표 작업은 계속 진행한다. 현재 공개·실제 사용자 Blender 설치는 [검수한2.11.26](2026-10-10-deployment-2.11.26.md)이다. 기존 Cycles 그래프를 유지한 SSS RGB/Vector Scale coercion을 CI·최종 ZIP 새 설치·실제 설치 CPU/Metal에서 검증해 배포했다. 전체 제작 씬 호환은 미완료이고 일반 양의 반경 standalone SSS, Math/Clamp 표현식의 zero routing, 동적/부분채널 Radius 및 제작 workflow 등 남은 범위를 계속 작업한다. 아래의 이전 버전별 기록은 역사적 증거이며 현재 설치 상태와 구분한다.
+목표 작업은 계속 진행한다. 현재 공개·실제 사용자 Blender 설치는 [검수한2.11.27](2026-10-10-deployment-2.11.27.md)이다. 기존 Cycles 그래프를 유지한 SSS 상수 Math·Clamp·중첩 Scale/Radius 표현식을 CI·최종 ZIP·실제 설치 CPU/Metal에서 검수해 배포했다. 전체 제작 씬 호환은 미완료이며 일반 양수 standalone BSSRDF, 동적/부분채널 Radius, 다른 그래프·변위·이미지·pass 및 제작 workflow 전체 범위를 계속 작업한다. 아래 이전 버전별 기록은 역사적 증거다.
 
 1. 로브별 조명·색·모션·Cryptomatte 등 남은 패스 계약을 완성한다.
 2. 변위·법선·임의 이미지 좌표·애니메이션·UDIM 소비 경로를 검증하고 고친다.

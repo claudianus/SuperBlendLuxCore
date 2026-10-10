@@ -1,6 +1,6 @@
 # Cycles standalone positive SSS diagnostic, 2026-10-10
 
-전체 호환 goal은 활성·미완료다. 이 기록은2.11.24의 역사적 재현부터 현재2.11.26 재검수까지의 확정 잔여 결함과 보조 실험이다. 마지막 절이 현재 버전이며 보조 실험을 제작용 수정으로 취급하지 않는다.
+전체 호환 goal은 활성·미완료다. 이 기록은2.11.24의 역사적 재현부터 현재2.11.27 재검수까지의 확정 잔여 결함과 보조 실험이다. 마지막 절이 현재 버전이며 보조 실험을 제작용 수정으로 취급하지 않는다.
 
 Blender 5.2.1 LTS 원본 `9e2066aef7ef7e20c142ad7bd3303138a4304c93`의 `blender/shader.cpp`에서 standalone Subsurface Scattering의 RANDOM_WALK는 `CLOSURE_BSSRDF_RANDOM_WALK_ID`로 매핑된다. `integrator/subsurface.h`는 IOR·Roughness에 따른 진입 방향을 샘플링하고 random walk 이후 출구에 가중치1 diffuse BSDF를 만든다. `subsurface_random_walk.h`는 해당 모드의 Van de Hulst 계수와 경계에서 평가한 albedo/radius를 사용하며 closure weight의 albedo를 나누어 중복 착색을 피한다. Skin과 Legacy의 처리는 별도다.
 
@@ -48,3 +48,11 @@ Cycles 선형 RGB 전체 평균은 0.0257641170, 수정하지 않은 native 결�
 이전 exact2.11.25 native `e66147e203246a867f30e5e4e9008fa64a4c7a1767adbd1a92b2f1b2c4bafaa0`의 보조 Metal720p64spp 실험에서 native total/diffuse/glossy/specular/volume 경로 깊이를 모두128로 높여도 기본모델 mean ratio0.0485735로 실패했고 null-entry/diffuse-exit+VanDeHulst 후보도0.00101881로 실패했다. 비교 이미지를 직접 확인했다. override들은 native 설정·표면 모델을 변경한 실험이므로 production acceptance에서 제외하고 배포하지 않았다. 증거: `compatibility-deployment-2.11.26/positive-sss-depth-diagnostic-2.11.25`.
 
 native volume depth0은 diffuse depth와 함께 세는 sentinel이며 이 fixture에서 산란을0회로 제한하는 값이 아니다. 기본 native depth는 total25/diffuse9/glossy9/specular24/volume0으로 export됐고 explicit Cycles bounce override가 없어 Cycles volume0을 복사한 것이 아니다. TwoSidedMaterial root·child interior volume 참조도 존재하여 누락된 root volume을 원인으로 확정하지 않았다. HomogeneousVolume은 각 segment의 ray origin에서 계수를 평가하는 bulk-volume 계약이고 Cycles standalone BSSRDF는 entry에서 평가한 albedo/radius와 동일 물체 내부 random walk, IOR·Roughness 진입 방향, weight1 diffuse 출구를 다룬다. 단순 depth tuning 또는 IOR 제거를 정식 수정으로 취급하지 않고 이 계약 차이를 계속 구현한다.
+
+## Exact2.11.26 LT-OFF auxiliary diagnostic
+
+Native26 `43c2f6df5193e4b5953fc533c3fd0ef945486f108d2048b4ceedb55779c42a31`의 Metal720p spectral64spp에서 hybridbackforward만 끈 보조 진단도 native/Cycles mean ratio0.0499917492로 실패했다. 실제 두 native 설정 로그의 `path.hybridbackforward.enable=0`을 확인했고 literal/linked 비교 이미지를 직접 보았다. graph는 그대로이나 native LT 설정 override를 사용한 원인 분리 실험으로 production acceptance에서 제외하고 배포하지 않았다. 증거는 deployment26/positive-sss-lt-off-diagnostic이다.
+
+## Exact2.11.27 positive SSS recheck
+
+현재 exact27 native `d29c2387496c2bb94700b7cbe09a4bb9cdde5c6f225056c6309e8dd3d752b2bf`와 frozen addon `70822369438f41f168216085af3d649cf9aac128`의 unchanged RANDOM_WALK Scale.15/Roughness0, Metal720p spectral64spp 진단은 native/Cycles mean ratio 0.0476042로 여전히 실패한다. literal/linked 두 비교 이미지를 직접 확인했고 거의 검게 보였다. 내부 literal/linked `passed`는 cross-engine parity가 아니며154 배포 수용 조건에서 제외한다. 증거는 deployment27/positive-sss-diagnostic이다. native implementation은26과 같고 표본 noise로 소폭 바뀐 비율을 개선으로 취급하지 않는다. 단순 depth·IOR·LT toggle을 수정으로 배포하지 않고 entry에서 평가한 BSSRDF와 동일 물체 내부 random walk·출구 weight 계약을 구현하는 잔여 작업을 유지한다.

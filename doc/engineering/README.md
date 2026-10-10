@@ -68,7 +68,7 @@ docs live alongside in `doc/`.
 
 - [Valid zero, zero SSS and Microfiber sheen](2026-10-10-cycles-zero-subsurface-microfiber.md): 23 private acceptance checks, source-grounded local SSS limit and native fuzz mapping; positive SSS/Ashikhmin gaps remain.
 
-- [Current 2.11.26 standalone positive SSS boundary diagnostic](2026-10-10-cycles-positive-sss-diagnostic.md): confirmed remaining defect; auxiliary models excluded from production acceptance.
+- [Current 2.11.27 standalone positive SSS boundary diagnostic](2026-10-10-cycles-positive-sss-diagnostic.md): confirmed remaining defect; auxiliary models excluded from production acceptance.
 
 - [Verified 2.11.24 Incoming, Backfacing, valid-zero and Microfiber deployment](2026-10-10-deployment-2.11.24.md): 591 guarded CI/fresh/actual CPU and Metal checks; full-scene goal remains active.
 
@@ -82,4 +82,6 @@ docs live alongside in `doc/`.
 
 - [Verified 2.11.26 SSS RGB/Vector Scale coercion deployment](2026-10-10-deployment-2.11.26.md):86 guarded CI/fresh/actual checks; full goal remains active and incomplete.
 
-- [Cycles SSS constant arithmetic inputs](2026-10-10-cycles-sss-constant-expression.md):82 private CPU/Metal conditions,5 reviewed sheets; native27/ZIP/actual deployment pending, full goal active.
+- [Cycles SSS constant arithmetic inputs](2026-10-10-cycles-sss-constant-expression.md): private native26 CPU/Metal82 conditions and5 sheets; public27 CI/final/actual154 conditions and17 sheets, full goal active and incomplete.
+
+- [Verified2.11.27 SSS constant-expression deployment](2026-10-10-deployment-2.11.27.md):154 guarded CI/fresh/actual checks,17 reviewed sheets; full goal active and incomplete.
