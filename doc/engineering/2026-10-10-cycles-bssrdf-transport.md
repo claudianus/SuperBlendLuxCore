@@ -58,3 +58,5 @@ Native 구현 상세는 형제 엔진 저장소
 작업 공간 `test-scenes/validation-2026-10-10/cycles-bssrdf-cpu-transport`에
 보존한다. 공개2.11.27의 과거 실패 증거와 private candidate의 결과를
 합치지 않는다. 정식 adapter 전환과 배포는 이 잔여 구현을 계속 처리한다.
+
+Follow-up: [CPU material partition and instance boundary verification](2026-10-10-cycles-bssrdf-object-groups.md). The original candidate evidence above remains preserved separately.

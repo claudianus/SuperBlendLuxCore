@@ -63,14 +63,20 @@ def fingerprint():
     def value(socket):
         data = socket.default_value
         return list(data) if hasattr(data, '__iter__') else data
-    nodes = mat.node_tree.nodes
-    payload = {'nodes': sorted((n.name, n.bl_idname,
+    def graph(material):
+        nodes = material.node_tree.nodes
+        return {'nodes': sorted((n.name, n.bl_idname,
                                [(i.name, value(i)) for i in n.inputs if hasattr(i, 'default_value')],
                                getattr(n, 'falloff', ''), getattr(n, 'operation', '')) for n in nodes),
                'links': sorted((l.from_node.name, l.from_socket.name,
-                                l.to_node.name, l.to_socket.name) for l in mat.node_tree.links),
+                                l.to_node.name, l.to_socket.name) for l in material.node_tree.links)}
+    payload = {'materials': [(material.name, graph(material)) for material in obj.data.materials],
+               'material_indices': [p.material_index for p in obj.data.polygons],
+               'objects': sorted((o.name, o.type, list(o.matrix_world),
+                                   o.instance_type, o.instance_collection.name if o.instance_collection else '')
+                                  for o in s.objects),
                'cycles_samples': s.cycles.samples}
-    return hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()
+    return hashlib.sha256(json.dumps(payload, sort_keys=True, default=list).encode()).hexdigest()
 
 
 variants = {
@@ -84,6 +90,12 @@ variants = {
                        'scale': .15, 'roughness': .25, 'anisotropy': 0.,
                        'spectral': True, 'textured': True},
     'generated-checker-emission': {'spectral': True, 'textured': True, 'emission': True},
+    'material-partitions': {'color': (.45, .45, .45, 1.), 'radius': (1., .2, .1),
+                            'scale': .15, 'roughness': .25, 'anisotropy': 0.,
+                            'spectral': True, 'partitioned': True},
+    'material-partition-instances': {'color': (.45, .45, .45, 1.), 'radius': (1., .2, .1),
+                                    'scale': .15, 'roughness': .25, 'anisotropy': 0.,
+                                    'spectral': True, 'partitioned': True, 'instances': True},
 }
 records = []
 for case in os.environ.get('SUPERLUXCORE_BSSRDF_VARIANTS', ','.join(variants)).split(','):
@@ -107,6 +119,28 @@ for case in os.environ.get('SUPERLUXCORE_BSSRDF_VARIANTS', ','.join(variants)).s
         checker.inputs['Scale'].default_value = 5.
         links.new(checker.outputs['Color'], target.inputs['Color'])
     links.new(target.outputs[0], output.inputs['Surface'])
+    second_material, source_collection, instances = None, None, []
+    if variant.get('partitioned'):
+        second_material = mat.copy()
+        obj.data.materials.append(second_material)
+        for face in obj.data.polygons:
+            face.material_index = face.index % 2
+    if variant.get('instances'):
+        # The source collection is not directly linked into the scene: only
+        # its copies render. This exercises the native DuplicateObject path.
+        source_collection = bpy.data.collections.new('BSSRDF partitioned source')
+        source_collection.objects.link(obj)
+        for collection in list(obj.users_collection):
+            if collection != source_collection:
+                collection.objects.unlink(obj)
+        for index, x in enumerate((-.9, .9)):
+            instance = bpy.data.objects.new('Partitioned BSSRDF instance ' + str(index), None)
+            instance.instance_type = 'COLLECTION'
+            instance.instance_collection = source_collection
+            instance.location.x = x
+            s.collection.objects.link(instance)
+            instances.append(instance)
+    bpy.context.view_layer.update()
     before = fingerprint()
     images = {}
     for engine in ('CYCLES', 'SUPERLUXCORE'):
@@ -141,4 +175,15 @@ for case in os.environ.get('SUPERLUXCORE_BSSRDF_VARIANTS', ','.join(variants)).s
     records.append(record)
     (folder / 'scene-metrics.json').write_text(json.dumps(records, indent=2) + '\n')
     print('BSSRDF_SCENE_DIAGNOSTIC', record, flush=True)
+    for instance in instances:
+        bpy.data.objects.remove(instance, do_unlink=True)
+    if source_collection:
+        s.collection.objects.link(obj)
+        source_collection.objects.unlink(obj)
+        bpy.data.collections.remove(source_collection)
+    if second_material:
+        obj.data.materials.pop(index=1)
+        bpy.data.materials.remove(second_material)
+        for face in obj.data.polygons:
+            face.material_index = 0
 print('BSSRDF_SCENE_COMPLETE', len(records), flush=True)

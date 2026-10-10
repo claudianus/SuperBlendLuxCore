@@ -765,6 +765,9 @@ class ObjectCache2:
                         duplis.object_ids,
                     )
 
+            duplis.exported_obj.set_duplicate_subsurface_groups(
+                superluxcore_scene, duplis.get_count())
+
         if stats:
             stats.export_time_instancing.value = time() - start_time
             stats.instance_count.value = instance_count

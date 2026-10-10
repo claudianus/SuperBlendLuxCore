@@ -282,7 +282,7 @@
       "priority": "P1",
       "scope": "Principled 모델·SSS",
       "status": "미완료",
-      "remaining": "Principled distribution/subsurface_method와 넓은 RandomWalk/Burley/Skin·SSS IOR·coat/fuzz/thin-film 의미는 미완료다. standalone SSS all-channel local diffuse, RGB/Vector coercion, 상수 Math/Clamp/중첩 Scale·Radius zero routing은 공개2.11.27 CPU·Metal720p/최종ZIP/실제설치에서 검수했다. 공개27의 일반 양수 standalone SSS는 exact27 Metal mean ratio0.0476042로 여전히 실패다. 별도 native CPU eye-only random-walk 후보는 진입 AOV·흡수·RGB 동적/부분 Radius와720p 표적 씬을 검수했다. Metal·adjoint/PDF·mixed/Principled·spectral partial/dynamic Radius·작은 양수 정밀도·material partition·출구 ray context·제작/GUI/플랫폼은 아직 남아 있으며 release adapter를 전환하지 않았다.",
+      "remaining": "Principled distribution/subsurface_method와 넓은 RandomWalk/Burley/Skin·SSS IOR·coat/fuzz/thin-film 의미는 미완료다. standalone SSS all-channel local diffuse, RGB/Vector coercion, 상수 Math/Clamp/중첩 Scale·Radius zero routing은 공개2.11.27 CPU·Metal720p/최종ZIP/실제설치에서 검수했다. 공개27의 일반 양수 standalone SSS는 exact27 Metal mean ratio0.0476042로 여전히 실패다. 별도 native CPU eye-only random-walk 후보는 진입 AOV·흡수·RGB 동적/부분 Radius와720p 표적 씬을 검수했다. Metal·adjoint/PDF·mixed/Principled·spectral partial/dynamic Radius·작은 양수 정밀도·Metal material-group payload·출구 ray context·제작/GUI/플랫폼은 아직 남아 있으며 release adapter를 전환하지 않았다. CPU material partition·정적/모션 instance group은 native33/exporter3와720p7쌍에서 검수했다. 애니메이션 실렌더·Metal BSSRDF·정식 adapter 전환은 남아 있다.",
       "evidence": "2026-10-10-cycles-zero-subsurface-microfiber.md"
     },
     {
@@ -1539,5 +1539,28 @@
     "cross_engine_image_parity_claimed": false,
     "evidence": "2026-10-10-viewport-settings-evaluated-scene.md",
     "main_merged": true
+  },
+  "native_bssrdf_group_candidate": {
+    "experimental": true,
+    "native_sha256": "26ea4c3aa544a14e99732b52390e1fd593890f544bb45a943e475c2b65032b00",
+    "metadata_version": "2.11.27",
+    "native_contract_conditions": 33,
+    "blender_exporter_contract_conditions": 3,
+    "ordinary_cpu_metal_light_emission_regression_conditions": 5,
+    "reviewed_720p_pairs": 7,
+    "material_partitions_share_explicit_boundary": true,
+    "aov_object_ids_do_not_define_boundary": true,
+    "static_and_motion_instance_groups_verified": true,
+    "hair_parts_remain_separate": true,
+    "animation_render_verified": false,
+    "original_cycles_graphs_unchanged": true,
+    "wheel_record_and_payload_verified": true,
+    "production_acceptance_conditions": 0,
+    "public27_sss_fix_deployed": false,
+    "actual_user_install_modified": false,
+    "full_goal_complete": false,
+    "main_merged": true,
+    "evidence": "2026-10-10-cycles-bssrdf-object-groups.md",
+    "remaining": "Metal nonlocal walk and object-group payloads; adjoint/LT/BIDIR and PDF/MIS; mixed/Add/Principled; Skin/Burley/Legacy; spectral Radius mapping; tiny-positive precision; exit ray context; Volume combinations; production/animated rendering/GUI/platform verification"
   }
 }

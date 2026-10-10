@@ -1,10 +1,11 @@
 from ... import utils
 
 class ExportedPart:
-    def __init__(self, lux_obj, lux_shape, lux_mat):
+    def __init__(self, lux_obj, lux_shape, lux_mat, subsurface_group=""):
         self.lux_obj = lux_obj
         self.lux_shape = lux_shape
         self.lux_mat = lux_mat
+        self.subsurface_group = subsurface_group
 
 
 class ExportedMesh:
@@ -80,10 +81,14 @@ class ExportedObject(ExportedData):
         # cover keep the manual UI values. See
         # cycles_compat.light_link_plan.
 
+        # AOV IDs are user-editable and do not identify a scattering object.
+        # Only material partitions share this instance-specific export key.
+        # Hair/particle parts appended later retain their separate boundaries.
+        group = lux_name_base if len(mesh_definitions) > 1 else ""
         for (shape_name, mat_index), mat_name in zip(mesh_definitions, mat_names):
             obj_name = lux_name_base + str(mat_index)
 
-            self.parts.append(ExportedPart(obj_name, shape_name, mat_name))
+            self.parts.append(ExportedPart(obj_name, shape_name, mat_name, group))
 
     def get_props(self):
         prefix = "scene.objects."
@@ -98,6 +103,8 @@ class ExportedObject(ExportedData):
             else:
                 definitions[part.lux_obj + ".shape"] = part.lux_shape
             definitions[part.lux_obj + ".material"] = part.lux_mat
+            if part.subsurface_group:
+                definitions[part.lux_obj + ".subsurfacegroup"] = part.subsurface_group
             definitions[part.lux_obj + ".camerainvisible"] = not self.visible_to_camera
             if self.obj_id != -1:
                 definitions[part.lux_obj + ".id"] = self.obj_id
@@ -115,6 +122,19 @@ class ExportedObject(ExportedData):
                 definitions[part.lux_obj + ".transformation"] = utils.luxutils.matrix_to_list(self.transform)
 
         return utils.luxutils.create_props(prefix, definitions)
+
+    def set_duplicate_subsurface_groups(self, superluxcore_scene, count):
+        # Older public engines ignore this metadata and lack the new setter.
+        # DuplicateObject starts ungrouped; explicitly join the matching
+        # material partitions of each copy, never its source or other copies.
+        setter = getattr(superluxcore_scene, "SetObjectSubsurfaceGroup", None)
+        if setter is None:
+            return
+        for part in self.parts:
+            if part.subsurface_group:
+                for index in range(count):
+                    setter(part.lux_obj + "dupli" + str(index),
+                           part.subsurface_group + "/instance/" + str(index))
 
     def delete(self, superluxcore_scene):
         for part in self.parts:
