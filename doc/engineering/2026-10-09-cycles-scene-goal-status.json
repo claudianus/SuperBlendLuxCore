@@ -282,7 +282,7 @@
       "priority": "P1",
       "scope": "Principled 모델·SSS",
       "status": "미완료",
-      "remaining": "Principled distribution/subsurface_method와 넓은 RandomWalk/Burley/Skin·SSS IOR·coat/fuzz/thin-film 의미는 미완료다. standalone SSS의 영 반경/Scale 경로는 공개2.11.27에서 검수했지만 양수 SSS의 공개27 Metal 실패(mean ratio 0.0476042)는 정식 어댑터에서 아직 해결 배포되지 않았다. 별도 native CPU/Metal eye-only RANDOM_WALK 후보는 현재 모듈의 CPU 33조건·실제 M5 Pro Metal 17조건과 720p 128spp CPU/Metal 14쌍을 직접 검수했다. 물체별 material partition·복제 경계, 진입 AOV, Generated 기반 영 Scale 처리가 확인됐고 CUDA NVRTC 컴파일도 통과했다. adjoint/LT/BIDIR의 비국소 density/PDF/MIS, mixed/Add/Principled, Skin/Burley/Legacy, spectral physical/partial/dynamic Radius, 임의의 작은 양수 정밀도, 출구 Normal/Bump·ray context, Volume·제작/애니메이션/GUI/플랫폼 GPU 실행 검증과 정식 어댑터 전환은 남아 있다. 실험용 eye-only 제한을 제작 기본 설정으로 사용하지 않는다. 후속 opaque Mix/Add 후보는 현재 CPU 39조건·Metal 29조건 및 변경 없는 혼합 그래프 720p CPU/Metal 6쌍을 검수했다. 명시적 opacity/Normal/Bump/Volume 혼합, Principled 및 adjoint 제작 경로는 계속 미완료다. 후속 Transparent BSDF 혼합과 안쪽 진입·탈출 면은 현재 CPU 50조건·Metal 51조건 및 기존 그래프의 720p CPU/Metal 8쌍으로 검수했다. Add 밝기는 0.5388 실패에서 CPU 1.0246/Metal 1.0223으로 복원했고, 512spp 보조 검증에서 Alpha 잔여가 감소했다. 정식 제작 경로는 계속 미완료다.",
+      "remaining": "Principled distribution/subsurface_method와 넓은 RandomWalk/Burley/Skin·SSS IOR·coat/fuzz/thin-film 의미는 미완료다. standalone SSS의 영 반경/Scale 경로는 공개2.11.27에서 검수했지만 양수 SSS의 공개27 Metal 실패(mean ratio 0.0476042)는 정식 어댑터에서 아직 해결 배포되지 않았다. 별도 native CPU/Metal eye-only RANDOM_WALK 후보는 현재 모듈의 CPU 33조건·실제 M5 Pro Metal 17조건과 720p 128spp CPU/Metal 14쌍을 직접 검수했다. 물체별 material partition·복제 경계, 진입 AOV, Generated 기반 영 Scale 처리가 확인됐고 CUDA NVRTC 컴파일도 통과했다. adjoint/LT/BIDIR의 비국소 density/PDF/MIS, mixed/Add/Principled, Skin/Burley/Legacy, spectral physical/partial/dynamic Radius, 임의의 작은 양수 정밀도, 출구 Normal/Bump·ray context, Volume·제작/애니메이션/GUI/플랫폼 GPU 실행 검증과 정식 어댑터 전환은 남아 있다. 실험용 eye-only 제한을 제작 기본 설정으로 사용하지 않는다. 후속 opaque Mix/Add 후보는 현재 CPU 39조건·Metal 29조건 및 변경 없는 혼합 그래프 720p CPU/Metal 6쌍을 검수했다. 명시적 opacity/Normal/Bump/Volume 혼합, Principled 및 adjoint 제작 경로는 계속 미완료다. 후속 Transparent BSDF 혼합과 안쪽 진입·탈출 면은 현재 CPU 50조건·Metal 51조건 및 기존 그래프의 720p CPU/Metal 8쌍으로 검수했다. Add 밝기는 0.5388 실패에서 CPU 1.0246/Metal 1.0223으로 복원했고, 512spp 보조 검증에서 Alpha 잔여가 감소했다. 정식 제작 경로는 계속 미완료다. 후속 재질 갱신 후보에서 나중에 생성한 하위 그래프를 연결한 뒤 SSS/Transparent/Matte/발광으로 반복 교체하는 CPU 24·실제 Metal 48조건과 Blender recorded 재질 업데이트의 720p CPU/Metal 6종을 검수했다. stale 부모 캐시로 SSS가 로컬 확산으로 바뀌던 결함과 부모 삼각형 광원 누락을 수정했고, live edit의 SSS 지원 범위 우회도 차단했다. GUI 및 제작 기본 SSS 경로는 계속 미완료다.",
       "evidence": "2026-10-10-cycles-bssrdf-transparent-transport.md"
     },
     {
@@ -441,7 +441,7 @@
       "priority": "P2",
       "scope": "시간·토폴로지·뷰포트",
       "status": "미완료",
-      "remaining": "rolling shutter/시간 위치·per-object steps·면광원 변환 제한, 셔터 중 topology/strand layout 변경은 static 대체다. 실시간 normal/vector/data 변경·다른 뷰 카메라 일치와 취소 응답은 GUI 재검증이 필요하다."
+      "remaining": "rolling shutter/시간 위치·per-object steps·면광원 변환 제한, 셔터 중 topology/strand layout 변경은 static 대체다. 실시간 normal/vector/data 변경·다른 뷰 카메라 일치와 취소 응답은 GUI 재검증이 필요하다. 중첩 재질 변경은 native 의존 순서·광원 갱신과 실제 Blender recorded replay의 CPU/Metal 720p 6종을 이번 후보에서 확인했다. GUI redraw·전체 애니메이션/토폴로지/플랫폼 실행은 아직 검수하지 않았다."
     },
     {
       "id": "C56",
@@ -469,7 +469,7 @@
       "priority": "P2",
       "scope": "그룹·특성 조합·플랫폼",
       "status": "미완료",
-      "remaining": "기본 그룹 생성은 출력이 없어서 호출되지 않았다. 중첩·muted graph·shader/volume 경계 조합, 모든 모드의 모든 연결 조합, Windows/Linux/Intel GPU와 GUI 전수 실행은 별도 검증이 필요하다."
+      "remaining": "기본 그룹 생성은 출력이 없어서 호출되지 않았다. 중첩·muted graph·shader/volume 경계 조합, 모든 모드의 모든 연결 조합, Windows/Linux/Intel GPU와 GUI 전수 실행은 별도 검증이 필요하다. 중첩 재질 변경은 native 의존 순서·광원 갱신과 실제 Blender recorded replay의 CPU/Metal 720p 6종을 이번 후보에서 확인했다. GUI redraw·전체 애니메이션/토폴로지/플랫폼 실행은 아직 검수하지 않았다."
     },
     {
       "id": "C60",
@@ -1649,5 +1649,30 @@
     "native_main_commit": "ff7b85f89fd07f1766d0fc1620768b87932fdc3f",
     "main_merged": true,
     "platform_ci_status": "pending"
+  },
+  "native_material_edit_candidate": {
+    "status": "표적 수정·검수 완료, 전체 goal 미완료",
+    "evidence": "2026-10-10-cycles-material-graph-edits.md",
+    "native_main_commit": "dd6d1c029388d898eed7bf4515404f5efeff746d",
+    "native_sha256": "4d413643935ffb275689071874ff41782558d906ebe9840adb550dca1f145d42",
+    "cpu_material_edit_contracts": 24,
+    "metal_material_edit_contracts": 48,
+    "transport_cpu_contracts": 50,
+    "transport_metal_contracts": 51,
+    "ordinary_contracts": 5,
+    "ordinary_skips": 0,
+    "blender_resolution": [
+      1280,
+      720
+    ],
+    "blender_samples": 128,
+    "blender_three_way_sets": 6,
+    "graph_preserved_by_render": true,
+    "directly_reviewed": true,
+    "gui_redraw_verified": false,
+    "production_bssrdf_adapter_switched": false,
+    "production_release_deployed": false,
+    "full_goal_complete": false,
+    "platform_ci_status": "pending for current commit"
   }
 }
