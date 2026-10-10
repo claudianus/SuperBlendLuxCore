@@ -1147,5 +1147,48 @@
     "goal_complete": false,
     "evidence": "2026-10-10-cycles-bump-zero-filter.md",
     "candidate_version": "2.11.25"
+  },
+  "sss_local_limit_candidate": {
+    "candidate_version": "2.11.25",
+    "native_version": "2.11.24",
+    "native_sha256": "c7439663dcbf734ce5296dee46bf3ed85d689c7381cbaa15330f4c24d0dff322",
+    "adapter_base": "4dbaa071490039e22e94e59513a242ab8a45ddd9",
+    "adapter_reader_sha256": "bbb11d9c3ba5e5fa624da585ecb646e26d3d87c1bb61e8c8374cf87e6d298019",
+    "cycles_source": "9e2066aef7ef7e20c142ad7bd3303138a4304c93",
+    "private_adapter_candidate": true,
+    "public_package_verified": false,
+    "actual_user_installed": false,
+    "checks": {
+      "cpu": {
+        "local_limit": 13,
+        "zero_export": 9,
+        "zero_render": 7
+      },
+      "metal": {
+        "local_limit": 13,
+        "zero_export": 9,
+        "zero_render": 7
+      }
+    },
+    "total_targeted_checks": 58,
+    "paired_render_checks": 20,
+    "export_only_limit_controls": 6,
+    "census_conditions": 1023,
+    "census_exceptions": 0,
+    "census_warning_conditions": 240,
+    "resolution": [
+      1280,
+      720
+    ],
+    "samples": 64,
+    "spectral": true,
+    "baseline_failed_conditions": 6,
+    "qa_sheets_reviewed": 5,
+    "visual_review": "Correct diffuse sphere shading on both backends; old public baseline is almost black. Linked Normal brightness is about 1.576 percent lower, within 2.5 percent scoped tolerance. Exact threshold, partial zero and ordinary positive are export controls only.",
+    "native_quality_defaults_changed": false,
+    "positive_standalone_sss_compatible": false,
+    "full_compatibility": false,
+    "goal_complete": false,
+    "evidence": "2026-10-10-cycles-sss-local-limit.md"
   }
 }

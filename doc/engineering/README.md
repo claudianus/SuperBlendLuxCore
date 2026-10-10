@@ -73,3 +73,5 @@ docs live alongside in `doc/`.
 - [Verified 2.11.24 Incoming, Backfacing, valid-zero and Microfiber deployment](2026-10-10-deployment-2.11.24.md): 591 guarded CI/fresh/actual CPU and Metal checks; full-scene goal remains active.
 
 - [Cycles Bump zero Filter Width](2026-10-10-cycles-bump-zero-filter.md): 78 private CPU/Metal, spectral and smooth geometry checks; public deployment pending.
+
+- [Cycles standalone SSS all-channel local diffuse limit](2026-10-10-cycles-sss-local-limit.md): 58 private adapter checks and 5 reviewed sheets; ordinary positive SSS remains open; 2.11.25 deployment pending.

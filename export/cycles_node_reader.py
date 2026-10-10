@@ -2834,14 +2834,29 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
         # Cycles bssrdf_setup replaces sub-1e-8 channel radii with Lambert
         # diffuse. At zero Scale all channels take this exact local limit;
         # an opaque bulk volume would absorb them before they can exit.
-        # Resolve Value-node constants without changing the original graph.
-        constant_scale = scale
-        if _is_textured(scale):
-            constant_key = "scene.textures." + scale
-            if props.IsDefined(constant_key + ".type") and \
-                    props.Get(constant_key + ".type").GetString() == "constfloat1":
-                constant_scale = props.Get(constant_key + ".value").GetFloat()
-        if not _is_textured(constant_scale) and constant_scale <= 0.0:
+        # Resolve constant Value/RGB outputs without changing the graph.
+        # Cycles tests the float32 product of Scale and each Radius channel
+        # before remapping it for the selected BSSRDF method.
+        def constant_input(value):
+            if _is_textured(value):
+                key = "scene.textures." + value
+                if props.IsDefined(key + ".type") and props.Get(key + ".type").GetString() in \
+                        ("constfloat1", "constfloat3"):
+                    values = props.Get(key + ".value").Get()
+                    return values[0] if len(values) == 1 else values
+            return value
+
+        constant_scale = constant_input(scale)
+        constant_radius = constant_input(radius)
+        radius_channels = None if _is_textured(constant_radius) else \
+            (constant_radius if isinstance(constant_radius, (list, tuple)) else [constant_radius] * 3)
+        local_diffuse = radius_channels is not None and all(r == 0.0 for r in radius_channels)
+        if not _is_textured(constant_scale):
+            local_diffuse |= constant_scale <= 0.0
+            if radius_channels is not None:
+                local_diffuse |= all(c_float(c_float(constant_scale).value * c_float(r).value).value <
+                                     c_float(1e-8).value for r in radius_channels)
+        if local_diffuse:
             definitions = {"type": "matte", "kd": color}
             if node.inputs.get("Normal") is not None:
                 definitions["bumptex"] = _normal_input(
