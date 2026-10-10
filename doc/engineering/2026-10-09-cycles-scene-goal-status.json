@@ -1648,7 +1648,9 @@
     "evidence": "2026-10-10-cycles-bssrdf-transparent-transport.md",
     "native_main_commit": "ff7b85f89fd07f1766d0fc1620768b87932fdc3f",
     "main_merged": true,
-    "platform_ci_status": "pending"
+    "platform_ci_status": "completed/success",
+    "platform_ci_url": "https://github.com/claudianus/SuperLuxCore/actions/runs/38035166673",
+    "rolling_wheel_publication": "completed/success; stable production BSSRDF adapter remains unchanged"
   },
   "native_material_edit_candidate": {
     "status": "표적 수정·검수 완료, 전체 goal 미완료",
@@ -1673,6 +1675,7 @@
     "production_bssrdf_adapter_switched": false,
     "production_release_deployed": false,
     "full_goal_complete": false,
-    "platform_ci_status": "pending for current commit"
+    "platform_ci_status": "in_progress",
+    "platform_ci_url": "https://github.com/claudianus/SuperLuxCore/actions/runs/38036805282"
   }
 }
