@@ -112,7 +112,7 @@ BASE_WHEEL="$(ls "$WHEELS_DIR"/pysuperluxcore-*.whl 2>/dev/null | head -1 || tru
 [ -z "$BASE_WHEEL" ] && BASE_WHEEL="$DEV_WHEEL"
 if [ -f "$BASE_WHEEL" ]; then
     python3 - "$BASE_WHEEL" "$DEV_WHEEL" "$ENGINE_VER" "$DEST_SO" "$SITE_PKG/pysuperluxcore/.dylibs" "$TRANSLATOR" "$SUPERLUXCORE_REPO/python/pysuperluxcore" <<'PYEOF'
-import os, re, sys, zipfile
+import base64, csv, hashlib, io, os, re, sys, zipfile
 wheel, dev_wheel, version, so, dylibs, translator, pysrc = sys.argv[1:8]
 # Pure-Python package files come from the repo, not the (possibly older)
 # base wheel: otherwise edits to python/pysuperluxcore never reach Blender.
@@ -142,6 +142,11 @@ with zipfile.ZipFile(wheel) as zin, \
                 item.filename.startswith("pysuperluxcore/.dylibs/"):
             continue  # replaced below
         new_name, is_dist_info = retag_dist_info(item.filename)
+        # Replacing a binary invalidates the old wheel inventory/signature.
+        # Rebuild RECORD from the final payload instead of retaining released
+        # hashes for a different .so, translator or pure-Python package.
+        if is_dist_info and item.filename.rsplit("/", 1)[-1] in ("RECORD", "RECORD.jws", "RECORD.p7s"):
+            continue
         data = zin.read(item.filename)
         if is_dist_info and item.filename.endswith("/METADATA"):
             data = re.sub(
@@ -156,6 +161,22 @@ with zipfile.ZipFile(wheel) as zin, \
         src = os.path.join(dylibs, f)
         if os.path.isfile(src):
             zout.write(src, f"pysuperluxcore/.dylibs/{f}")
+
+# RECORD authenticates every payload entry except itself. Open the completed
+# archive for append so all hashes are computed from the bytes actually stored.
+record_name = f"pysuperluxcore-{version}.dist-info/RECORD"
+with zipfile.ZipFile(tmp, "a", zipfile.ZIP_DEFLATED) as z:
+    rows = []
+    for name in sorted(z.namelist()):
+        if name.endswith("/"):
+            continue
+        data = z.read(name)
+        digest = base64.urlsafe_b64encode(hashlib.sha256(data).digest()).rstrip(b"=").decode()
+        rows.append((name, "sha256=" + digest, str(len(data))))
+    rows.append((record_name, "", ""))
+    inventory = io.StringIO(newline="")
+    csv.writer(inventory, lineterminator="\n").writerows(rows)
+    z.writestr(record_name, inventory.getvalue().encode())
 
 # The repacked wheel must be self-consistent: a filename that disagrees
 # with its own metadata is what produced broken dev installs.

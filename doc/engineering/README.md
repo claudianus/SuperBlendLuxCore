@@ -87,3 +87,5 @@ docs live alongside in `doc/`.
 - [Verified2.11.27 SSS constant-expression deployment](2026-10-10-deployment-2.11.27.md):154 guarded CI/fresh/actual checks,17 reviewed sheets; full goal active and incomplete.
 
 - [Viewport settings evaluated-scene update](2026-10-10-viewport-settings-evaluated-scene.md): public27 stale RNA baseline reproduced; candidate21 settings and CPU/Metal paused film resize verified, GUI/public ZIP pending.
+
+- [Native Cycles BSSRDF CPU candidate](2026-10-10-cycles-bssrdf-transport.md): unchanged-graph 720p diagnostic harness, entry AOV and radius-limit tests; experimental source only, full goal active.

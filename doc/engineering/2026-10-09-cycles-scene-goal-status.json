@@ -282,7 +282,7 @@
       "priority": "P1",
       "scope": "Principled 모델·SSS",
       "status": "미완료",
-      "remaining": "Principled distribution/subsurface_method와 넓은 RandomWalk/Burley/Skin·SSS IOR·coat/fuzz/thin-film 의미는 미완료다. standalone SSS all-channel local diffuse, RGB/Vector coercion, 상수 Math/Clamp/중첩 Scale·Radius zero routing은 공개2.11.27 CPU·Metal720p/최종ZIP/실제설치에서 검수했다. 일반 양수 standalone SSS는 exact27 mean ratio0.0476042로 여전히 실패다. 동적·부분채널 Radius, 다른 그래프 표현식, Ashikhmin Sheen 및 제작/GUI/플랫폼 검수는 남아 있다.",
+      "remaining": "Principled distribution/subsurface_method와 넓은 RandomWalk/Burley/Skin·SSS IOR·coat/fuzz/thin-film 의미는 미완료다. standalone SSS all-channel local diffuse, RGB/Vector coercion, 상수 Math/Clamp/중첩 Scale·Radius zero routing은 공개2.11.27 CPU·Metal720p/최종ZIP/실제설치에서 검수했다. 공개27의 일반 양수 standalone SSS는 exact27 Metal mean ratio0.0476042로 여전히 실패다. 별도 native CPU eye-only random-walk 후보는 진입 AOV·흡수·RGB 동적/부분 Radius와720p 표적 씬을 검수했다. Metal·adjoint/PDF·mixed/Principled·spectral partial/dynamic Radius·작은 양수 정밀도·material partition·출구 ray context·제작/GUI/플랫폼은 아직 남아 있으며 release adapter를 전환하지 않았다.",
       "evidence": "2026-10-10-cycles-zero-subsurface-microfiber.md"
     },
     {
@@ -1492,6 +1492,22 @@
     "evidence": "2026-10-10-deployment-2.11.27.md",
     "installed_in_user_blender": true,
     "verified": true
+  },
+  "native_bssrdf_cpu_candidate": {
+    "experimental": true,
+    "native_sha256": "cb99bcb66d07c0c49e01e442b0eec518846e2602c6cd66937b117b4ba3cc21f6",
+    "metadata_version": "2.11.27",
+    "native_contract_conditions": 26,
+    "ordinary_cpu_metal_light_emission_regression_conditions": 5,
+    "reviewed_720p_pairs": 5,
+    "original_cycles_graphs_unchanged": true,
+    "wheel_record_and_payload_verified": true,
+    "production_acceptance_conditions": 0,
+    "public27_sss_fix_deployed": false,
+    "actual_user_install_modified": false,
+    "full_goal_complete": false,
+    "evidence": "2026-10-10-cycles-bssrdf-transport.md",
+    "remaining": "Metal nonlocal transport; adjoint/LT/BIDIR and nonlocal PDF/MIS; mixed/Add/Principled; Skin/Burley/Legacy; spectral partial/dynamic/unbounded Radius; tiny-positive precision; Blender material partition grouping; exit ray context; production/animation/GUI/platform verification"
   },
   "viewport_settings_candidate": {
     "base_public_version": "2.11.27",
