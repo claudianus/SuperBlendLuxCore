@@ -4234,6 +4234,14 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
             # Float/Int/Bool and everything else
             return FALLBACK_FLOAT
 
+    # An unconnected zero Normal requests the existing shading normal.
+    # Do not turn it into a synthetic bump context on an otherwise plain BSDF.
+    normal_socket = node.inputs.get("Normal")
+    if (prefix == "scene.materials." and normal_socket is not None
+            and not normal_socket.is_linked and "bumptex" in definitions
+            and _is_zero(definitions["bumptex"])):
+        definitions.pop("bumptex")
+
     # Both native definitions and helper-generated Math results must reach
     # the same post-operation Clamp stage. Do not emit an identity texture
     # merely to name a helper result or a folded constant.

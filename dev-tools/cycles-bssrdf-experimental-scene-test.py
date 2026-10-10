@@ -97,6 +97,10 @@ variants = {
                                     'scale': .15, 'roughness': .25, 'anisotropy': 0.,
                                     'spectral': True, 'partitioned': True, 'instances': True},
 }
+# Exercise the existing Cycles Mix/Add exporter with a nonlocal branch.
+for name, mode in (('mix-diffuse', 'mix'), ('add-diffuse', 'add'),
+                   ('textured-mix-diffuse', 'textured')):
+    variants[name] = dict(variants['colored'], mixed=mode)
 records = []
 for case in os.environ.get('SUPERLUXCORE_BSSRDF_VARIANTS', ','.join(variants)).split(','):
     variant = variants[case]
@@ -118,6 +122,21 @@ for case in os.environ.get('SUPERLUXCORE_BSSRDF_VARIANTS', ','.join(variants)).s
         checker.inputs['Color2'].default_value = (.08, .18, .55, 1.)
         checker.inputs['Scale'].default_value = 5.
         links.new(checker.outputs['Color'], target.inputs['Color'])
+    if variant.get('mixed'):
+        diffuse = nodes.new('ShaderNodeBsdfDiffuse')
+        diffuse.inputs['Color'].default_value = (.08, .18, .55, 1.)
+        mode = variant['mixed']
+        blend = nodes.new('ShaderNodeAddShader' if mode == 'add' else 'ShaderNodeMixShader')
+        offset = 0 if mode == 'add' else 1
+        if mode != 'add':
+            blend.inputs[0].default_value = .35
+        if mode == 'textured':
+            factor = nodes.new('ShaderNodeTexChecker')
+            factor.inputs['Scale'].default_value = 5.
+            links.new(factor.outputs['Fac'], blend.inputs[0])
+        links.new(target.outputs[0], blend.inputs[offset])
+        links.new(diffuse.outputs[0], blend.inputs[offset + 1])
+        target = blend
     links.new(target.outputs[0], output.inputs['Surface'])
     second_material, source_collection, instances = None, None, []
     if variant.get('partitioned'):
