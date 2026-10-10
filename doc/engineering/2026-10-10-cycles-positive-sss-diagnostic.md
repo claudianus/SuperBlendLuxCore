@@ -1,6 +1,6 @@
 # Cycles standalone positive SSS diagnostic, 2026-10-10
 
-전체 호환 goal은 활성·미완료다. 이 기록은 2.11.24의 확정 잔여 결함과 보조 실험이며 제작용 수정을 뜻하지 않는다.
+전체 호환 goal은 활성·미완료다. 이 기록은2.11.24의 역사적 재현부터 현재2.11.26 재검수까지의 확정 잔여 결함과 보조 실험이다. 마지막 절이 현재 버전이며 보조 실험을 제작용 수정으로 취급하지 않는다.
 
 Blender 5.2.1 LTS 원본 `9e2066aef7ef7e20c142ad7bd3303138a4304c93`의 `blender/shader.cpp`에서 standalone Subsurface Scattering의 RANDOM_WALK는 `CLOSURE_BSSRDF_RANDOM_WALK_ID`로 매핑된다. `integrator/subsurface.h`는 IOR·Roughness에 따른 진입 방향을 샘플링하고 random walk 이후 출구에 가중치1 diffuse BSDF를 만든다. `subsurface_random_walk.h`는 해당 모드의 Van de Hulst 계수와 경계에서 평가한 albedo/radius를 사용하며 closure weight의 albedo를 나누어 중복 착색을 피한다. Skin과 Legacy의 처리는 별도다.
 
@@ -40,3 +40,11 @@ Cycles 선형 RGB 전체 평균은 0.0257641170, 수정하지 않은 native 결�
 추가 constant RGB(0,0,0)→SSS Scale 연결을 현재 native/source guard로 export 진단했다. `_socket`의 Color→Float가 `dotproduct` texture wrapper가 되므로 현재 local-limit resolver가 이를 상수0으로 해석하지 못하고 OpenPBR를 유지한다. 예상한 local diffuse routing과 다르다. graph는 그대로이며 이 추가 probe는 render를 실행하지 않았고 수용 검사 수에 포함하지 않는다. Value Scale와 RGB Radius의 검증 범위를 RGB Scale 전반으로 일반화하지 않는다. 증거: `compatibility-deployment-2.11.25/sss-rgb-scale-probe`.
 
 상수 RGB/Vector→Scale의 후속 수정과 private 검수는 [Scale coercion 기록](2026-10-10-cycles-sss-scale-coercion.md)에 따로 기록한다. 공개2.11.25의 probe는 역사적 재현으로 남긴다. 이 수정은 일반 양수 SSS transport의 결함을 해결하지 않는다.
+
+## Exact 2.11.26 recheck and depth diagnostics
+
+현재 exactCI2.11.26 native `43c2f6df5193e4b5953fc533c3fd0ef945486f108d2048b4ceedb55779c42a31`와 frozen adapter에서 원본720p spectral64spp Metal positive standalone RANDOM_WALK SSS를 다시 렌더했다. literal native/Cycles mean ratio는 0.0493380이고 literal/linked 두 비교 이미지를 직접 확인했으며 모두 거의 검게 보였다. graph는 그대로다. 내부 literal/linked `passed`를 cross-engine parity로 취급하지 않으며86 deployment acceptance에서 제외한다. 증거: `compatibility-deployment-2.11.26/positive-sss-diagnostic`.
+
+이전 exact2.11.25 native `e66147e203246a867f30e5e4e9008fa64a4c7a1767adbd1a92b2f1b2c4bafaa0`의 보조 Metal720p64spp 실험에서 native total/diffuse/glossy/specular/volume 경로 깊이를 모두128로 높여도 기본모델 mean ratio0.0485735로 실패했고 null-entry/diffuse-exit+VanDeHulst 후보도0.00101881로 실패했다. 비교 이미지를 직접 확인했다. override들은 native 설정·표면 모델을 변경한 실험이므로 production acceptance에서 제외하고 배포하지 않았다. 증거: `compatibility-deployment-2.11.26/positive-sss-depth-diagnostic-2.11.25`.
+
+native volume depth0은 diffuse depth와 함께 세는 sentinel이며 이 fixture에서 산란을0회로 제한하는 값이 아니다. 기본 native depth는 total25/diffuse9/glossy9/specular24/volume0으로 export됐고 explicit Cycles bounce override가 없어 Cycles volume0을 복사한 것이 아니다. TwoSidedMaterial root·child interior volume 참조도 존재하여 누락된 root volume을 원인으로 확정하지 않았다. HomogeneousVolume은 각 segment의 ray origin에서 계수를 평가하는 bulk-volume 계약이고 Cycles standalone BSSRDF는 entry에서 평가한 albedo/radius와 동일 물체 내부 random walk, IOR·Roughness 진입 방향, weight1 diffuse 출구를 다룬다. 단순 depth tuning 또는 IOR 제거를 정식 수정으로 취급하지 않고 이 계약 차이를 계속 구현한다.
