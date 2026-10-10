@@ -80,6 +80,8 @@ def fingerprint():
 
 
 variants = {
+    'sharp-colored': {'color': (.55, .2, .08, 1.), 'radius': (1., .3, .2),
+                      'scale': .2, 'roughness': 0., 'anisotropy': 0., 'spectral': True},
     'rough-anisotropic': {'color': (.45, .45, .45, 1.), 'radius': (1., .2, .1),
                          'scale': .15, 'roughness': .6, 'anisotropy': .5, 'spectral': True},
     'colored': {'color': (.55, .2, .08, 1.), 'radius': (1., .3, .2),

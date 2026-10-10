@@ -13,7 +13,7 @@
 #   3. Updates the cached wheel the add-on reinstalls from, so a reinstall
 #      does not downgrade the binary.
 #   4. rsyncs the add-on Python sources from this repo into the extension
-#      directory (everything except wheels/, .git, caches, dev files).
+#      directory (everything except wheels/, out/, .git, caches, dev files).
 #   5. Smoke-imports pysuperluxcore under Blender's bundled Python.
 #
 # Env overrides:
@@ -223,7 +223,7 @@ fi
 # 3) add-on sources
 rsync -a --delete \
     --exclude 'wheels' --exclude '.git' --exclude '__pycache__' \
-    --exclude '.git*' --exclude 'dev-tools' --exclude 'doc' \
+    --exclude '.git*' --exclude 'dev-tools' --exclude 'doc' --exclude 'out' \
     "$HERE/" "$EXT_DIR/"
 echo "== add-on sources synced -> $EXT_DIR"
 
