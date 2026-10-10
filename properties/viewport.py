@@ -3,16 +3,44 @@ from bpy.props import IntProperty, EnumProperty, BoolProperty, FloatProperty
 from .. import utils
 import pysuperluxcore
 
+
+def _update_viewport_settings(self, context):
+    # The exporter reads the evaluated scene. Redrawing alone leaves its
+    # PropertyGroup values stale, including after the render has paused.
+    scene = self.id_data
+    if isinstance(scene, bpy.types.Scene) and not scene.is_evaluated:
+        scene.update_tag()
+
+    window_manager = getattr(context, "window_manager", None)
+    if window_manager is not None:
+        for window in window_manager.windows:
+            for area in window.screen.areas:
+                if area.type == "VIEW_3D":
+                    area.tag_redraw()
+
+
 class SuperLuxCoreViewportSettings(bpy.types.PropertyGroup):
-    halt_time: IntProperty(name="Halt Time (s)", default=10, min=1,
-                            description="How long to render in the viewport. "
-                                        "When this time is reached, the render is paused")
+    halt_time: IntProperty(
+        update=_update_viewport_settings,
+        name="Halt Time (s)",
+        default=10,
+        min=1,
+        description=(
+            "How long to render in the viewport. When this time is reached, the "
+            "render is paused"
+        ),
+    )
 
     devices = [
         ("CPU", "CPU", "Low latency, but slower rendering than on GPU", 0),
         ("OCL", "GPU", "High latency, but faster rendering than on CPU", 1),
     ]
-    device: EnumProperty(name="Device", items=devices, default="CPU")
+    device: EnumProperty(
+        update=_update_viewport_settings,
+        name="Device",
+        items=devices,
+        default="CPU",
+    )
 
     pixel_sizes = [
         ("1", "1x", "Use the native resolution of the monitor (1 rendered pixel = 1 displayed pixel)", 0),
@@ -20,88 +48,206 @@ class SuperLuxCoreViewportSettings(bpy.types.PropertyGroup):
         ("4", "4x", "1 rendered pixel = 4x4 displayed pixels", 2),
         ("8", "8x", "1 rendered pixel = 8x8 displayed pixels", 3),
     ]
-    pixel_size: EnumProperty(name="Pixel Size", items=pixel_sizes, default="1",
-                              description="Scale factor for rendered pixels")
+    pixel_size: EnumProperty(
+        update=_update_viewport_settings,
+        name="Pixel Size",
+        items=pixel_sizes,
+        default="1",
+        description="Scale factor for rendered pixels",
+    )
 
     mag_filters = [
         ("NEAREST", "Nearest (blocky)", "", 0),
         ("LINEAR", "Linear (smooth)", "", 1),
     ]
-    mag_filter: EnumProperty(name="Filter", items=mag_filters, default="NEAREST",
-                              description="Upscaling filter used when pixel size is larger than 1")
+    mag_filter: EnumProperty(
+        update=_update_viewport_settings,
+        name="Filter",
+        items=mag_filters,
+        default="NEAREST",
+        description="Upscaling filter used when pixel size is larger than 1",
+    )
 
-    reduce_resolution_on_edit: BoolProperty(name="Reduce first sample resolution", default=True,
-                                             description="Render the first sample after editing the scene "
-                                                         "with reduced resolution to provide a quicker response "
-                                                         "(does not work when light tracing or bidir are used "
-                                                         "for viewport rendering)")
-    resolution_reduction: IntProperty(name="Block Size", default=4, min=2,
-                                       description="Size of the startup blocks in pixels. A size of 4 means that "
-                                                   "one sample is spread over 4x4 pixels on startup")
+    reduce_resolution_on_edit: BoolProperty(
+        update=_update_viewport_settings,
+        name="Reduce first sample resolution",
+        default=True,
+        description=(
+            "Render the first sample after editing the scene with reduced "
+            "resolution to provide a quicker response (does not work when light "
+            "tracing or bidir are used for viewport rendering)"
+        ),
+    )
+    resolution_reduction: IntProperty(
+        update=_update_viewport_settings,
+        name="Block Size",
+        default=4,
+        min=2,
+        description=(
+            "Size of the startup blocks in pixels. A size of 4 means that one "
+            "sample is spread over 4x4 pixels on startup"
+        ),
+    )
 
-    use_bidir: BoolProperty(name="Use Bidir", default=True,
-                             description="Enable if your scene requires Bidir for complex light paths and "
-                                         "you need to preview them in the viewport render. If disabled, "
-                                         "the RT Path engine is used in the viewport, which is optimized "
-                                         "for quick feedback but can't handle complex light paths")
-    add_light_tracing: BoolProperty(name="Add Light Tracing", default=True,
-                                    description="Add light tracing in viewport. If disabled, "
-                                         "the RT Path engine is used in the viewport, which is optimized "
-                                         "for quick feedback but can't handle complex light paths")
+    use_bidir: BoolProperty(
+        update=_update_viewport_settings,
+        name="Use Bidir",
+        default=True,
+        description=(
+            "Enable if your scene requires Bidir for complex light paths and you "
+            "need to preview them in the viewport render. If disabled, the RT Path "
+            "engine is used in the viewport, which is optimized for quick feedback "
+            "but can't handle complex light paths"
+        ),
+    )
+    add_light_tracing: BoolProperty(
+        update=_update_viewport_settings,
+        name="Add Light Tracing",
+        default=True,
+        description=(
+            "Add light tracing in viewport. If disabled, the RT Path engine is used "
+            "in the viewport, which is optimized for quick feedback but can't "
+            "handle complex light paths"
+        ),
+    )
 
-    use_infill: BoolProperty(name="Instant Coverage", default=True,
-                             description="Fill not-yet-sampled pixels from nearby covered pixels "
-                                         "(pull-push reconstruction) so the whole screen becomes "
-                                         "coherent immediately instead of showing stale blocks")
-    lt_blend: FloatProperty(name="LT Speckle Softening", default=0.5, min=0.0, max=1.0,
-                            subtype="FACTOR",
-                            description="Blend light-tracing splats that landed without eye-path "
-                                        "coverage toward the neighbourhood, so sparse caustic/LT "
-                                        "contributions appear as soft light rather than isolated speckles")
-    use_adaptive: BoolProperty(name="Adaptive Sampling", default=True,
-                               description="Steer samples toward noisy/difficult regions "
-                                           "(film noise estimation + importance) once coverage is "
-                                           "established, so glass, caustics and glossy areas converge "
-                                           "faster. Every pixel keeps a sampling floor")
-    use_fovea: BoolProperty(name="Foveated", default=True,
-                            description="Concentrate sampling near the frame centre (and near "
-                                        "geometry when a depth falloff is set). Far edges converge "
-                                        "slower during interaction but keep a nonzero floor")
-    fovea_strength: FloatProperty(name="Strength", default=0.7, min=0.0, max=0.95,
-                                  subtype="FACTOR",
-                                  description="How strongly sampling density drops toward the frame "
-                                              "edges (0 = uniform)")
-    fovea_radius: FloatProperty(name="Radius", default=0.45, min=0.05, max=1.0,
-                                subtype="FACTOR",
-                                description="Fraction of the frame half-diagonal that keeps full "
-                                            "sampling density before the falloff starts")
-    fovea_depthscale: FloatProperty(name="Depth Falloff", default=0.0, min=0.0,
-                                    unit="LENGTH",
-                                    description="World-space distance beyond which sampling thins "
-                                                "out (0 = disabled). Near geometry always keeps "
-                                                "full density")
-    use_temporal: BoolProperty(name="Temporal Reuse", default=True,
-                               description="Reproject the previous frame across camera moves so the "
-                                           "viewport stays coherent while new samples accumulate "
-                                           "(depth-validated; disoccluded areas are rebuilt)")
-    use_smooth: BoolProperty(name="Interactive Smoothing", default=True,
-                             description="Edge-aware filtering of not-yet-converged pixels "
-                                         "(depth/normal guided) to suppress visible noise during "
-                                         "interaction. Converged pixels keep their raw samples")
-    use_denoiser: BoolProperty(name="Denoise", default=True,
-                           description="Denoise the viewport render once the halt time is reached. "
-                                       "Note that this disables most imagepipeline plugins in the viewport")
-    denoise_interactive: BoolProperty(name="Interactive Denoise", default=True,
-                           description="Run the denoiser periodically while the viewport render is still "
-                                       "in progress (OIDN only) instead of only once after it pauses. "
-                                       "Keeps the preview smooth at low sample counts")
+    use_infill: BoolProperty(
+        update=_update_viewport_settings,
+        name="Instant Coverage",
+        default=True,
+        description=(
+            "Fill not-yet-sampled pixels from nearby covered pixels (pull-push "
+            "reconstruction) so the whole screen becomes coherent immediately "
+            "instead of showing stale blocks"
+        ),
+    )
+    lt_blend: FloatProperty(
+        update=_update_viewport_settings,
+        name="LT Speckle Softening",
+        default=0.5,
+        min=0.0,
+        max=1.0,
+        subtype="FACTOR",
+        description=(
+            "Blend light-tracing splats that landed without eye-path coverage "
+            "toward the neighbourhood, so sparse caustic/LT contributions appear as "
+            "soft light rather than isolated speckles"
+        ),
+    )
+    use_adaptive: BoolProperty(
+        update=_update_viewport_settings,
+        name="Adaptive Sampling",
+        default=True,
+        description=(
+            "Steer samples toward noisy/difficult regions (film noise estimation + "
+            "importance) once coverage is established, so glass, caustics and "
+            "glossy areas converge faster. Every pixel keeps a sampling floor"
+        ),
+    )
+    use_fovea: BoolProperty(
+        update=_update_viewport_settings,
+        name="Foveated",
+        default=True,
+        description=(
+            "Concentrate sampling near the frame centre (and near geometry when a "
+            "depth falloff is set). Far edges converge slower during interaction "
+            "but keep a nonzero floor"
+        ),
+    )
+    fovea_strength: FloatProperty(
+        update=_update_viewport_settings,
+        name="Strength",
+        default=0.7,
+        min=0.0,
+        max=0.95,
+        subtype="FACTOR",
+        description=(
+            "How strongly sampling density drops toward the frame edges (0 = "
+            "uniform)"
+        ),
+    )
+    fovea_radius: FloatProperty(
+        update=_update_viewport_settings,
+        name="Radius",
+        default=0.45,
+        min=0.05,
+        max=1.0,
+        subtype="FACTOR",
+        description=(
+            "Fraction of the frame half-diagonal that keeps full sampling density "
+            "before the falloff starts"
+        ),
+    )
+    fovea_depthscale: FloatProperty(
+        update=_update_viewport_settings,
+        name="Depth Falloff",
+        default=0.0,
+        min=0.0,
+        unit="LENGTH",
+        description=(
+            "World-space distance beyond which sampling thins out (0 = disabled). "
+            "Near geometry always keeps full density"
+        ),
+    )
+    use_temporal: BoolProperty(
+        update=_update_viewport_settings,
+        name="Temporal Reuse",
+        default=True,
+        description=(
+            "Reproject the previous frame across camera moves so the viewport stays "
+            "coherent while new samples accumulate (depth-validated; disoccluded "
+            "areas are rebuilt)"
+        ),
+    )
+    use_smooth: BoolProperty(
+        update=_update_viewport_settings,
+        name="Interactive Smoothing",
+        default=True,
+        description=(
+            "Edge-aware filtering of not-yet-converged pixels (depth/normal guided) "
+            "to suppress visible noise during interaction. Converged pixels keep "
+            "their raw samples"
+        ),
+    )
+    use_denoiser: BoolProperty(
+        update=_update_viewport_settings,
+        name="Denoise",
+        default=True,
+        description=(
+            "Denoise the viewport render once the halt time is reached. Note that "
+            "this disables most imagepipeline plugins in the viewport"
+        ),
+    )
+    denoise_interactive: BoolProperty(
+        update=_update_viewport_settings,
+        name="Interactive Denoise",
+        default=True,
+        description=(
+            "Run the denoiser periodically while the viewport render is still in "
+            "progress (OIDN only) instead of only once after it pauses. Keeps the "
+            "preview smooth at low sample counts"
+        ),
+    )
     denoisers = [
         ("OIDN", "Intel Open Image Denoiser", "Denoising is only performed once the viewport render pauses", 0),
         ("OPTIX", "OptiX", "Denoises continuously during viewport rendering", 1),
     ]
-    denoiser: EnumProperty(name="Denoiser", items=denoisers, default="OPTIX")
-    min_samples: IntProperty(name="Min. Samples", default=1, min=0, 
-                             description="Minimum amount of samples to be rendered before viewport denoiser is enabled")
+    denoiser: EnumProperty(
+        update=_update_viewport_settings,
+        name="Denoiser",
+        items=denoisers,
+        default="OPTIX",
+    )
+    min_samples: IntProperty(
+        update=_update_viewport_settings,
+        name="Min. Samples",
+        default=1,
+        min=0,
+        description=(
+            "Minimum amount of samples to be rendered before viewport denoiser is "
+            "enabled"
+        ),
+    )
 
     @staticmethod
     def can_use_optix_denoiser(context):

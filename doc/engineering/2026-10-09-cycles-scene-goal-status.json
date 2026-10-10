@@ -1492,5 +1492,36 @@
     "evidence": "2026-10-10-deployment-2.11.27.md",
     "installed_in_user_blender": true,
     "verified": true
+  },
+  "viewport_settings_candidate": {
+    "base_public_version": "2.11.27",
+    "native_sha256": "d29c2387496c2bb94700b7cbe09a4bb9cdde5c6f225056c6309e8dd3d752b2bf",
+    "modified_file": "properties/viewport.py",
+    "modified_sha256": "d46ade16cbb59b115f8e8e314e3e279ea25c1f6ecc23db637b0a6b0c3ec7c4eb",
+    "test_sha256": "a266becdbfbb8c32ee058abc4beefcb0265a0c2183f058d0c91648dc54dcb356",
+    "exact_python_files": 375,
+    "source_deltas_from_public27": [
+      "properties/viewport.py",
+      "dev-tools/viewport_settings_update_test.py"
+    ],
+    "manifest_exact_public27": true,
+    "original_property_values_descriptions_defaults_unchanged": true,
+    "rna_properties_checked": 21,
+    "cpu_metal_rna_condition_repeats": 42,
+    "worker_frames_checked": 8,
+    "paused_resizes_checked": 6,
+    "original_cycles_graph_unchanged": true,
+    "actual_metal_backend_verified": true,
+    "baseline_public27_reproduced": true,
+    "gui_redraw_verified": false,
+    "actual_ui_control_verified": false,
+    "actual_user_install_modified": false,
+    "native_implementation_changed": false,
+    "public_deployed": false,
+    "goal_complete": false,
+    "headless_worker_frames_are_first_nonzero_partial_samples": true,
+    "cross_engine_image_parity_claimed": false,
+    "evidence": "2026-10-10-viewport-settings-evaluated-scene.md",
+    "main_merged": true
   }
 }
