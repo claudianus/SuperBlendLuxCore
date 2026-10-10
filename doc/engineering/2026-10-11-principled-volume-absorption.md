@@ -36,10 +36,52 @@ Evidence is in the parent workspace's
 `test-scenes/validation-2026-10-11/principled-volume-absorption`.
 The original one-thread interrupted attempt and its source are retained;
 the four-thread rerun preserves sample budgets and the analytic threshold.
-Actual narrow-reader registration and linked-color rendering are underway.
+Actual narrow-reader registration and linked-color rendering subsequently completed as recorded below.
 
 Named VDB attributes, Generated coordinates inside volumes, broad blackbody
 radiance/unit checks, overlapping volume boundaries and production convergence
 remain open. In particular, the separate Generated-coordinate failure is not
 hidden by the explicitly authored reference used to isolate this color
 operator. The full unchanged-Cycles-scene goal remains active.
+
+## Actual narrow deployment and latest bundles
+
+The implementation is on main at `d8302873b124cefc30def3cd081a42bc0e12a92f`.
+The actual installed reader was updated from
+`7dd35540ac9a1fcffdbd4b1aeb2684957f51164e799a30b93cc6d271fcb6a235`
+to `6b87346c41135fccfc7405fcf19c4b41edfbb9f83ff6c4bdd26a2477fa957f2a`.
+Only the Principled absorption block was backported into that stable reader;
+all other 373 installed Python files, the full core payload, cached wheel and
+user settings were verified unchanged. The whole repository reader also has
+the preceding unconnected-zero-Normal cleanup and has SHA256
+`ee603e49966b2c3cc05d60db88ae122fd7ce38cf3f86e554420d6667b83ffb7c`.
+This narrow installation does not expose the private experimental BSSRDF path.
+
+Fresh installed Blender 5.2.1 registration succeeded before and after rendering.
+The unchanged linked-color fixture completed five actual 1280x720 images:
+Cycles RGB and native CPU/Metal in RGB/default spectral modes. All five original
+PNGs were directly inspected, and the graph fingerprint matches the candidate.
+Native RGB maximum mean error was 0.09907% against the same independent slab
+law. The spectral gradient and silhouette remain consistent; bounded grain
+is visible. This verifies the installed color operator without accepting final
+production convergence or fixing Generated volume-carrier context.
+
+[Latest bundle workflow 38089660645](https://github.com/claudianus/SuperBlendLuxCore/actions/runs/38089660645)
+completed bundle build, signature and publication at the exact implementation
+commit. All four public ZIP digests match the signed subjects. The
+[latest prerelease](https://github.com/claudianus/SuperBlendLuxCore/releases/tag/latest)
+contains Windows x64, Linux x64, macOS Intel and macOS ARM installers.
+The downloaded ARM ZIP matches its release digest and has all 382 Python source
+files byte-for-byte equal to that Git commit; its repository reader and bundled
+whole core wheel match the hashes above. Other platform bundle payloads were
+not downloaded or rendered locally; their signed publication and CI gates are
+verified. The stable versioned release is a separate earlier artifact.
+
+The candidate profile was verified and removed immediately after use
+(293059213 logical bytes; physical freed space not measured). All owned render,
+validation and bundle-capture processes have been reaped. Original images,
+EXRs, the ARM installer, signature evidence, rollback reader, interrupted attempt
+and source/hash inventories remain in durable evidence. `completion-proof.json`
+and `preservation-inventory.json` record the unit. The full compatibility goal
+remains active, including named VDB attributes, Generated volume context and
+broader blackbody/colorimetry/production checks.

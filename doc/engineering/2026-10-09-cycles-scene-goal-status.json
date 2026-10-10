@@ -178,7 +178,7 @@
       "priority": "P1",
       "scope": "Principled Volume 흑체",
       "status": "부분 구현·검증",
-      "remaining": "상수 흑체·Temperature/Tint 발광 CPU·Metal 720p와 Absorption Color 제곱근 수정의 실제 어댑터 후보 15개 렌더를 확인했다. RGB 최대 영역 오차는 0.08960%이고 원본 15장을 직접 검토했다. 흑체의 넓은 온도·강도 물리 방사량·단위 및 고샘플 수렴은 남아 있다. HDR Absorption Color=4의 분광 red 채널은 RGB 기준과 67.50% 차이가 있어 정확한 색도 일치를 인정하지 않는다. 실제 좁은 reader 배포 검증을 진행 중이다. Generated 볼륨 내부 좌표와 이름 지정 VDB 속성 결함은 별도 미해결이다.",
+      "remaining": "상수 흑체·Temperature/Tint 발광 CPU·Metal 720p와 Absorption Color 제곱근 수정의 후보 15개·실제 설치 5개 렌더를 확인했다. 실제 RGB 최대 영역 오차는 0.09907%이며 모든 원본을 직접 검토했고 좁은 reader 배포와 4개 플랫폼 latest 서명 번들 게시를 완료했다. 흑체의 넓은 온도·강도 물리 방사량·단위 및 고샘플 수렴은 남아 있다. HDR Absorption Color=4의 분광 red 채널은 RGB 기준과 67.50% 차이가 있어 정확한 색도 일치를 인정하지 않는다. Generated 볼륨 내부 좌표와 이름 지정 VDB 속성 결함은 별도 미해결이다.",
       "evidence": "2026-10-11-principled-volume-absorption.md; 2026-10-11-volume-source-and-prototype-audit.md"
     },
     {
@@ -2085,13 +2085,45 @@
     "full_goal_complete": false
   },
   "principled_volume_absorption_2026_10_11": {
-    "status": "Implemented; narrow stable candidate 15 frames verified and directly reviewed; actual registration/render and latest bundle pending",
+    "status": "Narrow absorption implementation deployed; actual unchanged-graph CPU/Metal rendering and four-platform signed latest publication complete; full goal remains active",
     "development_reader_sha256": "ee603e49966b2c3cc05d60db88ae122fd7ce38cf3f86e554420d6667b83ffb7c",
     "stable_candidate_reader_sha256": "6b87346c41135fccfc7405fcf19c4b41edfbb9f83ff6c4bdd26a2477fa957f2a",
     "candidate_frames": 15,
     "candidate_original_pngs_directly_reviewed": 15,
     "candidate_rgb_max_relative_body_error": 0.0008959972020937749,
     "native_core_unchanged": true,
+    "full_goal_complete": false,
+    "actual_reader_deployed": true,
+    "actual_reader_sha256": "6b87346c41135fccfc7405fcf19c4b41edfbb9f83ff6c4bdd26a2477fa957f2a",
+    "actual_frames": 5,
+    "actual_original_pngs_directly_reviewed": 5,
+    "actual_rgb_max_relative_body_error": 0.000990680957033547,
+    "actual_settings_preserved": true,
+    "actual_other_python_files_preserved": 373,
+    "whole_core_payload_and_cache_preserved": true,
+    "temporary_profile_removed": true,
+    "owned_workers_remaining": 0
+  },
+  "rolling_absorption_bundle_deployment_2026_10_11": {
+    "complete": true,
+    "source_commit": "d8302873b124cefc30def3cd081a42bc0e12a92f",
+    "workflow_run_id": 38089660645,
+    "ci_url": "https://github.com/claudianus/SuperBlendLuxCore/actions/runs/38089660645",
+    "release_url": "https://github.com/claudianus/SuperBlendLuxCore/releases/tag/latest",
+    "release_is_prerelease": true,
+    "all_four_published_asset_digests_match_signed_subjects": true,
+    "published_signed_assets": {
+      "SuperLuxCore-Latest-linux_x64.zip": "577faed6e39b28441375c1c9f356318e9b160dbbb1db6fbe3421dc585532e0ad",
+      "SuperLuxCore-Latest-macos_arm64.zip": "56a0e852541527d1b0374f623ed6a137be3fefcbf3c5e38132b2397483e3bdc6",
+      "SuperLuxCore-Latest-macos_x64.zip": "ff8d957bf359987b006fbee4d062e97109f659943d58761604730c961b5cfb23",
+      "SuperLuxCore-Latest-windows_x64.zip": "0128af935a399830717eb4a066255b4163fb18d652043873bcadd12673ac03dd"
+    },
+    "arm_bundle_original_preserved": "/Users/modumaru/Desktop/code/superluxcore/test-scenes/validation-2026-10-11/principled-volume-absorption/bundle-ci/SuperLuxCore-Latest-macos_arm64.zip",
+    "arm_source_python_files_verified": 382,
+    "arm_reader_sha256": "ee603e49966b2c3cc05d60db88ae122fd7ce38cf3f86e554420d6667b83ffb7c",
+    "arm_whole_engine_wheel_sha256": "dace137bff6799eebb099ede4e4570ad3eba07fdd1bc9d79b624ca25db1ba5d7",
+    "arm_native_sha256": "d5443cf5022c653d5636fa4b44ec246a60e39b0b65e2078e6135410949636024",
+    "other_three_bundle_payloads_locally_uninspected": true,
     "full_goal_complete": false
   }
 }
