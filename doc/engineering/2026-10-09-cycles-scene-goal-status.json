@@ -1675,7 +1675,38 @@
     "production_bssrdf_adapter_switched": false,
     "production_release_deployed": false,
     "full_goal_complete": false,
+    "platform_ci_status": "completed/success",
+    "platform_ci_url": "https://github.com/claudianus/SuperLuxCore/actions/runs/38036805282",
+    "rolling_wheel_publication": "completed/success; stable production BSSRDF adapter remains unchanged"
+  },
+  "native_bssrdf_boundary_candidate": {
+    "status": "방향 경계 전제 조건 구현·검수 완료, 전체 goal 미완료",
+    "evidence": "2026-10-10-cycles-bssrdf-boundary-measures.md",
+    "native_sha256": "e92382fdbefe3cd79f54276ae9af555fa076b48886ea4a3a02eb6d6a5793e152",
+    "actual_probe_device": "Apple M5 Pro",
+    "probe_samples": 4718664,
+    "directional_distribution_cases": 18,
+    "finite_edge_cases": 72,
+    "transport_cpu_contracts": 50,
+    "transport_metal_contracts": 51,
+    "ordinary_contracts": 5,
+    "ordinary_skips": 0,
+    "blender_resolution": [
+      1280,
+      720
+    ],
+    "blender_samples": 128,
+    "blender_comparison_sets": 4,
+    "graph_preserved_by_render": true,
+    "directly_reviewed": true,
+    "spatial_pdf_or_mis_implemented": false,
+    "adjoint_light_transport_implemented": false,
+    "production_bssrdf_adapter_switched": false,
+    "production_release_deployed": false,
+    "full_goal_complete": false,
     "platform_ci_status": "in_progress",
-    "platform_ci_url": "https://github.com/claudianus/SuperLuxCore/actions/runs/38036805282"
+    "native_main_commit": "686c0bde913125632a52c74a73337d51befdcdfc",
+    "main_merged": true,
+    "platform_ci_url": "https://github.com/claudianus/SuperLuxCore/actions/runs/38039464468"
   }
 }
