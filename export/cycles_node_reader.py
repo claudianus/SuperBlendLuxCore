@@ -4389,12 +4389,29 @@ def _volume(node, output_socket, props, material, name_base, obj_name,
     if node.bl_idname == "ShaderNodeVolumePrincipled":
         density = coeff("Density", 1.0)
         color = coeff("Color", [1.0, 1.0, 1.0])
-        # Cycles svm_node_principled_volume:
-        # sigma_a = density * (1 - Color) * (1 - Absorption Color)
+        # Cycles applies the square root to authored RGB before conversion
+        # to a spectrum. Split texture channels so nonlinear math does not
+        # operate on sampled wavelengths in the default spectral mode.
+        absorption_color = coeff("Absorption Color", [0, 0, 0])
+        if _is_textured(absorption_color):
+            channels = []
+            for channel in range(3):
+                value = _split_chan(absorption_color, channel,
+                                    name_base + f"_pvabs_rgb{channel}", props)
+                value = _tex_mathfunc("max", value, 0.0,
+                                     name_base + f"_pvabs_positive{channel}", props)
+                channels.append(_tex_binary("power", value, 0.5,
+                                             name_base + f"_pvabs_sqrt{channel}", props))
+            absorption_color = _tex_helper(props, name_base + "_pvabs_sqrt_rgb", {
+                "type": "makefloat3", "color": True,
+                **{f"texture{i+1}": value for i, value in enumerate(channels)}})
+        else:
+            values = list(absorption_color)[:3] if isinstance(absorption_color, (list, tuple)) else [absorption_color] * 3
+            absorption_color = [math.sqrt(max(value, 0.0)) for value in values]
         absorb = _tex_binary(
             "scale",
             _volume_transmit_to_absorb(color, name_base + "_pvcolor", props),
-            _volume_transmit_to_absorb(coeff("Absorption Color", [0, 0, 0]),
+            _volume_transmit_to_absorb(absorption_color,
                                        name_base + "_pvabs", props),
             name_base + "_pvabsprod", props)
         definitions = {

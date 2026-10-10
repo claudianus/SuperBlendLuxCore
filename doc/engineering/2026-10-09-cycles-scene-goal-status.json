@@ -178,8 +178,8 @@
       "priority": "P1",
       "scope": "Principled Volume 흑체",
       "status": "부분 구현·검증",
-      "remaining": "상수 흑체 강도와 Temperature/Tint 발광을 복원하여 CPU·Metal 720p를 확인했다. 넓은 온도·강도 범위의 물리 방사량·단위 및 고샘플 수렴은 남아 있다. 추가 검수에서 Absorption Color의 제곱근 누락을 확인했다. CPU 시제품의 상수·연결 Object 좌표·0/1/4 경계 720p는 독립 RGB 투과율 기준을 통과했으나 Metal·넓은 분광 및 제작 배포는 아직 미완료다. Generated 좌표의 볼륨 내부 context 결함은 별도로 재현했고 시제품은 배포하지 않았다.",
-      "evidence": "2026-10-11-volume-source-and-prototype-audit.md"
+      "remaining": "상수 흑체·Temperature/Tint 발광 CPU·Metal 720p와 Absorption Color 제곱근 수정의 실제 어댑터 후보 15개 렌더를 확인했다. RGB 최대 영역 오차는 0.08960%이고 원본 15장을 직접 검토했다. 흑체의 넓은 온도·강도 물리 방사량·단위 및 고샘플 수렴은 남아 있다. HDR Absorption Color=4의 분광 red 채널은 RGB 기준과 67.50% 차이가 있어 정확한 색도 일치를 인정하지 않는다. 실제 좁은 reader 배포 검증을 진행 중이다. Generated 볼륨 내부 좌표와 이름 지정 VDB 속성 결함은 별도 미해결이다.",
+      "evidence": "2026-10-11-principled-volume-absorption.md; 2026-10-11-volume-source-and-prototype-audit.md"
     },
     {
       "id": "C22",
@@ -2082,6 +2082,16 @@
     "owned_render_processes_remaining": 0,
     "production_bssrdf_adapter_switched": false,
     "production_quality_accepted": false,
+    "full_goal_complete": false
+  },
+  "principled_volume_absorption_2026_10_11": {
+    "status": "Implemented; narrow stable candidate 15 frames verified and directly reviewed; actual registration/render and latest bundle pending",
+    "development_reader_sha256": "ee603e49966b2c3cc05d60db88ae122fd7ce38cf3f86e554420d6667b83ffb7c",
+    "stable_candidate_reader_sha256": "6b87346c41135fccfc7405fcf19c4b41edfbb9f83ff6c4bdd26a2477fa957f2a",
+    "candidate_frames": 15,
+    "candidate_original_pngs_directly_reviewed": 15,
+    "candidate_rgb_max_relative_body_error": 0.0008959972020937749,
+    "native_core_unchanged": true,
     "full_goal_complete": false
   }
 }

@@ -103,3 +103,5 @@ docs live alongside in `doc/`.
 - [Private Cycles BSSRDF Metal hybrid scene verification](2026-10-11-cycles-bssrdf-device-adjoint.md): native rough reverse transport and unchanged-graph Blender harness; production exposure and broader compatibility remain open.
 
 - [Principled Volume attributes and spatial context audit](2026-10-11-volume-source-and-prototype-audit.md): named-grid material and Generated context defects reproduced; scoped RGB CPU absorption prototype, production acceptance remains open.
+
+- [Cycles Principled Volume absorption color](2026-10-11-principled-volume-absorption.md)
