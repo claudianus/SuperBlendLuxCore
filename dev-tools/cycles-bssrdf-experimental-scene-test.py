@@ -2,8 +2,8 @@
 """720p visual diagnostics through cycles-bssrdf-experimental-test.py.
 
 Construct ordinary Cycles graphs; rendering must not edit their node inputs,
-links, method or original Cycles settings. These private eye-only results
-are never counted as production/default-quality/adjoint compatibility acceptance.
+links, method or original Cycles settings. These private eye-only or pure
+LIGHTCPU results are never counted as production/default-quality acceptance.
 """
 import hashlib
 import importlib
@@ -196,6 +196,7 @@ for case in os.environ.get('SUPERLUXCORE_BSSRDF_VARIANTS', ','.join(variants)).s
               'graph_sha256': before, 'graph_unchanged': True,
               'spectral': variant['spectral'], 'device': os.environ.get('SUPERLUXCORE_BSSRDF_DEVICE', 'CPU'),
               'resolution': [1280, 720], 'samples': s.cycles.samples,
+              'light_samples_override': os.environ.get('SUPERLUXCORE_BSSRDF_LIGHT_SAMPLES'),
               'cycles_rgb_mean': a.mean(axis=(0, 1)).tolist(),
               'native_rgb_mean': b.mean(axis=(0, 1)).tolist(),
               'native_cycles_mean_ratio': float(b.mean() / max(a.mean(), 1e-8)),

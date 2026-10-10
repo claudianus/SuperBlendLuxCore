@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-"""Private CPU/Metal diagnostic for unchanged Cycles RANDOM_WALK graphs.
+"""Private CPU/Metal/adjoint diagnostic for unchanged Cycles RANDOM_WALK graphs.
 
 The release adapter is deliberately left unchanged: default-quality/adjoint
 transport and mixed closures still need implementation. This harness patches
@@ -34,10 +34,13 @@ package = next(a.module for a in bpy.context.preferences.addons
                if a.module.endswith('.superluxcore'))
 reader = importlib.import_module(package + '.export.cycles_node_reader')
 config = importlib.import_module(package + '.export.config')
+halt = importlib.import_module(package + '.export.halt')
 utils = importlib.import_module(package + '.utils')
 original_node = reader._node
 original_config = config.convert
+original_halt = halt.convert
 exported = []
+exported_halts = []
 
 
 def experimental_node(node, output_socket, props, material, superluxcore_name=None,
@@ -80,9 +83,10 @@ def experimental_config(*args, **kwargs):
     # These are explicit limitations of a private diagnostic, not shipping
     # quality defaults and not production compatibility acceptance.
     device = os.environ.get('SUPERLUXCORE_BSSRDF_DEVICE', 'CPU')
-    assert device in ('CPU', 'METAL'), device
-    overrides = {'renderengine.type': 'PATHCPU' if device == 'CPU' else 'PATHOCL',
+    assert device in ('CPU', 'METAL', 'LIGHTCPU'), device
+    overrides = {'renderengine.type': {'CPU': 'PATHCPU', 'METAL': 'PATHOCL', 'LIGHTCPU': 'LIGHTCPU'}[device],
                  'path.cyclesbssrdf.experimental.device.enable': device == 'METAL',
+                 'path.cyclesbssrdf.experimental.adjoint.enable': device == 'LIGHTCPU',
                  'opencl.cpu.use': False, 'opencl.gpu.use': True,
                  'path.cyclesbssrdf.experimental.enable': True,
                  'path.hybridbackforward.enable': False,
@@ -93,13 +97,32 @@ def experimental_config(*args, **kwargs):
                  'path.mnee.auto': False,
                  'path.photongi.caustic.enabled': False,
                  'path.photongi.indirect.enabled': False}
+    if device == 'LIGHTCPU' and 'SUPERLUXCORE_BSSRDF_LIGHT_SAMPLES' in os.environ:
+        # The light estimator has a different variance. Keep the original
+        # Cycles scene/sample settings intact and record this override.
+        overrides['batch.haltspp'] = [0, int(os.environ['SUPERLUXCORE_BSSRDF_LIGHT_SAMPLES'])]
     for name, value in overrides.items():
         props.Set(pysuperluxcore.Property(name, value))
     return props
 
 
+def experimental_halt(scene):
+    props = original_halt(scene)
+    if os.environ.get('SUPERLUXCORE_BSSRDF_DEVICE') == 'LIGHTCPU':
+        # The exporter reapplies halt conditions after config.convert. Its
+        # ordinary UI still describes the eye-only diagnostic, so transpose
+        # the sample budget here as well: pure LIGHTCPU produces no eye spp.
+        samples = int(os.environ.get('SUPERLUXCORE_BSSRDF_LIGHT_SAMPLES',
+                                     str(utils.get_halt_conditions(scene).samples)))
+        props.Set(pysuperluxcore.Property('batch.haltspp', [0, samples]))
+        exported_halts.append([0, samples])
+        print('BSSRDF_DIAGNOSTIC_LIGHT_HALT', [0, samples], flush=True)
+    return props
+
+
 reader._node = experimental_node
 config.convert = experimental_config
+halt.convert = experimental_halt
 os.environ.setdefault('SUPERLUXCORE_AUDIT_CASES', 'sss_roughness')
 os.environ.setdefault('SUPERLUXCORE_AUDIT_BASELINE', '1')
 print('BSSRDF_EXPERIMENTAL_IDENTITY', identity['native_sha256'], flush=True)
@@ -111,9 +134,13 @@ try:
 finally:
     reader._node = original_node
     config.convert = original_config
+    halt.convert = original_halt
     folder = Path(os.environ['SUPERLUXCORE_AUDIT_DIR'])
     (folder / 'experimental-export.json').write_text(json.dumps({
         'experimental': True, 'production_acceptance': False,
         'cpu_eye_only': os.environ.get('SUPERLUXCORE_BSSRDF_DEVICE', 'CPU') == 'CPU',
+        'adjoint_light_only': os.environ.get('SUPERLUXCORE_BSSRDF_DEVICE') == 'LIGHTCPU',
+        'light_samples_override': os.environ.get('SUPERLUXCORE_BSSRDF_LIGHT_SAMPLES'),
+        'exported_light_halts': exported_halts,
         'device': os.environ.get('SUPERLUXCORE_BSSRDF_DEVICE', 'CPU'), 'native_sha256': identity['native_sha256'],
         'exported': exported}, ensure_ascii=False, indent=2, default=str) + '\n')

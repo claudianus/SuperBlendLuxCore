@@ -1704,9 +1704,44 @@
     "production_bssrdf_adapter_switched": false,
     "production_release_deployed": false,
     "full_goal_complete": false,
-    "platform_ci_status": "in_progress",
+    "platform_ci_status": "completed/success",
     "native_main_commit": "686c0bde913125632a52c74a73337d51befdcdfc",
     "main_merged": true,
-    "platform_ci_url": "https://github.com/claudianus/SuperLuxCore/actions/runs/38039464468"
+    "platform_ci_url": "https://github.com/claudianus/SuperLuxCore/actions/runs/38039464468",
+    "rolling_wheel_publication": "completed/success; stable production BSSRDF adapter remains unchanged"
+  },
+  "native_bssrdf_adjoint_candidate": {
+    "status": "실제 CPU 역방향 전송 구현 및 제한된 검수 완료, 제작용 전체 goal 미완료",
+    "evidence": "2026-10-10-cycles-bssrdf-adjoint-transport.md",
+    "native_sha256": "407702be156d3420bf33f5c6116d7fc008f0639ca854df9a1f0cc0420ba8ca24",
+    "adjoint_cpu_contracts": 22,
+    "independent_continuation_conditions": 8,
+    "independent_low_ior_seeds": 2,
+    "continuation_max_relative_mean_error": 0.0036541604979370263,
+    "transport_cpu_contracts": 50,
+    "transport_metal_contracts": 51,
+    "ordinary_contracts": 5,
+    "ordinary_skips": 0,
+    "blender_resolution": [
+      1280,
+      720
+    ],
+    "cycles_and_eye_samples": 128,
+    "pure_light_samples": 512,
+    "blender_comparison_sets": 6,
+    "graph_preserved_by_render": true,
+    "directly_reviewed": true,
+    "adjoint_light_transport_implemented": "CPU; homogeneous standalone rough boundary only",
+    "gpu_adjoint_implemented": false,
+    "spatial_pdf_or_mis_implemented": false,
+    "hybrid_or_bidir_implemented": false,
+    "production_quality_accepted": false,
+    "production_bssrdf_adapter_switched": false,
+    "production_release_deployed": false,
+    "full_goal_complete": false,
+    "native_main_commit": "2db47e4e3f23d4f94909031a45acf8715922b3db",
+    "main_merged": true,
+    "platform_ci_status": "in_progress",
+    "platform_ci_url": "https://github.com/claudianus/SuperLuxCore/actions/runs/38044014182"
   }
 }
