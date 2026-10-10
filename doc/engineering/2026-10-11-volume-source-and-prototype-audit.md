@@ -87,3 +87,20 @@ Next work must implement named material fields and missing-field defaults,
 per-grid mapping and carrier bounds, OBJECT/WORLD scale, the Generated volume
 context defect, and CPU/Metal unchanged-scene acceptance. Current CPU prototype
 successes do not close those scopes or switch the production SSS adapter.
+
+## Completed Metal prototype follow-up
+
+The same read-only CI profile subsequently completed nine 1280x720 images:
+Cycles RGB references plus Metal RGB and default spectral renders for constant
+absorption, the explicitly authored Object-coordinate gradient, and the
+absorption limit case. All nine original PNGs were directly reviewed. The
+three Metal RGB body errors against the analytic slab were 0.0025%, 0.1142%
+and 0.0031%, within the fixed 1% operator gate. The cool-to-warm gradient,
+cyan limit color and silhouettes remain visible in spectral mode, with grain
+at 64 SPP. Spectral values are not gated against the RGB slab law: the HDR
+Absorption Color blue value 4 differs by 67.5151% in the red channel mean.
+This remains an explicit spectral colorimetry limitation, not an acceptance
+of exact RGB equality or final converged color. No runtime reader was changed
+or deployed. The Generated-volume context and named-grid defects remain open.
+All prototype processes were reaped and the shared CI stage was removed after
+its independent deployment and preservation checks.

@@ -1981,7 +1981,7 @@
     "evidence": "2026-10-11-metropolis-startup.md"
   },
   "native_bssrdf_device_adjoint_candidate": {
-    "status": "Native main merged; local rough device transport and unchanged 720p graph verified; exact platform CI and core installation pending; full Cycles goal active",
+    "status": "Exact signed platform CI and actual core deployment complete; bounded rough device transport verified; production adapter and full compatibility remain unfinished",
     "evidence": "2026-10-11-cycles-bssrdf-device-adjoint.md",
     "local_native_sha256": "1f71800d1a2e40eb20fd3fd9e9905f03974e149b2715d2562c15278dcad8d551",
     "local_wheel_sha256": "e047a30312d00f42c5c9d4bb4865af5d5c284a5942590b2a98b2fb6348c52714",
@@ -2015,8 +2015,8 @@
     "sharp_gpu_camera_connections_implemented": false,
     "production_noise_convergence_accepted": false,
     "production_bssrdf_adapter_switched": false,
-    "actual_core_deployed": false,
-    "platform_ci_complete": false,
+    "actual_core_deployed": true,
+    "platform_ci_complete": true,
     "main_merged": true,
     "full_goal_complete": false,
     "remaining": [
@@ -2026,7 +2026,24 @@
       "Conspicuous chromatic hybrid grain and production convergence",
       "Production adapter exposure, full scene/workflow/GUI/animation/platform GPU runtime verification"
     ],
-    "native_main_commit": "c2915a73a325bd2e5d0e2f999298051bf9af5d32"
+    "native_main_commit": "c2915a73a325bd2e5d0e2f999298051bf9af5d32",
+    "actual_native_sha256": "d5443cf5022c653d5636fa4b44ec246a60e39b0b65e2078e6135410949636024",
+    "signed_ci_wheel_sha256": "dace137bff6799eebb099ede4e4570ad3eba07fdd1bc9d79b624ca25db1ba5d7",
+    "ci_workflow_run_id": 38081369548,
+    "ci_directly_reviewed_original_pngs": 6,
+    "actual_directly_reviewed_original_pngs": 2,
+    "ci_region_errors": [
+      0.003110481475424685,
+      0.0028425744830045227
+    ],
+    "actual_psr_conditions": 3,
+    "actual_psr_max_relative_channel_error": 0.020110970958113716,
+    "ci_temporary_profiles_removed": true,
+    "ci_source_files_verified": 79,
+    "actual_runtime_python_files_preserved": 266,
+    "actual_all_python_files_preserved": 374,
+    "actual_settings_preserved": true,
+    "gui_hot_reload_verified": false
   },
   "volume_source_audit_2026_10_11": {
     "native_source_commit": "c2915a73a325bd2e5d0e2f999298051bf9af5d32",
@@ -2040,6 +2057,31 @@
     "vdb_files_loaded_in_blender_and_native": 3,
     "temporary_fixture_build_removed": true,
     "scope": "source and RNA audit, failed Generated render, scoped independent RGB CPU prototype; full goal incomplete",
-    "evidence": "2026-10-11-volume-source-and-prototype-audit.md"
+    "evidence": "2026-10-11-volume-source-and-prototype-audit.md",
+    "metal_prototype_images": 9,
+    "metal_images_directly_reviewed": 9,
+    "metal_rgb_max_relative_body_error": 0.0011420417259015744,
+    "spectral_hdr_red_channel_difference_from_rgb_law": 0.6751512895407045,
+    "all_prototype_workers_reaped": true,
+    "shared_temporary_profile_removed": true
+  },
+  "rolling_device_adjoint_core_deployment_2026_10_11": {
+    "complete": true,
+    "timestamp_utc": "2026-10-10T21:32:21.520175+00:00",
+    "native_sha256": "d5443cf5022c653d5636fa4b44ec246a60e39b0b65e2078e6135410949636024",
+    "wheel_sha256": "dace137bff6799eebb099ede4e4570ad3eba07fdd1bc9d79b624ca25db1ba5d7",
+    "whole_ci_profile_files_verified": 459,
+    "source_files_verified": 79,
+    "actual_whole_core_payload_and_cache_verified": true,
+    "actual_stable_adapter_python_files_preserved": 266,
+    "actual_720p_images_directly_reviewed": 2,
+    "actual_psr_conditions": 3,
+    "temporary_stage_removed": "/tmp/slc-bssrdf-gpu-adjoint-ci",
+    "temporary_logical_bytes_removed": 293160963,
+    "physical_space_freed_unmeasured": true,
+    "owned_render_processes_remaining": 0,
+    "production_bssrdf_adapter_switched": false,
+    "production_quality_accepted": false,
+    "full_goal_complete": false
   }
 }
