@@ -178,15 +178,16 @@
       "priority": "P1",
       "scope": "Principled Volume 흑체",
       "status": "부분 구현·검증",
-      "remaining": "상수 흑체 강도와 Temperature/Tint 발광을 복원하여 CPU·Metal 720p를 확인했다. 넓은 온도·강도 범위의 물리 방사량·단위 및 고샘플 수렴은 남아 있다.",
-      "evidence": "2026-10-09-cycles-scene-goal.md"
+      "remaining": "상수 흑체 강도와 Temperature/Tint 발광을 복원하여 CPU·Metal 720p를 확인했다. 넓은 온도·강도 범위의 물리 방사량·단위 및 고샘플 수렴은 남아 있다. 추가 검수에서 Absorption Color의 제곱근 누락을 확인했다. CPU 시제품의 상수·연결 Object 좌표·0/1/4 경계 720p는 독립 RGB 투과율 기준을 통과했으나 Metal·넓은 분광 및 제작 배포는 아직 미완료다. Generated 좌표의 볼륨 내부 context 결함은 별도로 재현했고 시제품은 배포하지 않았다.",
+      "evidence": "2026-10-11-volume-source-and-prototype-audit.md"
     },
     {
       "id": "C22",
       "priority": "P1",
       "scope": "Principled Volume 속성",
       "status": "미완료",
-      "remaining": "Density/Color/Temperature Attribute 문자열을 계수에 연결하지 않는다. VDB 재질의 기본 density 이름만으로 밀도 격자를 읽는 경로와 Volume Info를 구분해야 한다."
+      "remaining": "실제 Blender 5.2.1의 STRING 입력과 OpenVDB 파일로 표준·사용자·없는 격자 이름이 모두 무시됨을 재현했다. Volume Info 없는 Principled Volume의 재질이 건너뛰어지고 generic _socket이 문자열을 세 글자 배열로 자른다. 이름·격자별 변환·없는 속성 중립값·carrier bounds·OBJECT/WORLD 밀도 배율·CPU/Metal 제작 검증을 구현해야 한다.",
+      "evidence": "2026-10-11-volume-source-and-prototype-audit.md"
     },
     {
       "id": "C23",
@@ -358,8 +359,8 @@
       "priority": "P1",
       "scope": "텍스처 Vector 소비 경로",
       "status": "부분 구현·검증",
-      "remaining": "Checker·직접 Mapping·Flat 이미지의 연결 Vector/Generated/Object/명명 UV/연속 Mapping을 CPU·Metal 720p RGB 및 기본 분광에서 검증했다. 다른 legacy texture와 참조 Object·변형 전 ORCO·시간의 모든 소비 조합은 추가 검증과 수정이 필요하다.",
-      "evidence": "2026-10-09-cycles-scene-goal.md"
+      "remaining": "Checker·직접 Mapping·Flat 이미지의 연결 Vector/Generated/Object/명명 UV/연속 Mapping을 CPU·Metal 720p RGB 및 기본 분광에서 검증했다. 다른 legacy texture와 참조 Object·변형 전 ORCO·시간의 모든 소비 조합은 추가 검증과 수정이 필요하다. 볼륨 내부 Generated 좌표가 메쉬 context 없이 world/object 위치로 대체되어 연결 흡수 색상의 720p 기준 대비 최대 평균 채널 오차 32.75%를 재현했다. 내부 전송·shadow·instance context를 수정해야 한다.",
+      "evidence": "2026-10-11-volume-source-and-prototype-audit.md"
     },
     {
       "id": "C45",
@@ -412,7 +413,8 @@
       "priority": "P1",
       "scope": "공간 볼륨·위상·경계",
       "status": "미완료",
-      "remaining": "재질 볼륨 합성의 asymmetry는 산란 계수로 가중하도록 수정했다. 공간 world volume, step/interpolation/sampling, 겹친 경계 및 방사량·수렴 검증은 남아 있다."
+      "remaining": "재질 볼륨 합성의 asymmetry는 산란 계수로 가중하도록 수정했다. 공간 world volume, step/interpolation/sampling, 겹친 경계 및 방사량·수렴 검증은 남아 있다. 볼륨 내부 Generated context 소실을 720p 실제 영상과 열별 독립 기준으로 확인했다. OpenVDB 이름 지정 재료·격자별 경계/변환과 OBJECT/WORLD 밀도 스케일도 검수에 포함해야 한다.",
+      "evidence": "2026-10-11-volume-source-and-prototype-audit.md"
     },
     {
       "id": "C52",
@@ -2025,5 +2027,19 @@
       "Production adapter exposure, full scene/workflow/GUI/animation/platform GPU runtime verification"
     ],
     "native_main_commit": "c2915a73a325bd2e5d0e2f999298051bf9af5d32"
+  },
+  "volume_source_audit_2026_10_11": {
+    "native_source_commit": "c2915a73a325bd2e5d0e2f999298051bf9af5d32",
+    "native_sha256": "d5443cf5022c653d5636fa4b44ec246a60e39b0b65e2078e6135410949636024",
+    "confirmed_named_volume_material_defect": true,
+    "confirmed_generated_volume_context_defect": true,
+    "generated_max_relative_mean_error": 0.3274857264392474,
+    "absorption_cpu_prototype_only": true,
+    "prototype_deployed": false,
+    "metal_absorption_verified": false,
+    "vdb_files_loaded_in_blender_and_native": 3,
+    "temporary_fixture_build_removed": true,
+    "scope": "source and RNA audit, failed Generated render, scoped independent RGB CPU prototype; full goal incomplete",
+    "evidence": "2026-10-11-volume-source-and-prototype-audit.md"
   }
 }
