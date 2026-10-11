@@ -1676,7 +1676,9 @@ class Exporter(object):
             # get_changes(), re-use them
             props.Set(self.camera_cache.props)
 
-        if changes & Change.OBJECT:
+        if (changes & Change.OBJECT or
+                (changes & Change.MATERIAL and
+                 any(obj.type == "VOLUME" for obj in depsgraph.objects))):
             self.object_cache2.update(
                 self, depsgraph, superluxcore_scene, props, context
             )

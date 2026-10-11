@@ -1226,6 +1226,9 @@ def _socket(socket, props, material, obj_name, group_node, superluxcore_name=Non
     if not hasattr(socket, "default_value"):
         return ERROR_VALUE
 
+    if isinstance(socket.default_value, str):
+        return socket.default_value
+
     try:
         return list(socket.default_value)[:3]
     except TypeError:
@@ -1499,6 +1502,10 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
         if group_node_stack:
             for n in group_node_stack:
                 superluxcore_name += str(n.as_pointer())
+        from . import volume
+        context_key = volume.grid_context_key()
+        if context_key:
+            superluxcore_name += "_" + context_key
         superluxcore_name = utils.sanitize_superluxcore_name(superluxcore_name)
 
     if node.bl_idname == "ShaderNodeBsdfPrincipled":
@@ -2796,7 +2803,10 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
         from . import volume  # lazy: volume->object_cache->cycles_node_reader cycle
         definitions = volume.volume_info_grid_defs(node, output_socket.name, obj_name)
         if definitions is None:
-            return ERROR_VALUE
+            return [0., 0., 0.] if output_socket.name == "Color" else 0.
+        if output_socket.name == "Color":
+            value = _tex_helper(props, superluxcore_name + "_grid", definitions)
+            return _volume_grid_color(value, superluxcore_name, props)
         prefix = "scene.textures."
     elif node.bl_idname == "ShaderNodeBlackbody":
         temperature_socket = node.inputs["Temperature"]
@@ -3516,6 +3526,24 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
         attribute_name = node.attribute_name \
             if node.bl_idname == "ShaderNodeAttribute" \
             else getattr(node, "layer_name", "")
+
+        from . import volume
+        if (node.bl_idname == "ShaderNodeAttribute"
+                and getattr(node, "attribute_type", "GEOMETRY") == "GEOMETRY"
+                and volume.has_grid_context(obj_name)):
+            definitions = volume.attribute_grid_defs(attribute_name, obj_name)
+            if definitions is None:
+                return [0., 0., 0.] if output_socket.name in {"Color", "Vector"} else 0.
+            value = _tex_helper(props, superluxcore_name + "_grid", definitions)
+            if output_socket.name == "Alpha":
+                # Float/float3 voxel attributes have alpha 1, including where
+                # their background value is zero; missing attributes have 0.
+                return 1.
+            if output_socket.name == "Fac":
+                return _volume_grid_scalar(value, superluxcore_name, props)
+            if output_socket.name == "Color":
+                return _volume_grid_color(value, superluxcore_name, props)
+            return value
 
         data_index = _color_attribute_index(obj_name, attribute_name)
 
@@ -4321,6 +4349,39 @@ def _volume_asymmetry(anisotropy):
     return [anisotropy] * 3
 
 
+def _volume_grid_scalar(value, name, props):
+    # Cycles converts volume float3 attributes by arithmetic average, whereas
+    # densitygrid.GetFloatValue uses luminance. Extract data channels first.
+    channels = [_split_chan(value, i, name + f"_grid_channel{i}", props)
+                for i in range(3)]
+    total = _tex_binary("add", channels[0], channels[1], name + "_grid_sum", props)
+    total = _tex_binary("add", total, channels[2], name + "_grid_sum3", props)
+    return _tex_binary("scale", total, 1. / 3., name + "_grid_average", props)
+
+
+def _volume_grid_color(value, name, props):
+    return _tex_helper(props, name + "_grid_rgb", {
+        "type": "makefloat3", "color": True,
+        **{f"texture{i + 1}": _split_chan(value, i, name + f"_grid_rgb{i}", props)
+           for i in range(3)}})
+
+
+def _principled_volume_attribute(node, socket_name, old_property, props,
+                                 obj_name, name, color=False):
+    from . import volume
+    socket = node.inputs.get(socket_name)
+    attribute = (socket.default_value if socket is not None else
+                 getattr(node, old_property, ""))
+    definitions = volume.attribute_grid_defs(attribute, obj_name, implicit=True)
+    if definitions is None:
+        # Principled only multiplies attributes that exist. This differs from
+        # the Attribute and Volume Info nodes, whose missing outputs are zero.
+        return 1.
+    value = _tex_helper(props, name + "_grid", definitions)
+    return (_volume_grid_color(value, name, props) if color else
+            _volume_grid_scalar(value, name, props))
+
+
 def _volume_transmit_to_absorb(color, name, props):
     """Cycles volume colors are what SURVIVES: sigma_a = (1 - saturate(color)).
 
@@ -4387,8 +4448,21 @@ def _volume(node, output_socket, props, material, name_base, obj_name,
         }
 
     if node.bl_idname == "ShaderNodeVolumePrincipled":
-        density = coeff("Density", 1.0)
+        density = _tex_mathfunc("max", coeff("Density", 1.0), 0.,
+                                name_base + "_positive_density", props)
+        if not _is_zero(density):
+            attribute = _principled_volume_attribute(
+                node, "Density Attribute", "density_attribute", props,
+                obj_name, name_base + "_density_attribute")
+            density = _tex_mathfunc("max", _tex_binary("scale", density, attribute,
+                name_base + "_grid_density", props), 0., name_base + "_density", props)
         color = coeff("Color", [1.0, 1.0, 1.0])
+        if not _is_zero(density):
+            attribute = _principled_volume_attribute(
+                node, "Color Attribute", "color_attribute", props,
+                obj_name, name_base + "_color_attribute", color=True)
+            color = _tex_binary("scale", color, attribute,
+                                name_base + "_grid_color", props)
         # Cycles applies the square root to authored RGB before conversion
         # to a spectrum. Split texture channels so nonlinear math does not
         # operate on sampled wavelengths in the default spectral mode.
@@ -4427,7 +4501,14 @@ def _volume(node, output_socket, props, material, name_base, obj_name,
                                name_base + "_emission", props)
         blackbody = coeff("Blackbody Intensity", 0.)
         if not _is_zero(blackbody):
-            temperature = _tex_mathfunc("max", coeff("Temperature", 1000.), 0., name_base + "_temperature", props)
+            attribute = _principled_volume_attribute(
+                node, "Temperature Attribute", "temperature_attribute", props,
+                obj_name, name_base + "_temperature_attribute")
+            attribute = _tex_mathfunc("max", attribute, 0.,
+                                     name_base + "_positive_temperature_grid", props)
+            temperature = _tex_mathfunc("max", _tex_binary("scale",
+                coeff("Temperature", 1000.), attribute,
+                name_base + "_grid_temperature", props), 0., name_base + "_temperature", props)
             color_temperature = _tex_mathfunc("max", temperature, 800., name_base + "_color_temperature", props)
             spectrum = _tex_helper(props, name_base + "_blackbody", {"type": "blackbody", "temperature": color_temperature, "normalize": True})
             # 원 엔진의 흑체는 고정 절대 정규화를 쓰므로 휘도 1의 색 계약으로 변환한다.

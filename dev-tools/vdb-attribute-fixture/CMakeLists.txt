@@ -1,0 +1,6 @@
+cmake_minimum_required(VERSION 3.25)
+project(cycles_volume_attribute_fixture LANGUAGES CXX)
+find_package(OpenVDB CONFIG REQUIRED)
+add_executable(make_volume_attribute_fixture make_fixture.cpp)
+target_compile_features(make_volume_attribute_fixture PRIVATE cxx_std_20)
+target_link_libraries(make_volume_attribute_fixture PRIVATE OpenVDB::openvdb)

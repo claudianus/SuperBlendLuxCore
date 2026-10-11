@@ -488,6 +488,7 @@ class Duplis:
 class ObjectCache2:
     def __init__(self):
         self.exported_objects = {}
+        self.volume_scene_frame = None
         self.exported_meshes = {}
         self.cycles_displacement_contexts = {}
         self.exported_hair = {}
@@ -518,6 +519,7 @@ class ObjectCache2:
         context,
     ):
         is_viewport_render = bool(context)
+        self.volume_scene_frame = depsgraph.scene.frame_current
         instances = {}
         # Fresh export: drop any generic-attribute name→index maps a
         # previous session registered.
@@ -1473,10 +1475,16 @@ class ObjectCache2:
             or depsgraph.id_type_updated("CURVE")
             or depsgraph.id_type_updated("CURVES")
             or depsgraph.id_type_updated("VOLUME")
+            or (depsgraph.id_type_updated("MATERIAL")
+                and any(obj.type == "VOLUME" for obj in depsgraph.objects))
             or depsgraph.id_type_updated("POINTCLOUD")
             or any(normal_map_attributes.changed(obj)
                    for obj in depsgraph.objects if obj.type in MESH_OBJECTS)
-        ) and not only_scene
+        ) and not only_scene or (
+            self.volume_scene_frame != depsgraph.scene.frame_current
+            and any(obj.type == "VOLUME" and obj.data.is_sequence
+                    for obj in depsgraph.objects)
+        )
 
     def update(self, exporter, depsgraph, superluxcore_scene, scene_props, context):
         is_viewport_render = bool(context)
@@ -1529,7 +1537,8 @@ class ObjectCache2:
                 if True:
                     if not utils.is_obj_visible(
                         obj
-                    ) or not obj.visible_in_viewport_get(context.space_data):
+                    ) or (context is not None and
+                          not obj.visible_in_viewport_get(context.space_data)):
                         continue
 
                     if obj.type in MESH_OBJECTS:
@@ -1668,7 +1677,8 @@ class ObjectCache2:
                             for k in self.exported_objects
                             if k == obj_key or k.startswith(obj_key + "_")
                         ]:
-                            del self.exported_objects[key]
+                            self.exported_objects.pop(key).delete(superluxcore_scene)
+                            self.bake_matrices.pop(key, None)
                     elif obj.type == "POINTCLOUD":
                         obj_key = utils.make_key(obj)
                         # Remove the base object and all point duplicates so
@@ -1700,6 +1710,11 @@ class ObjectCache2:
         #  Would be better for performance with many particles, however I'm not sure
         #  we can find all instances corresponding to one particle system?
 
+        # VDB coefficients and grid mappings belong to each instance. Material
+        # and transform edits must rebuild them, including a now-empty medium.
+        changed_material_names = {
+            mat.name_full for mat in exporter.material_cache.changed_materials
+        }
         # Currently, every update that doesn't require a mesh re-export happens here
         for dg_obj_instance in depsgraph.object_instances:
             if not supports_live_transform(dg_obj_instance.particle_system):
@@ -1711,6 +1726,18 @@ class ObjectCache2:
 
             obj_key = utils.make_key_from_instance(dg_obj_instance)
             mesh_key = self._get_mesh_key(obj, use_instancing)
+
+            if obj.type == "VOLUME" and obj_key in self.exported_objects:
+                previous = self.exported_objects[obj_key]
+                frame_changed = getattr(previous, "volume_frame_signature", None) != (
+                    obj.data.filepath, obj.data.grids.frame)
+                material_changed = any(
+                    slot.material and slot.material.name_full in changed_material_names
+                    for slot in obj.material_slots)
+                if (previous.transform != dg_obj_instance.matrix_world or
+                        material_changed or frame_changed):
+                    self.exported_objects.pop(obj_key).delete(superluxcore_scene)
+                    self.bake_matrices.pop(obj_key, None)
 
             if (
                 obj_key in self.exported_objects and obj.type != "LIGHT"
@@ -1755,4 +1782,5 @@ class ObjectCache2:
         # _convert_obj; realize them on the live scene now.
         self._flush_pointcloud_duplicates(superluxcore_scene)
 
+        self.volume_scene_frame = depsgraph.scene.frame_current
         # self._debug_info()

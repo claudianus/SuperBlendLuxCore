@@ -105,3 +105,5 @@ docs live alongside in `doc/`.
 - [Principled Volume attributes and spatial context audit](2026-10-11-volume-source-and-prototype-audit.md): named-grid material and Generated context defects reproduced; scoped RGB CPU absorption prototype, production acceptance remains open.
 
 - [Cycles Principled Volume absorption color](2026-10-11-principled-volume-absorption.md)
+
+- [Cycles VDB named attributes and sequences](2026-10-11-vdb-named-attributes-and-sequences.md): per-grid affine mapping, named fields, null bounds and Blender frame selection; full compatibility remains open.

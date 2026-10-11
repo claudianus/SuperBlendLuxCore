@@ -178,16 +178,16 @@
       "priority": "P1",
       "scope": "Principled Volume 흑체",
       "status": "부분 구현·검증",
-      "remaining": "상수 흑체·Temperature/Tint 발광 CPU·Metal 720p와 Absorption Color 제곱근 수정의 후보 15개·실제 설치 5개 렌더를 확인했다. 실제 RGB 최대 영역 오차는 0.09907%이며 모든 원본을 직접 검토했고 좁은 reader 배포와 4개 플랫폼 latest 서명 번들 게시를 완료했다. 흑체의 넓은 온도·강도 물리 방사량·단위 및 고샘플 수렴은 남아 있다. HDR Absorption Color=4의 분광 red 채널은 RGB 기준과 67.50% 차이가 있어 정확한 색도 일치를 인정하지 않는다. Generated 볼륨 내부 좌표와 이름 지정 VDB 속성 결함은 별도 미해결이다.",
-      "evidence": "2026-10-11-principled-volume-absorption.md; 2026-10-11-volume-source-and-prototype-audit.md"
+      "remaining": "상수 흑체·Temperature/Tint 발광 CPU·Metal 720p와 Absorption Color 제곱근 수정의 후보 15개·실제 설치 5개 렌더를 확인했다. 실제 RGB 최대 영역 오차는 0.09907%이며 모든 원본을 직접 검토했고 좁은 reader 배포와 4개 플랫폼 latest 서명 번들 게시를 완료했다. 흑체의 넓은 온도·강도 물리 방사량·단위 및 고샘플 수렴은 남아 있다. HDR Absorption Color=4의 분광 red 채널은 RGB 기준과 67.50% 차이가 있어 정확한 색도 일치를 인정하지 않는다. 이름 지정 VDB 온도·없는 온도의 중립값은 후보 CPU·Metal RGB/분광 720p 16 SPP 각 12개에서 검증했다. 유한 무소광 발광 누락을 수정했고 정확한 흑체 캐시 6912개 float bit를 검증했다. 실제 새 배포 검증은 진행 중이며 Generated 볼륨 내부 좌표는 남아 있다.",
+      "evidence": "2026-10-11-principled-volume-absorption.md; 2026-10-11-volume-source-and-prototype-audit.md; 2026-10-11-vdb-named-attributes-and-sequences.md"
     },
     {
       "id": "C22",
       "priority": "P1",
       "scope": "Principled Volume 속성",
-      "status": "미완료",
-      "remaining": "실제 Blender 5.2.1의 STRING 입력과 OpenVDB 파일로 표준·사용자·없는 격자 이름이 모두 무시됨을 재현했다. Volume Info 없는 Principled Volume의 재질이 건너뛰어지고 generic _socket이 문자열을 세 글자 배열로 자른다. 이름·격자별 변환·없는 속성 중립값·carrier bounds·OBJECT/WORLD 밀도 배율·CPU/Metal 제작 검증을 구현해야 한다.",
-      "evidence": "2026-10-11-volume-source-and-prototype-audit.md"
+      "status": "부분 구현·검증",
+      "remaining": "STRING 전체 이름·Principled Volume 표준/사용자/없는 속성·Volume Info 고정 이름·generic Attribute·격자별 affine/인스턴스 변환·OBJECT/WORLD 배율·null carrier·빈 출력·시퀀스 frame/signature 캐시를 구현했다. 실제 Blender 시퀀스 85개에서 기존 73개 실패를 0개로 줄였으며 실제 64 eye SPP 독립 시드 Metal 시퀀스 4개를 통과했다. CPU 일반/시퀀스 각 4개와 Metal 일반/시퀀스 각 4개를 실제 64 eye SPP 독립 반복 시드로 통과했다. 최종 일반 Metal 검사는 워커 종료 후 읽기와 재사용 네이티브 필름 통계 초기화를 포함한다. 서명 CI 휠·설치·번들 게시 검증은 진행 중이다. dense 격자 경계, Generated 볼륨 좌표, 겹치는 매질, 대형 실제 시뮬레이션, GUI redraw, 광범위 제작 씬/플랫폼은 남아 있다.",
+      "evidence": "2026-10-11-vdb-named-attributes-and-sequences.md; 2026-10-11-volume-source-and-prototype-audit.md"
     },
     {
       "id": "C23",
