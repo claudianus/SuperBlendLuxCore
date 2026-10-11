@@ -83,3 +83,53 @@ simulation grids, GUI redraw and full production scenes/platforms. An earlier
 thermal harness read an absent RGBA pass as zeros; those zero-radiance frames
 are invalid and are not accepted. Full Cycles scene compatibility remains
 active and incomplete; this document does not claim 99% compatibility.
+
+The final signed engine (`940b8916f`) and adapter feature source (`6e25c119`)
+are on main. [Engine CI](https://github.com/claudianus/SuperLuxCore/actions/runs/38098862456)
+passed the four platform builds, CUDA compile gate, attestations and rolling
+wheel publication. [Latest bundle CI](https://github.com/claudianus/SuperBlendLuxCore/actions/runs/38100576850)
+published all four signed archives. The ARM archive's 386 Python files match
+the feature commit, and its whole engine wheel matches the final signed wheel.
+The other three archives have verified signed subject digests; their runtime
+rendering was not exercised locally. The release remains a prerelease.
+
+The actual Blender 5.2 profile now contains that whole 192-file engine payload,
+the matching cached wheel and four reviewed adapter backports. Every other
+installed Python file (370) and existing settings were preserved and checked
+again after rendering. Existing unconnected-Normal and duplicate-BSSRDF source
+edits remain outside this installed backport scope. The previous whole wheel
+and four adapter files are retained for rollback. Exact deployed fingerprints:
+
+- ARM wheel SHA-256: `f972a6264443887ea1e1bd5adaccd121cda612f6e6d39a52051db579a454aeb8`
+- Native SHA-256: `e2a7055da33a7991e4ba8831121094a5f3913430b0ee680574c2cf2794cd8585`
+- Installed volume exporter SHA-256: `1b5ad759f91463de64387dfa5282a9b853dd2ea9d2a8039245463647ed39614e`
+
+Actual-installed gates are recorded in `actual-deployment-completed.json`:
+
+- CPU transform/material/empty-output edits: four passing conditions at 64 eye
+  SPP, after worker completion, with independent repeat seeds. Maximum relative
+  mean live/fresh error is 0.000875%.
+- Metal hybrid sequence missing/restored/clipped frames: four passing conditions
+  under the same contract. Maximum relative mean live/fresh error is 0.005836%.
+  Missing and clipped frames contain no stale carrier; restoration returns it.
+- The actual Blender grid loader agrees in 85 sequence and two linked-library
+  conditions, with temporary sequence/library files removed.
+- Named and missing-temperature RenderEngine checks: 12 CPU and 12 pure Metal
+  1280 by 720 frames, 16 configured SPP, RGB and default spectral modes. All
+  authored graphs remain unchanged, raw output is finite/nonzero, and the
+  authored-field/independent-control comparisons pass. The largest relative
+  body error is 0.21736% CPU and 0.20948% Metal. These compare each backend's
+  field to its control; they do not establish complete Cycles image parity.
+- Nineteen actual-installed original PNGs were inspected directly. This is a
+  recorded subset, not an assertion that every generated image was reviewed.
+  The narrow/hard VDB edge remains visible against Cycles. High-radiance
+  Standard previews clip and do not substitute for the raw EXR checks.
+- The final CI payload also passes the film-reset contract and 6,912 exact
+  blackbody float-bit comparisons. Film merges preserve moments; edit resets
+  clear them, including reused native worker films in the Metal hybrid path.
+
+All owned Blender validation workers were reaped. Obsolete local hybrid and CI
+profiles were removed immediately after deployment; their file-size sum was
+696,453,176 bytes (physical reclaimed space was not measured). Signed release
+evidence and rollback inputs are retained. Each repository has only its primary
+main worktree. Full-scene, GUI and convergence gates above remain open.
