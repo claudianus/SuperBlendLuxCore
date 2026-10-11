@@ -186,7 +186,7 @@
       "priority": "P1",
       "scope": "Principled Volume 속성",
       "status": "부분 구현·검증",
-      "remaining": "STRING 전체 이름·Principled Volume 표준/사용자/없는 속성·Volume Info 고정 이름·generic Attribute·격자별 affine/인스턴스 변환·OBJECT/WORLD 배율·null carrier·빈 출력·시퀀스 frame/signature 캐시를 구현했다. 실제 Blender 시퀀스 85개에서 기존 73개 실패를 0개로 줄였으며 실제 64 eye SPP 독립 시드 Metal 시퀀스 4개를 통과했다. CPU 일반/시퀀스 각 4개와 Metal 일반/시퀀스 각 4개를 실제 64 eye SPP 독립 반복 시드로 통과했다. 최종 일반 Metal 검사는 워커 종료 후 읽기와 재사용 네이티브 필름 통계 초기화를 포함한다. 링크된 라이브러리 상대 VDB 경로의 두 실제 로더 조건도 수정 전 실패·수정 후 통과를 확인했다. 서명된 최종 CI 전체 휠과 네 어댑터 파일의 실제 설치를 완료했다. 실제 CPU 편집·Metal hybrid 시퀀스 각 4개(64 eye SPP), 실제 로더 87개와 CPU/pure Metal 온도 720p 각 12개를 통과했고, 네 플랫폼 서명 latest 번들 게시 및 ARM 전체 엔진 일치를 검증했다. 실제 원본 검토에서 Cycles 대비 좁고 딱딱한 VDB 경계가 남아 있음을 확인했다. dense 격자 경계, Generated 볼륨 좌표, 겹치는 매질, 대형 실제 시뮬레이션, GUI redraw, 광범위 제작 씬/플랫폼은 남아 있다. 현재 portable index 재구성·Linear/Cubic 후보는 44개 수치 조건, 실제 CPU/pure Metal 경계 각 4개와 RGBA 각 2개, 180회 변환·해제를 통과했고 원본 12개를 검토했다. 20개 affine 좌표·3개 Alpha topology export probe도 통과했다. 새 워커의 실제 192개 엔진·374개 Python·3개 설정·전체 cached wheel 보존을 전후 해시로 증명했다. 최종 서명 CI의 네 플랫폼 wheel 게시·ARM 원본 서명을 검증했고 전체 엔진과 두 VDB 어댑터를 실제 설치했다. 실제 CPU/pure Metal 경계 각 4개·RGBA 각 2개가 통과했으며 원본 12개를 직접 검토했다. 설치 파일 192/374개·설정 3개·전체 cached wheel 보존도 증명했다. 외부 Vec4의 Blender 자체 로더 실패를 Cycles RGBA 지원으로 인정하지 않는다. addon source bundle 게시는 마무리 중이다.",
+      "remaining": "STRING 전체 이름·Principled Volume 표준/사용자/없는 속성·Volume Info 고정 이름·generic Attribute·격자별 affine/인스턴스 변환·OBJECT/WORLD 배율·null carrier·빈 출력·시퀀스 frame/signature 캐시를 구현했다. 실제 Blender 시퀀스 85개에서 기존 73개 실패를 0개로 줄였으며 실제 64 eye SPP 독립 시드 Metal 시퀀스 4개를 통과했다. CPU 일반/시퀀스 각 4개와 Metal 일반/시퀀스 각 4개를 실제 64 eye SPP 독립 반복 시드로 통과했다. 최종 일반 Metal 검사는 워커 종료 후 읽기와 재사용 네이티브 필름 통계 초기화를 포함한다. 링크된 라이브러리 상대 VDB 경로의 두 실제 로더 조건도 수정 전 실패·수정 후 통과를 확인했다. 서명된 최종 CI 전체 휠과 네 어댑터 파일의 실제 설치를 완료했다. 실제 CPU 편집·Metal hybrid 시퀀스 각 4개(64 eye SPP), 실제 로더 87개와 CPU/pure Metal 온도 720p 각 12개를 통과했고, 네 플랫폼 서명 latest 번들 게시 및 ARM 전체 엔진 일치를 검증했다. 실제 원본 검토에서 Cycles 대비 좁고 딱딱한 VDB 경계가 남아 있음을 확인했다. dense 격자 경계, Generated 볼륨 좌표, 겹치는 매질, 대형 실제 시뮬레이션, GUI redraw, 광범위 제작 씬/플랫폼은 남아 있다. 현재 portable index 재구성·Linear/Cubic 후보는 44개 수치 조건, 실제 CPU/pure Metal 경계 각 4개와 RGBA 각 2개, 180회 변환·해제를 통과했고 원본 12개를 검토했다. 20개 affine 좌표·3개 Alpha topology export probe도 통과했다. 새 워커의 실제 192개 엔진·374개 Python·3개 설정·전체 cached wheel 보존을 전후 해시로 증명했다. 최종 서명 CI의 네 플랫폼 wheel 게시·ARM 원본 서명을 검증했고 전체 엔진과 두 VDB 어댑터를 실제 설치했다. 실제 CPU/pure Metal 경계 각 4개·RGBA 각 2개가 통과했으며 원본 12개를 직접 검토했다. 설치 파일 192/374개·설정 3개·전체 cached wheel 보존도 증명했다. 외부 Vec4의 Blender 자체 로더 실패를 Cycles RGBA 지원으로 인정하지 않는다. 네 플랫폼 서명 addon latest 번들 게시와 ARM 소스 389개·전체 엔진 일치를 확인했다. 기존 Normal·SSS·viewport 소스/설치 차이 네 파일은 명시했고 전체 source bundle runtime 검증 완료로 세지 않았다.",
       "evidence": "2026-10-11-vdb-named-attributes-and-sequences.md; 2026-10-11-volume-source-and-prototype-audit.md; 2026-10-11-vdb-grid-reconstruction.md"
     },
     {
@@ -2181,7 +2181,7 @@
     ]
   },
   "vdb_grid_reconstruction_2026_10_11": {
-    "status": "Exact signed CI accepted and actual installed CPU/Metal acceptance complete; addon source bundle publication in progress",
+    "status": "Bounded signed VDB installation/publication unit closed; full Cycles compatibility incomplete",
     "native_commit": "ed9aebd4fc901bc5bb5d3787eb4303b767eca87e",
     "candidate_native_sha256": "e04d60b9011933cfd383a96219b5e774c552ea58d49ebe8c6bb97c6383590503",
     "numeric_conditions": 44,
@@ -2219,12 +2219,12 @@
     "full_goal_complete": false,
     "evidence": "2026-10-11-vdb-grid-reconstruction.md",
     "remaining": [
-      "Exact-source addon bundle publication",
       "Generated/Object volume carrier coordinates",
       "Clipped/disconnected and overlapping media",
       "Internal grid affine carrier geometry and material override semantics",
       "Large sparse simulation memory",
-      "GUI redraw and broader production scene/platform rendering"
+      "GUI redraw and broader production scene/platform rendering",
+      "Full source-bundle runtime acceptance; existing Normal/SSS/viewport source-only differences remain outside actual VDB install"
     ],
     "initial_candidate_native_sha256": "f26ceba9b104e50dc86316f4942bea5e79ba2894f9a777f5b6edcef5f2fa2428",
     "load_order_devtool_commit": "adba86f43",
@@ -2331,6 +2331,43 @@
     "actual_postinstall_evidence": "actual-postinstall-acceptance.json",
     "actual_postinstall_evidence_sha256": "a784ba03bb056caefc741554ffc5515ed05b9fe312debca73a8dfe489c29124a",
     "actual_whole_payload_and_cache_verified": true,
-    "actual_adapter_updated_files": 2
+    "actual_adapter_updated_files": 2,
+    "complete": true,
+    "closed_at_utc": "2026-10-11T03:06:11.287211+00:00",
+    "bundle_source_commit": "83db0e1e797dcc91eec823a0187e00ed690117a9",
+    "bundle_ci_url": "https://github.com/claudianus/SuperBlendLuxCore/actions/runs/38106825582",
+    "bundle_release_url": "https://github.com/claudianus/SuperBlendLuxCore/releases/tag/latest",
+    "all_four_signed_bundles_published": true,
+    "bundle_original_arm_python_files_verified": 389,
+    "bundle_whole_engine_wheel_matches_actual": true,
+    "bundle_publication_evidence": "bundle-ci/publication-proof.json",
+    "bundle_publication_evidence_sha256": "f209daa693e54a4f554d1eba60a964b2f035a6370d6481978f1c78600bdc581f",
+    "full_source_bundle_runtime_acceptance": false,
+    "published_source_vs_reviewed_install_differences": {
+      "properties/viewport.py": {
+        "published_sha256": "d46ade16cbb59b115f8e8e314e3e279ea25c1f6ecc23db637b0a6b0c3ec7c4eb",
+        "reviewed_installed_sha256": "18e88117863ea5b5d19ef9f2e8380069549f89245a2e721542718b4e76d2841d",
+        "runtime_acceptance": false
+      },
+      "export/caches/exported_data.py": {
+        "published_sha256": "73b73b66434dea4951965eba6b866d48698fd0362ce74e2c1067381de0a55f71",
+        "reviewed_installed_sha256": "fbc9c1121ee735b85dfca8e94695dfd2a282645715a1b4338735d2781939d027",
+        "runtime_acceptance": false
+      },
+      "export/cycles_node_reader.py": {
+        "published_sha256": "89e91d61288d0368c5cafad5f67bee028706d79654f57f36e04366659f4470bb",
+        "reviewed_installed_sha256": "d03113cbc9b104bb3f53544d0a633dee41c70fefea668ea7652ec793756708a7",
+        "runtime_acceptance": false
+      },
+      "export/caches/object_cache.py": {
+        "published_sha256": "b9c44d349c81475bb419608a1e72f23f1129380a6988c6ede6906203a035dbb9",
+        "reviewed_installed_sha256": "455cd26222842774fdc52eeb8f8ed267a3ffa91686762b8df313a5a66ed2b08e",
+        "runtime_acceptance": false
+      }
+    },
+    "vdb_owned_paths_match_after_recorded_omissions": true,
+    "other_three_platforms_runtime_locally_unverified": true,
+    "new_implementation_stopped_by_user_closeout": true,
+    "surface_factor_preview_deferred": true
   }
 }

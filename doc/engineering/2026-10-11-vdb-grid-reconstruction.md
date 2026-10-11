@@ -9,8 +9,9 @@ with the material's Linear or positive cubic B-spline setting.
 
 This feature unit does not complete the existing Cycles-scene compatibility
 goal. The exact signed CI wheel has now passed the bounded acceptance below and
-is installed. Actual-profile postinstall acceptance is complete; exact-source
-addon bundle publication and cleanup are the remaining actions in this unit.
+is installed. Actual-profile postinstall acceptance and exact-source bundle
+publication are complete. This bounded VDB deployment unit is closed; the
+full Cycles compatibility goal remains incomplete.
 
 ## Reconstruction contracts
 
@@ -241,7 +242,37 @@ worker again preserves all 192/374/3/1 measured files and settings; all
 workers are terminal and reaped with return code zero.
 `actual-postinstall-acceptance.json` binds the metrics, original images,
 reviews and inventory/state artifacts. Exact-source bundle publication is
-the final pending deployment action.
+complete, with the source/install limitations below kept explicit.
+
+The addon source is published from `83db0e1e797dcc91eec823a0187e00ed690117a9`.
+[Bundle CI 38106825582](https://github.com/claudianus/SuperBlendLuxCore/actions/runs/38106825582)
+passes build, attestation and release publication; all four published asset
+digests match signed subjects. The original ARM ZIP is retained. Its 389
+Python files match exact git-archive source bytes, and its whole engine wheel
+and native module match the actual installed signed payload above.
+`bundle-ci/publication-proof.json` records this bounded publication proof.
+
+The original strict source/stage comparison failed on a pre-existing
+`export/caches/exported_data.py` difference; that failure is retained in
+`bundle-ci-watch.log` and is not relabelled as success. A complete comparison
+finds four existing source/install differences: the reader's unconnected-zero
+Normal block, duplicate SSS grouping in `object_cache.py`, SSS partition
+metadata in `exported_data.py`, and viewport property update callbacks in
+`properties/viewport.py`. The latter two were also preserved from the prior
+actual installation. The four VDB-owned paths match after the two previously
+recorded omissions. No additional runtime files are installed or changed to
+close this comparison. Full-source bundle runtime acceptance is explicitly
+**false**; signature/source/engine equality is separate from functional
+acceptance of those pending features. Other platform payloads have signed
+publication proof but no local runtime acceptance.
+
+Only the existing VDB installation, acceptance, publication and cleanup unit
+is closed under the user's one-hour deadline. No further feature or audit
+unit starts. The existing Surface Factor preview remains unapplied and
+undeployed; remaining volume and production-workflow gaps stay in the goal
+status. Completed temporary profiles are removed after workers are reaped;
+the signed original wheel, source ZIP, previous-wheel recovery reference and
+original validation evidence remain for reproduction and rollback.
 
 ## Remaining volume work
 
