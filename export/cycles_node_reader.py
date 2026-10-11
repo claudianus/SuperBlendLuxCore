@@ -2804,10 +2804,10 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
         definitions = volume.volume_info_grid_defs(node, output_socket.name, obj_name)
         if definitions is None:
             return [0., 0., 0.] if output_socket.name == "Color" else 0.
-        if output_socket.name == "Color":
-            value = _tex_helper(props, superluxcore_name + "_grid", definitions)
-            return _volume_grid_color(value, superluxcore_name, props)
-        prefix = "scene.textures."
+        value = _volume_grid_value(definitions, superluxcore_name, props, obj_name)
+        return (_volume_grid_color(value, superluxcore_name, props)
+                if output_socket.name == "Color" else
+                _volume_grid_scalar(value, superluxcore_name, props))
     elif node.bl_idname == "ShaderNodeBlackbody":
         temperature_socket = node.inputs["Temperature"]
         prefix = "scene.textures."
@@ -3531,15 +3531,20 @@ def _node(node, output_socket, props, material, superluxcore_name=None, obj_name
         if (node.bl_idname == "ShaderNodeAttribute"
                 and getattr(node, "attribute_type", "GEOMETRY") == "GEOMETRY"
                 and volume.has_grid_context(obj_name)):
-            definitions = volume.attribute_grid_defs(attribute_name, obj_name)
+            definitions = volume.attribute_grid_defs(attribute_name, obj_name,
+                                                     alpha=output_socket.name == "Alpha")
             if definitions is None:
                 return [0., 0., 0.] if output_socket.name in {"Color", "Vector"} else 0.
-            value = _tex_helper(props, superluxcore_name + "_grid", definitions)
+            value = _volume_grid_value(definitions, superluxcore_name, props, obj_name,
+                                       alpha=output_socket.name == "Alpha")
             if output_socket.name == "Alpha":
-                # Float/float3 voxel attributes have alpha 1, including where
-                # their background value is zero; missing attributes have 0.
-                return 1.
-            if output_socket.name == "Fac":
+                # Keep the requested topology even for float/float3 alpha 1;
+                # Blender's float4 VDB grids provide an authored fourth value.
+                return value
+            # Blender 5.2 displays this socket as Factor; its stable identifier
+            # remains Fac. Use both to support older and lightweight callers.
+            if (getattr(output_socket, "identifier", "") == "Fac"
+                    or output_socket.name in {"Fac", "Factor"}):
                 return _volume_grid_scalar(value, superluxcore_name, props)
             if output_socket.name == "Color":
                 return _volume_grid_color(value, superluxcore_name, props)
@@ -4349,6 +4354,20 @@ def _volume_asymmetry(anisotropy):
     return [anisotropy] * 3
 
 
+def _volume_grid_value(definitions, name, props, obj_name, alpha=False):
+    value = _tex_helper(props, name + "_grid", definitions)
+    from . import volume
+    if alpha or not volume.grid_is_rgba(definitions["openvdb.grid"], obj_name):
+        return value
+    alpha_defs = dict(definitions, **{"openvdb.component": "alpha"})
+    coverage = _tex_helper(props, name + "_grid_alpha", alpha_defs)
+    # Cycles unpremultiplies RGBA after filtering, provided alpha >1e-6.
+    # Choosing a safe divisor also avoids evaluating a zero-denominator branch.
+    valid = _tex_greaterthan(coverage, 1.e-6, name + "_grid_has_alpha", props)
+    divisor = _tex_mix(1., coverage, valid, name + "_grid_divisor", props)
+    return _tex_binary("divide", value, divisor, name + "_grid_unpremultiplied", props)
+
+
 def _volume_grid_scalar(value, name, props):
     # Cycles converts volume float3 attributes by arithmetic average, whereas
     # densitygrid.GetFloatValue uses luminance. Extract data channels first.
@@ -4377,7 +4396,7 @@ def _principled_volume_attribute(node, socket_name, old_property, props,
         # Principled only multiplies attributes that exist. This differs from
         # the Attribute and Volume Info nodes, whose missing outputs are zero.
         return 1.
-    value = _tex_helper(props, name + "_grid", definitions)
+    value = _volume_grid_value(definitions, name, props, obj_name)
     return (_volume_grid_color(value, name, props) if color else
             _volume_grid_scalar(value, name, props))
 

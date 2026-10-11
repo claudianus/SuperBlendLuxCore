@@ -29,10 +29,16 @@ class _GridContext:
         self.infos = {}
         self.used = set()
         self.implicit = set()
+        material = next((slot.material for slot in obj.material_slots if slot.material), None)
+        self.interpolation = (getattr(getattr(material, "cycles", None), "volume_interpolation", "LINEAR")
+                              if material is not None else "LINEAR")
+        self.padding = 2 if self.interpolation == "CUBIC" else 1
+        # The cubic stencil also reads one inactive voxel beyond the carrier.
+        self.texture_padding = 3 if self.interpolation == "CUBIC" else 1
 
     def info(self, grid):
         if grid not in self.infos:
-            self.infos[grid] = pysuperluxcore.GetOpenVDBGridInfo(self.filepath, grid)
+            self.infos[grid] = pysuperluxcore.GetOpenVDBGridInfo(self.filepath, grid, True)
         return self.infos[grid]
 
 
@@ -75,12 +81,14 @@ def _grid_defs(context, grid):
         return None
     info = context.info(grid)
     bbox = info[1]
-    resolution = [bbox[i + 3] - bbox[i] for i in range(3)]
-    if any(n <= 0 for n in resolution):
+    extent = [bbox[i + 3] - bbox[i] + 1 for i in range(3)]
+    if any(n <= 0 for n in extent):
         return None
-    # The native dense reader samples the leaf index interval [min,max).
-    # Preserve the actual affine transform, rather than its world-space AABB.
-    index_box = (mathutils.Matrix.Translation(mathutils.Vector(bbox[:3])) @
+    resolution = [n + 2 * context.texture_padding for n in extent]
+    # Original integer voxel values, including the inclusive last sample and
+    # filter support. Native lookup is u*N without a half-voxel displacement.
+    origin = mathutils.Vector([n - context.texture_padding for n in bbox[:3]])
+    index_box = (mathutils.Matrix.Translation(origin) @
                  mathutils.Matrix.Diagonal((*resolution, 1.0)))
     world_box = context.transform @ _index_to_object(info) @ index_box
     context.used.add(grid)
@@ -88,17 +96,27 @@ def _grid_defs(context, grid):
         "type": "densitygrid", "wrap": "black", "storage": "float",
         "nx": resolution[0], "ny": resolution[1], "nz": resolution[2],
         "openvdb.file": context.filepath, "openvdb.grid": grid,
+        "openvdb.mode": "index", "openvdb.padding": context.texture_padding,
+        "interpolation": context.interpolation.lower(),
         "mapping.type": "globalmapping3d",
         "mapping.transformation": utils.luxutils.matrix_to_list(world_box, invert=True),
     }
 
 
-def attribute_grid_defs(attribute_name, obj_name, implicit=False):
+def attribute_grid_defs(attribute_name, obj_name, implicit=False, alpha=False):
     context = _context_for_object(obj_name)
     definitions = _grid_defs(context, attribute_name) if context is not None else None
     if definitions is not None and implicit:
         context.implicit.add(attribute_name)
+    if definitions is not None and alpha:
+        definitions["openvdb.component"] = "alpha"
     return definitions
+
+
+def grid_is_rgba(grid, obj_name):
+    context = _context_for_object(obj_name)
+    return (context is not None and grid in context.names
+            and context.info(grid)[4] in {"vec4s", "vec4f"})
 
 
 def _used_shader_grids(props, shader, context):
@@ -315,12 +333,11 @@ def convert_volume_obj(
         info = context.info(grid)
         bbox = info[1]
         index_to_object = _index_to_object(info)
-        # Include interpolation padding around each grid, in its own frame.
-        # Native interpolation at the last voxel is a separate edge-fidelity
-        # limitation; enlarging a common AABB cannot correct its sampling.
-        for x in (bbox[0] - 1, bbox[3] + 1):
-            for y in (bbox[1] - 1, bbox[4] + 1):
-                for z in (bbox[2] - 1, bbox[5] + 1):
+        # The carrier follows active topology plus the authored filter support;
+        # it is independent of the padded dense texture's exclusive endpoint.
+        for x in (bbox[0] - context.padding, bbox[3] + context.padding):
+            for y in (bbox[1] - context.padding, bbox[4] + context.padding):
+                for z in (bbox[2] - context.padding, bbox[5] + context.padding):
                     bounds.append(index_to_object @ mathutils.Vector((x, y, z)))
         world_grid = transform @ index_to_object
         step_candidates.extend(world_grid.col[i].to_3d().length for i in range(3))

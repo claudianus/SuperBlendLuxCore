@@ -1,7 +1,7 @@
 """Unchanged Cycles VDB shaders: named fields, missing fields and instances.
 
-Exact grid-edge reconstruction and Generated volume context remain separate
-native-engine work. RGB gates compare transport meaning; spectral frames
+Grid-edge render acceptance and Generated volume context are separate from
+these attribute/coordinate export probes. RGB gates compare transport meaning; spectral frames
 are retained for direct review, not pixel equality with RGB Cycles.
 """
 import hashlib, importlib, json, os
@@ -119,19 +119,62 @@ missing_obj.hide_render=True
 trans_mat,_=material_for('Independent affine probe')
 trans_obj=make_object('Independent affine probe','independent-grid-transforms.vdb',trans_mat)
 instance_matrix=Matrix.Translation((3,-1,.2))@Matrix.Rotation(.31,4,'Z')@Matrix.Diagonal((1.3,.8,1.1,1))
-ctx=volume_export._GridContext(trans_obj,'different_instance',scene,instance_matrix)
 points=[]
-with volume_export._with_grid_context(ctx):
- for grid in ['density','artist_density']:
-  defs=volume_export.attribute_grid_defs(grid,trans_obj.name)
-  info=ctx.info(grid);bounds=info[1];a=volume_export._index_to_object(info)
-  index=Vector((7,11,13));world=instance_matrix@a@index
-  # matrix_to_list exports column-major, as the native property parser does.
-  flat=defs['mapping.transformation'];mapping=Matrix([flat[i:i+4] for i in range(0,16,4)]).transposed()
-  got=mapping@world;expected=Vector([(index[i]-bounds[i])/(bounds[i+3]-bounds[i]) for i in range(3)])
-  assert (got-expected).length<2e-6,(grid,got,expected)
-  points.append({'grid':grid,'world':list(world),'normalized':list(got),'expected':list(expected)})
+# The fixture author independently specified samples at inclusive indices
+# [0,31]^3. LINEAR/CUBIC dense lookup needs one/three background samples at both
+# ends. Cubic carrier bounds use padding two; read padding also covers the last
+# cubic stencil tap beyond that carrier and is not the physical carrier oracle.
+# Recover original integer coordinates from the exported map, including the
+# last sample and support points; do not derive the oracle from exported nx.
+for interpolation,padding in [('LINEAR',1),('CUBIC',3)]:
+ trans_mat.cycles.volume_interpolation=interpolation
+ ctx=volume_export._GridContext(trans_obj,'different_instance_'+interpolation,scene,instance_matrix)
+ with volume_export._with_grid_context(ctx):
+  for grid in ['density','artist_density']:
+   defs=volume_export.attribute_grid_defs(grid,trans_obj.name)
+   info=ctx.info(grid);bounds=info[1];a=volume_export._index_to_object(info)
+   assert list(bounds)==[0,0,0,31,31,31],(grid,bounds)
+   resolution=32+2*padding
+   assert [defs[k] for k in ['nx','ny','nz']]==[resolution]*3,defs
+   assert defs['openvdb.mode']=='index' and defs['openvdb.padding']==padding
+   assert defs['interpolation']==interpolation.lower()
+   # matrix_to_list exports column-major, as the native property parser does.
+   flat=defs['mapping.transformation'];mapping=Matrix([flat[i:i+4] for i in range(0,16,4)]).transposed()
+   for values in [(7,11,13),(0,0,0),(31,31,31),(-padding,-padding,-padding),
+                  (31+padding,31+padding,31+padding)]:
+    index=Vector(values);world=instance_matrix@a@index
+    got=mapping@world;expected=Vector([(index[i]+padding)/resolution for i in range(3)])
+    assert (got-expected).length<2e-6,(grid,interpolation,values,got,expected)
+    points.append({'grid':grid,'interpolation':interpolation,'index':list(index),
+     'world':list(world),'normalized':list(got),'expected':list(expected),
+     'inclusive_fixture_bounds':list(bounds),'padding':padding,'resolution':resolution})
 trans_obj.hide_render=True
+
+# Existing float/float3 grids have Alpha 1, but the texture must still retain
+# their topology. Folding Alpha to a constant loses the only carrier request
+# for an otherwise constant/emitting shader. Float4 numeric-alpha sampling is
+# covered by the native grid contract; this probe verifies adapter routing.
+alpha_probes=[]
+for grid in ['density','artist_color','absent_alpha_grid']:
+ attr=trans_mat.node_tree.nodes.new('ShaderNodeAttribute');attr.attribute_name=grid
+ # artist_color belongs to this fixture rather than the affine fixture above.
+ alpha_ctx=volume_export._GridContext(probe_obj,'alpha_'+grid,scene,instance_matrix)
+ alpha_props=pysuperluxcore.Properties()
+ with volume_export._with_grid_context(alpha_ctx):
+  value=reader._node(attr,attr.outputs['Alpha'],alpha_props,trans_mat,obj_name=probe_obj.name)
+ requested={alpha_props.Get(n).GetString() for n in alpha_props.GetAllNames('scene.textures.') if n.endswith('.openvdb.grid')}
+ if grid=='absent_alpha_grid':
+  assert value==0 and not requested and not alpha_ctx.used
+ else:
+  assert isinstance(value,str),(grid,value)
+  prefix='scene.textures.'+value+'.'
+  assert alpha_props.Get(prefix+'openvdb.component').GetString()=='alpha'
+  assert requested==alpha_ctx.used=={grid}
+  assert volume_export._used_shader_grids(alpha_props,{'emission':value},alpha_ctx)=={grid}
+ alpha_probes.append({'grid':grid,'requested_grids':sorted(requested),
+  'missing_alpha_zero':grid=='absent_alpha_grid','keeps_emission_topology':bool(requested),
+  'numeric_sampler_verified':False,'complete':True})
+ trans_mat.node_tree.nodes.remove(attr)
 
 dead_mat,dead_p=material_for('Dead explicit attribute topology probe')
 dead_obj=make_object('Dead explicit attribute topology probe','named-attributes.vdb',dead_mat)
@@ -153,7 +196,7 @@ dead_obj.hide_render=True
 identity={'complete':False,'fixtures':{p.name:sha(p) for p in fixtures.glob('*.vdb')},'resolution':[1280,720],'samples':samples,'cpu_threads':scene.render.threads,
  'native_sha256':sha(pysuperluxcore.pysuperluxcore.__file__),'reader_sha256':sha(reader.__file__),
  'volume_export_sha256':sha(volume_export.__file__),'harness_sha256':sha(__file__),
- 'probes':probe,'affine_points':points,'records':[],'comparisons':[],
+ 'probes':probe,'affine_points':points,'alpha_export_probes':alpha_probes,'records':[],'comparisons':[],
  'full_goal_complete':False,'production_convergence_acceptance':False}
 def save(): (folder/'metrics.json').write_text(json.dumps(identity,indent=2)+'\n')
 save();print('VDB_ATTRIBUTE_EXPORT_PROBES_PASS',flush=True)

@@ -107,3 +107,9 @@ docs live alongside in `doc/`.
 - [Cycles Principled Volume absorption color](2026-10-11-principled-volume-absorption.md)
 
 - [Cycles VDB named attributes and sequences](2026-10-11-vdb-named-attributes-and-sequences.md): per-grid affine mapping, named fields, null bounds and Blender frame selection; full compatibility remains open.
+
+- [Cycles VDB index reconstruction and filtered RGBA attributes](2026-10-11-vdb-grid-reconstruction.md): original voxel/filter semantics and scoped runtime acceptance; carrier/clipping and full-scene compatibility remain open.
+
+- [Volume Generated/Object carrier ownership audit](2026-10-11-volume-coordinate-carrier-audit.md): source-backed coordinate, instance, world, motion and clipping contracts for the next implementation unit.
+
+- [Attribute socket and data-domain follow-up audit](2026-10-11-attribute-socket-domain-audit.md): source-confirmed surface Fac, Float2, UV and namespace defects; installed regression and fixes remain pending.
