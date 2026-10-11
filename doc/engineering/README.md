@@ -113,3 +113,5 @@ docs live alongside in `doc/`.
 - [Volume Generated/Object carrier ownership audit](2026-10-11-volume-coordinate-carrier-audit.md): source-backed coordinate, instance, world, motion and clipping contracts for the next implementation unit.
 
 - [Attribute socket and data-domain follow-up audit](2026-10-11-attribute-socket-domain-audit.md): source-confirmed surface Fac, Float2, UV and namespace defects; installed regression and fixes remain pending.
+
+- [Surface Attribute Factor diagnostic and isolated preview](2026-10-11-surface-attribute-factor.md): CPU failure reproduced and a narrow CPU/Metal preview verified; primary runtime unchanged, production application and deployment deferred by the user's closeout.

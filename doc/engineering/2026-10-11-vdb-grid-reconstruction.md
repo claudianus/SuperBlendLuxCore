@@ -8,8 +8,9 @@ mode: original integer values are read once and filtered at the shading point
 with the material's Linear or positive cubic B-spline setting.
 
 This feature unit does not complete the existing Cycles-scene compatibility
-goal. Deployment and actual-profile render acceptance remain pending until the
-signed build and render evidence recorded below are complete.
+goal. The exact signed CI wheel has now passed the bounded acceptance below and
+is installed. Actual-profile postinstall acceptance is complete; exact-source
+addon bundle publication and cleanup are the remaining actions in this unit.
 
 ## Reconstruction contracts
 
@@ -103,8 +104,9 @@ first all-black Cycles RGBA render is retained as a failed reference, not
 accepted as an RGBA parity result. Cycles' internal RGBA voxel path and the
 native independent numeric contract do not prove that Blender's external
 VDB-object loader accepts that type. Native RGBA RenderEngine acceptance
-against the independent analytic oracle, signed four-platform publication
-and actual-profile acceptance remain pending. The RGBA diagnostic also found
+against the independent analytic oracle and signed four-platform publication
+are complete in the final signed acceptance below; Cycles external-Vec4
+parity remains unavailable. The RGBA diagnostic also found
 an adapter defect: Blender 5.2 displays the stable `Fac` identifier as
 `Factor`. The old name-only branch returned RGB instead of an arithmetic
 average. The adapter now accepts the stable identifier and both display
@@ -175,8 +177,8 @@ preservation artifact, exact driver/fixture hashes, authored-state preservation,
 restored preferences and complete direct PNG review coverage. A local-only
 schema diagnostic accepts those portable records and rejects seven invalid
 binding/preservation/backend/review cases. It supplies no signature or
-deployment approval. Exact signed-wheel and actual-profile acceptance remain
-pending.
+deployment approval. The final signed-wheel acceptance below is complete. Actual-profile
+postinstall acceptance is now complete.
 
 During concurrent Blender validation, all 192 actual engine-package files
 were unexpectedly removed while adapter files, settings and the cached
@@ -186,8 +188,8 @@ required wheel list is empty. The responsible process is not conclusively
 identified. Missing-only recovery verified the old signed publication,
 streamed every original wheel/RECORD entry, and restored all 192 exact files
 without overwriting existing data. `actual-baseline-recovery.json` records
-the recovery and temporary-file cleanup. The actual profile is again on its
-preceding signed native deployment.
+the recovery and temporary-file cleanup. This recovery restored the preceding signed native deployment before the
+final signed installation recorded below.
 
 Future workers explicitly set CONFIG, EXTENSIONS and RESOURCES, assert their
 resolved Blender paths before addon activation, and hash the actual engine,
@@ -195,6 +197,51 @@ resolved Blender paths before addon activation, and hash the actual engine,
 every render. Older state files' `production_profile_modified=false` expressed
 intent rather than a measured preservation result. New states bind the full
 comparison artifact by SHA; a concurrent deletion fails acceptance.
+
+## Final signed deployment closeout
+
+The user requested closure within one hour at 2026-10-11 02:38:52 UTC. New
+features and audits are stopped; the finite remaining unit is actual installation,
+postinstall CPU/Metal acceptance, exact-source bundle publication and cleanup.
+The Surface Attribute Factor preview is explicitly deferred and undeployed.
+
+Native CI [38103799337](https://github.com/claudianus/SuperLuxCore/actions/runs/38103799337)
+completed all seven jobs, including CUDA NVRTC, four platform builds, attestation
+and rolling publication. The original signed ARM wheel SHA256 is
+`66e58276d6637bee0a40d8e0e07e27e448e0db36ce25379307520a1d21045b99`;
+its native module SHA256 is
+`8254e3af77e5db3be8fd9f89ce368d00ec1148101d5ee9250b10d67400ae7ee7`.
+The failed initial Sigstore verifier setup is retained separately; a fresh
+cache retry verified the original artifact successfully.
+
+This exact whole wheel passes all 44 numeric conditions and 180 host-first
+Blender load/serialize/destroy operations. Fresh 1280x720 unchanged-graph
+Linear/Cubic boundary renders pass on CPU and pure Metal with Cycles references
+(eight records). Independent RGBA renders pass on both routes (four records).
+All twelve original PNGs were directly reviewed. Every worker preserves the
+actual 192 engine files, 374 Python files, three settings and one whole cached
+wheel, with measured and hash-bound before/after inventories. Fixed image
+gates, requested 64 eye samples and default quality settings remain intact.
+These are feature diagnostics; broad production convergence is unverified.
+
+The actual installation atomically replaces the complete 192-file native
+payload and cached original signed wheel plus two reviewed VDB adapters. It
+preserves the other 372 Python files and all three settings. The complete
+previous signed wheel and both old adapters remain available in
+`rollback-grid-signed`; installation is recorded in
+`profile-actual-installed-identity.json` and binds `deployment-readiness.json`.
+The existing unconnected-Normal and duplicate-BSSRDF source-only differences
+are explicitly excluded from this installed unit. Actual-profile postinstall
+render acceptance is complete: CPU boundary 4/4, pure Metal boundary 4/4,
+CPU RGBA 2/2 and pure Metal RGBA 2/2. All twelve original 1280x720 PNGs
+were directly reviewed and retain 64 or more native eye samples. Boundary
+profile mean errors against Cycles are 0.002010/0.002510 on CPU and
+0.005958/0.006761 on Metal, within the unchanged 0.012/0.04 gates. Each
+worker again preserves all 192/374/3/1 measured files and settings; all
+workers are terminal and reaped with return code zero.
+`actual-postinstall-acceptance.json` binds the metrics, original images,
+reviews and inventory/state artifacts. Exact-source bundle publication is
+the final pending deployment action.
 
 ## Remaining volume work
 

@@ -186,7 +186,7 @@
       "priority": "P1",
       "scope": "Principled Volume 속성",
       "status": "부분 구현·검증",
-      "remaining": "STRING 전체 이름·Principled Volume 표준/사용자/없는 속성·Volume Info 고정 이름·generic Attribute·격자별 affine/인스턴스 변환·OBJECT/WORLD 배율·null carrier·빈 출력·시퀀스 frame/signature 캐시를 구현했다. 실제 Blender 시퀀스 85개에서 기존 73개 실패를 0개로 줄였으며 실제 64 eye SPP 독립 시드 Metal 시퀀스 4개를 통과했다. CPU 일반/시퀀스 각 4개와 Metal 일반/시퀀스 각 4개를 실제 64 eye SPP 독립 반복 시드로 통과했다. 최종 일반 Metal 검사는 워커 종료 후 읽기와 재사용 네이티브 필름 통계 초기화를 포함한다. 링크된 라이브러리 상대 VDB 경로의 두 실제 로더 조건도 수정 전 실패·수정 후 통과를 확인했다. 서명된 최종 CI 전체 휠과 네 어댑터 파일의 실제 설치를 완료했다. 실제 CPU 편집·Metal hybrid 시퀀스 각 4개(64 eye SPP), 실제 로더 87개와 CPU/pure Metal 온도 720p 각 12개를 통과했고, 네 플랫폼 서명 latest 번들 게시 및 ARM 전체 엔진 일치를 검증했다. 실제 원본 검토에서 Cycles 대비 좁고 딱딱한 VDB 경계가 남아 있음을 확인했다. dense 격자 경계, Generated 볼륨 좌표, 겹치는 매질, 대형 실제 시뮬레이션, GUI redraw, 광범위 제작 씬/플랫폼은 남아 있다. 현재 portable index 재구성·Linear/Cubic 후보는 44개 수치 조건, 실제 CPU/pure Metal 경계 각 4개와 RGBA 각 2개, 180회 변환·해제를 통과했고 원본 12개를 검토했다. 20개 affine 좌표·3개 Alpha topology export probe도 통과했다. 새 워커의 실제 192개 엔진·374개 Python·3개 설정·전체 cached wheel 보존을 전후 해시로 증명했다. 새 서명 CI·실제 설치 검증은 진행 중이며 외부 Vec4의 Blender 자체 로더 실패를 Cycles RGBA 지원으로 인정하지 않는다.",
+      "remaining": "STRING 전체 이름·Principled Volume 표준/사용자/없는 속성·Volume Info 고정 이름·generic Attribute·격자별 affine/인스턴스 변환·OBJECT/WORLD 배율·null carrier·빈 출력·시퀀스 frame/signature 캐시를 구현했다. 실제 Blender 시퀀스 85개에서 기존 73개 실패를 0개로 줄였으며 실제 64 eye SPP 독립 시드 Metal 시퀀스 4개를 통과했다. CPU 일반/시퀀스 각 4개와 Metal 일반/시퀀스 각 4개를 실제 64 eye SPP 독립 반복 시드로 통과했다. 최종 일반 Metal 검사는 워커 종료 후 읽기와 재사용 네이티브 필름 통계 초기화를 포함한다. 링크된 라이브러리 상대 VDB 경로의 두 실제 로더 조건도 수정 전 실패·수정 후 통과를 확인했다. 서명된 최종 CI 전체 휠과 네 어댑터 파일의 실제 설치를 완료했다. 실제 CPU 편집·Metal hybrid 시퀀스 각 4개(64 eye SPP), 실제 로더 87개와 CPU/pure Metal 온도 720p 각 12개를 통과했고, 네 플랫폼 서명 latest 번들 게시 및 ARM 전체 엔진 일치를 검증했다. 실제 원본 검토에서 Cycles 대비 좁고 딱딱한 VDB 경계가 남아 있음을 확인했다. dense 격자 경계, Generated 볼륨 좌표, 겹치는 매질, 대형 실제 시뮬레이션, GUI redraw, 광범위 제작 씬/플랫폼은 남아 있다. 현재 portable index 재구성·Linear/Cubic 후보는 44개 수치 조건, 실제 CPU/pure Metal 경계 각 4개와 RGBA 각 2개, 180회 변환·해제를 통과했고 원본 12개를 검토했다. 20개 affine 좌표·3개 Alpha topology export probe도 통과했다. 새 워커의 실제 192개 엔진·374개 Python·3개 설정·전체 cached wheel 보존을 전후 해시로 증명했다. 최종 서명 CI의 네 플랫폼 wheel 게시·ARM 원본 서명을 검증했고 전체 엔진과 두 VDB 어댑터를 실제 설치했다. 실제 CPU/pure Metal 경계 각 4개·RGBA 각 2개가 통과했으며 원본 12개를 직접 검토했다. 설치 파일 192/374개·설정 3개·전체 cached wheel 보존도 증명했다. 외부 Vec4의 Blender 자체 로더 실패를 Cycles RGBA 지원으로 인정하지 않는다. addon source bundle 게시는 마무리 중이다.",
       "evidence": "2026-10-11-vdb-named-attributes-and-sequences.md; 2026-10-11-volume-source-and-prototype-audit.md; 2026-10-11-vdb-grid-reconstruction.md"
     },
     {
@@ -406,7 +406,7 @@
       "priority": "P2",
       "scope": "속성·절차 기하 데이터",
       "status": "미완료",
-      "remaining": "edge/string domain과 채널 예산 초과를 지원하지 않는다. Pointcloud는 구 인스턴스이며 Geometry Nodes가 생성한 인메모리 Volume은 지원하지 않는다. surface Attribute의 Factor 이름·RGB 평균/Float2 x, UV wrap/출력, 없는 기본값, 활성 Vertex Color, namespace 분리 및 FACE vector 누락을 제공 소스와 native 구현에서 추가 확인했다. 실제 설치 surface 렌더 재현·수정은 다음 독립 단위이며 소스 감사만으로 완료를 인정하지 않는다.",
+      "remaining": "edge/string domain과 채널 예산 초과를 지원하지 않는다. Pointcloud는 구 인스턴스이며 Geometry Nodes가 생성한 인메모리 Volume은 지원하지 않는다. surface Attribute의 Factor 이름·RGB 평균/Float2 x, UV wrap/출력, 없는 기본값, 활성 Vertex Color, namespace 분리 및 FACE vector 누락을 제공 소스와 native 구현에서 추가 확인했다. Surface Factor CPU 진단에서 12패널 중 10개 실패를 재현했고, 좁은 POINT-domain RGB/Float2 preview는 CPU/pure Metal 각 12패널 통과했다. 제작 runtime 적용·서명 배포는 사용자 마무리 요청에 따라 보류했다. UV·namespace·domain·기본값 등의 나머지 문제도 미완료다.",
       "evidence": "2026-10-11-attribute-socket-domain-audit.md"
     },
     {
@@ -2181,7 +2181,7 @@
     ]
   },
   "vdb_grid_reconstruction_2026_10_11": {
-    "status": "Portable local whole-payload candidate verified; main native sources pushed; signed publication and actual deployment pending",
+    "status": "Exact signed CI accepted and actual installed CPU/Metal acceptance complete; addon source bundle publication in progress",
     "native_commit": "ed9aebd4fc901bc5bb5d3787eb4303b767eca87e",
     "candidate_native_sha256": "e04d60b9011933cfd383a96219b5e774c552ea58d49ebe8c6bb97c6383590503",
     "numeric_conditions": 44,
@@ -2211,15 +2211,15 @@
     "external_vec4_blender_loader_supported": false,
     "cycles_rgba_reference_accepted": false,
     "native_rgba_render_acceptance_complete": true,
-    "signed_current_ci_accepted": false,
-    "actual_profile_updated": false,
-    "current_actual_native_sha256": "e2a7055da33a7991e4ba8831121094a5f3913430b0ee680574c2cf2794cd8585",
+    "signed_current_ci_accepted": true,
+    "actual_profile_updated": true,
+    "current_actual_native_sha256": "8254e3af77e5db3be8fd9f89ce368d00ec1148101d5ee9250b10d67400ae7ee7",
     "rejected_registered_accessor_stage_logical_bytes_removed": 404747460,
     "production_convergence_accepted": false,
     "full_goal_complete": false,
     "evidence": "2026-10-11-vdb-grid-reconstruction.md",
     "remaining": [
-      "Exact signed CI wheel and actual-profile acceptance",
+      "Exact-source addon bundle publication",
       "Generated/Object volume carrier coordinates",
       "Clipped/disconnected and overlapping media",
       "Internal grid affine carrier geometry and material override semantics",
@@ -2228,7 +2228,7 @@
     ],
     "initial_candidate_native_sha256": "f26ceba9b104e50dc86316f4942bea5e79ba2894f9a777f5b6edcef5f2fa2428",
     "load_order_devtool_commit": "adba86f43",
-    "native_rgba_render_acceptance_scope": "Local portable whole-wheel candidate; independent analytic reference; installed Blender custom Vec4 loader rejects fixture",
+    "native_rgba_render_acceptance_scope": "Exact signed whole-wheel; independent analytic reference; installed Blender custom Vec4 loader rejects external fixture",
     "candidate_rgba_cpu_records": 2,
     "candidate_rgba_pure_metal_records": 2,
     "candidate_rgba_original_pngs_directly_reviewed": 4,
@@ -2249,6 +2249,88 @@
       "portable-rgba-cpu/metrics.json",
       "portable-rgba-metal/metrics.json",
       "portable-readiness-verifier-diagnostic.json"
-    ]
+    ],
+    "signed_wheel_sha256": "66e58276d6637bee0a40d8e0e07e27e448e0db36ce25379307520a1d21045b99",
+    "signed_all_four_platforms_published": true,
+    "native_ci_url": "https://github.com/claudianus/SuperLuxCore/actions/runs/38103799337",
+    "signed_numeric_conditions": 44,
+    "signed_blender_cycles_first_conversions": 180,
+    "signed_boundary_cpu_records": 4,
+    "signed_boundary_pure_metal_records": 4,
+    "signed_rgba_cpu_records": 2,
+    "signed_rgba_pure_metal_records": 2,
+    "signed_original_pngs_directly_reviewed": 12,
+    "actual_other_python_files_preserved": 372,
+    "actual_settings_preserved": true,
+    "actual_postinstall_acceptance_complete": true,
+    "actual_original_pngs_directly_reviewed": 12,
+    "actual_postinstall_groups": {
+      "actual-boundary-cpu": {
+        "records": 4,
+        "native_eye_spp": [
+          65,
+          64
+        ],
+        "preserved_counts": [
+          192,
+          374,
+          3,
+          1
+        ],
+        "boundary_profile_mae": [
+          0.002009606154323141,
+          0.002510439468773219
+        ]
+      },
+      "actual-boundary-metal": {
+        "records": 4,
+        "native_eye_spp": [
+          64,
+          64
+        ],
+        "preserved_counts": [
+          192,
+          374,
+          3,
+          1
+        ],
+        "boundary_profile_mae": [
+          0.005958370301429043,
+          0.006761369033757955
+        ]
+      },
+      "actual-rgba-cpu": {
+        "records": 2,
+        "native_eye_spp": [
+          65,
+          64
+        ],
+        "preserved_counts": [
+          192,
+          374,
+          3,
+          1
+        ],
+        "boundary_profile_mae": []
+      },
+      "actual-rgba-metal": {
+        "records": 2,
+        "native_eye_spp": [
+          65,
+          65
+        ],
+        "preserved_counts": [
+          192,
+          374,
+          3,
+          1
+        ],
+        "boundary_profile_mae": []
+      }
+    },
+    "actual_postinstall_evidence": "actual-postinstall-acceptance.json",
+    "actual_postinstall_evidence_sha256": "a784ba03bb056caefc741554ffc5515ed05b9fe312debca73a8dfe489c29124a",
+    "actual_whole_payload_and_cache_verified": true,
+    "actual_adapter_updated_files": 2
   }
 }
