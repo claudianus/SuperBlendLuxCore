@@ -197,7 +197,7 @@ def _resolve_frame_filepath(vol_data, scene):
     """Return the .vdb file for the current frame, honoring sequence settings."""
     if not vol_data.filepath:
         return ""
-    filepath = bpy.path.abspath(vol_data.filepath)
+    filepath = bpy.path.abspath(vol_data.filepath, library=vol_data.library)
     if not vol_data.is_sequence:
         return filepath
 

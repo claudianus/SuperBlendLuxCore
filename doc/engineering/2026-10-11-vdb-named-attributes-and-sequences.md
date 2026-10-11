@@ -36,6 +36,8 @@ with a different file. This also fixes the actual `PING_PONG` enum. A cached
 volume retains its source/frame signature, and scene-frame changes refresh
 sequence volumes even when a second depsgraph evaluation has consumed update
 flags. Removing a stale carrier issues native DeleteObject before re-export.
+Relative VDB paths belonging to linked data resolve from the owning Blender
+library; resolving them from the open main file silently dropped linked media.
 
 Evidence is in `../test-scenes/validation-2026-10-11/vdb-attributes/`:
 
@@ -58,6 +60,9 @@ Evidence is in `../test-scenes/validation-2026-10-11/vdb-attributes/`:
   the oracle across CLIP/EXTEND/REPEAT/PING_PONG, offsets, gaps and zero duration.
   The old resolver fails 73 conditions; the candidate fails none. Temporary
   sequence files are removed after each run.
+- A linked-library path contract uses the actual Blender loader and separate
+  library/main directories. Both previously failing frame conditions pass;
+  its temporary library, main file and VDB hard link are removed.
 
 `dev-tools/cycles-vdb-attributes-test.py`, `cycles-vdb-sequence-test.py`,
 `cycles-vdb-live-edit-test.py` and `vdb-attribute-fixture/` reproduce these

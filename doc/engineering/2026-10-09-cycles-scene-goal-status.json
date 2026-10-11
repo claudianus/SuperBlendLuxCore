@@ -186,7 +186,7 @@
       "priority": "P1",
       "scope": "Principled Volume 속성",
       "status": "부분 구현·검증",
-      "remaining": "STRING 전체 이름·Principled Volume 표준/사용자/없는 속성·Volume Info 고정 이름·generic Attribute·격자별 affine/인스턴스 변환·OBJECT/WORLD 배율·null carrier·빈 출력·시퀀스 frame/signature 캐시를 구현했다. 실제 Blender 시퀀스 85개에서 기존 73개 실패를 0개로 줄였으며 실제 64 eye SPP 독립 시드 Metal 시퀀스 4개를 통과했다. CPU 일반/시퀀스 각 4개와 Metal 일반/시퀀스 각 4개를 실제 64 eye SPP 독립 반복 시드로 통과했다. 최종 일반 Metal 검사는 워커 종료 후 읽기와 재사용 네이티브 필름 통계 초기화를 포함한다. 서명 CI 휠·설치·번들 게시 검증은 진행 중이다. dense 격자 경계, Generated 볼륨 좌표, 겹치는 매질, 대형 실제 시뮬레이션, GUI redraw, 광범위 제작 씬/플랫폼은 남아 있다.",
+      "remaining": "STRING 전체 이름·Principled Volume 표준/사용자/없는 속성·Volume Info 고정 이름·generic Attribute·격자별 affine/인스턴스 변환·OBJECT/WORLD 배율·null carrier·빈 출력·시퀀스 frame/signature 캐시를 구현했다. 실제 Blender 시퀀스 85개에서 기존 73개 실패를 0개로 줄였으며 실제 64 eye SPP 독립 시드 Metal 시퀀스 4개를 통과했다. CPU 일반/시퀀스 각 4개와 Metal 일반/시퀀스 각 4개를 실제 64 eye SPP 독립 반복 시드로 통과했다. 최종 일반 Metal 검사는 워커 종료 후 읽기와 재사용 네이티브 필름 통계 초기화를 포함한다. 링크된 라이브러리 상대 VDB 경로의 두 실제 로더 조건도 수정 전 실패·수정 후 통과를 확인했다. 서명 CI 휠·설치·번들 게시 검증은 진행 중이다. dense 격자 경계, Generated 볼륨 좌표, 겹치는 매질, 대형 실제 시뮬레이션, GUI redraw, 광범위 제작 씬/플랫폼은 남아 있다.",
       "evidence": "2026-10-11-vdb-named-attributes-and-sequences.md; 2026-10-11-volume-source-and-prototype-audit.md"
     },
     {
