@@ -66,3 +66,15 @@ def is_vulkan_build():
         .Get("compile.LUXRAYS_ENABLE_VULKAN")
         .GetBool()
     )
+
+
+def available_gpu_backends():
+    """gpu_backend identifiers compiled into this pysuperluxcore, in the
+    order the preferences show them."""
+    checks = (
+        ("METAL", is_metal_build),
+        ("CUDA", is_cuda_build),
+        ("OPENCL", is_opencl_build),
+        ("VULKAN", is_vulkan_build),
+    )
+    return [backend for backend, check in checks if check()]

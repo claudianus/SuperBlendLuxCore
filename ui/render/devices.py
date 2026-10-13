@@ -51,12 +51,21 @@ class SUPERLUXCORE_RENDER_PT_devices(RenderButtonsPanel, Panel):
         layout.use_property_split = True
         layout.use_property_decorate = False
 
-        if config.engine == "PATH" and config.device == "OCL":
-            if not utils.luxutils.is_opencl_build():
-                # pysuperluxcore was compiled without OpenCL support
+        if config.engine == "PATH" and config.effective_device() == "OCL":
+            # The GPU API is a preference, not a scene setting: name it
+            # here so the device list below is not mistaken for OpenCL
+            backend = utils.get_addon_preferences(context).gpu_backend
+            names = {"OPENCL": "OpenCL", "CUDA": "CUDA/OptiX",
+                     "METAL": "Metal", "VULKAN": "Vulkan"}
+            if backend in utils.luxutils.available_gpu_backends():
                 layout.label(
-                    text="No OpenCL support in this SuperLuxCore version",
+                    text=f"GPU API: {names[backend]} (Add-on Preferences)",
                     icon_value=icon_manager.get_icon_id("device"),
+                )
+            else:
+                layout.label(
+                    text=f"No {names[backend]} support in this SuperLuxCore version",
+                    icon=icons.ERROR,
                 )
         else:
             # CPU settings for native C++ threads
@@ -80,10 +89,12 @@ class SUPERLUXCORE_RENDER_PT_gpu_devices(RenderButtonsPanel, Panel):
     @classmethod
     def poll(cls, context):
         config = context.scene.superluxcore.config
+        # Auto too: it picks the GPU from this list, and with every
+        # device unticked the list must stay reachable
         return (
             context.scene.render.engine == "SUPERLUXCORE"
             and config.engine == "PATH"
-            and config.device == "OCL"
+            and config.device in {"AUTO", "OCL"}
         )
 
     def draw_header(self, context):
@@ -127,7 +138,7 @@ class SUPERLUXCORE_RENDER_PT_cpu_devices(RenderButtonsPanel, Panel):
         return (
             context.scene.render.engine == "SUPERLUXCORE"
             and config.engine == "PATH"
-            and config.device == "OCL"
+            and config.effective_device() == "OCL"
         )
 
     def draw_header(self, context):

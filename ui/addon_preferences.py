@@ -200,15 +200,18 @@ class SuperLuxCoreAddonPreferences(AddonPreferences):
         row = layout.row()
         row.label(text="GPU API:")
 
-        if utils.luxutils.is_cuda_build():
-            row.prop(self, "gpu_backend", expand=True)
-
-            row = layout.row()
-            split = row.split(factor=SPLIT_FACTOR)
-            split.label(text="Film Device:")
-            split.prop(self, "film_device", text="")
-        elif utils.luxutils.is_opencl_build():
-            row.label(text="OpenCL")
+        # Offer only the backends compiled into this pysuperluxcore (macOS
+        # wheels: OpenCL/Metal/Vulkan, no CUDA)
+        available = utils.luxutils.available_gpu_backends()
+        if available:
+            for backend in available:
+                row.prop_enum(self, "gpu_backend", backend)
+            if self.gpu_backend not in available:
+                row = layout.row()
+                row.label(
+                    text=f"{self.gpu_backend} is not in this build, pick another API",
+                    icon=icons.ERROR,
+                )
 
             row = layout.row()
             split = row.split(factor=SPLIT_FACTOR)
