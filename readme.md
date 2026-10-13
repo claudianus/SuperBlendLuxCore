@@ -12,14 +12,10 @@
 This addon integrates the SuperLuxCore render engine into Blender. It offers advanced features like accelerated rendering of indirect light and efficient rendering of caustics.
 
 
-## Website and manual
+## Website and documentation
 
-- [Product overview](https://claudianus.github.io/SuperBlendLuxCore/)
-- [User manual](https://claudianus.github.io/SuperBlendLuxCore/manual/)
-- [Importing Cycles scenes](https://claudianus.github.io/SuperBlendLuxCore/manual/cycles-import.html)
-
-GitHub Pages publishes the `docs/` directory from `main`; documentation
-updates deploy with the same source commit.
+- [SuperLuxCore website](https://claudianus.github.io/SuperLuxCore/)
+- [Feature documentation](https://github.com/claudianus/SuperLuxCore/tree/main/doc/features)
 
 ## Supported Blender Versions
 
