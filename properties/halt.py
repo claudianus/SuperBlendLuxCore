@@ -63,8 +63,8 @@ class SuperLuxCoreHaltConditions(bpy.types.PropertyGroup):
                                description=USE_SAMPLES_DESC)
     # Backstop only - the noise-level stop (3%) normally fires far
     # earlier; this just guarantees termination on scenes that can not
-    # reach the target.
-    samples: IntProperty(name="Samples", default=2048, min=2, soft_max=16384,
+    # reach the target. 4096 = Cycles' default render sample cap.
+    samples: IntProperty(name="Samples", default=4096, min=2, soft_max=16384,
                           description=SAMPLES_DESC)
 
     use_light_samples: BoolProperty(name="Use Light Path Samples", default=False,

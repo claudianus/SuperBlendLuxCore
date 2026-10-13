@@ -256,7 +256,10 @@ def convert(exporter, scene, context=None, engine=None):
                 )
 
         if config.mnee_enable:
-            definitions["path.mnee.enable"] = True
+            # Checked = leave path.mnee.enable unset: the engine's auto
+            # gate (path.mnee.auto) turns the solver on exactly when the
+            # scene has a delta surface it can walk. Forcing it here put
+            # the MNEE stage on every scene, glossy-only ones included.
             if config.mnee_maxspecular > 1:
                 definitions["path.mnee.maxspecular"] = config.mnee_maxspecular
             if config.mnee_maxiterations != 12:

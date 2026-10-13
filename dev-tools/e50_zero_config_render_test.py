@@ -76,7 +76,7 @@ def main():
     check("defaults.halt_enable", halt.enable is True)
     check("defaults.halt_noise_level", halt.use_noise_level is True)
     check("defaults.denoiser_enabled", denoiser.enabled is True)
-    check("defaults.envlight_cache", cfg.envlight_cache.enabled is True)
+    check("defaults.envlight_cache", cfg.envlight_cache.enabled is False)
 
     # Bisect toggles for bring-up debugging (E50_DISABLE_*)
     if os.environ.get("E50_DISABLE_ENVLIGHT"):
