@@ -179,6 +179,88 @@ d = export_defs()
 check("bidir: auto engages for glass",
       d.get(pg + "caustic.enabled") == "1", d.get(pg + "caustic.enabled"))
 
+# 10. viewport: the CPU viewport (RTPATHCPU) builds the cache in the
+# background - auto leaves the flag to the engine like a final render;
+# the GPU viewport and material preview stay cache-free
+from types import SimpleNamespace
+
+
+def viewport_defs(sc, shading="RENDERED"):
+    depsgraph = bpy.context.evaluated_depsgraph_get()
+    exporter = addon.export.Exporter()
+    exporter.export_scene(depsgraph, None, engine=EngineStub(),
+                          view_layer=bpy.context.view_layer)
+    context = SimpleNamespace(
+        scene=sc,
+        preferences=bpy.context.preferences,
+        region=SimpleNamespace(width=320, height=180),
+        region_data=SimpleNamespace(view_perspective="PERSP"),
+        space_data=SimpleNamespace(
+            shading=SimpleNamespace(type=shading),
+            use_render_border=False,
+            render_border_min_x=0.0, render_border_min_y=0.0,
+            render_border_max_x=1.0, render_border_max_y=1.0,
+        ),
+    )
+    cfg = addon.export.config.convert(exporter, depsgraph.scene_eval, context)
+    return {k: cfg.Get(k).GetString(0) for k in cfg.GetAllNames()}
+
+
+sc = reset_scene()
+add_glass_scene(sc)
+sc.superluxcore.viewport.device = "CPU"
+d = viewport_defs(sc)
+check("viewport cpu: engine is RTPATHCPU",
+      d.get("renderengine.type") == "RTPATHCPU", d.get("renderengine.type"))
+check("viewport cpu: auto leaves caustic to the engine (flag unset)",
+      pg + "caustic.enabled" not in d, d.get(pg + "caustic.enabled"))
+check("viewport cpu: photon depth exported",
+      d.get(pg + "photon.maxdepth") ==
+      str(sc.superluxcore.config.photongi.photon_maxdepth),
+      d.get(pg + "photon.maxdepth"))
+check("viewport cpu: no indirect pass",
+      d.get(pg + "indirect.enabled") in (None, "0"), d.get(pg + "indirect.enabled"))
+
+sc = reset_scene()
+add_glass_scene(sc)
+sc.superluxcore.viewport.device = "CPU"
+d = viewport_defs(sc, shading="MATERIAL")
+check("viewport material preview: caustic off",
+      d.get(pg + "caustic.enabled") == "0", d.get(pg + "caustic.enabled"))
+
+sc = reset_scene()
+add_glass_scene(sc)
+sc.superluxcore.viewport.device = "OCL"
+d = viewport_defs(sc)
+if d.get("renderengine.type") == "RTPATHOCL":
+    check("viewport gpu: caustic off",
+          d.get(pg + "caustic.enabled") == "0", d.get(pg + "caustic.enabled"))
+
+sc = reset_scene()
+add_opaque_scene(sc)
+sc.superluxcore.viewport.device = "CPU"
+d = viewport_defs(sc)
+check("viewport cpu: no caustic for opaque scene",
+      d.get(pg + "caustic.enabled") == "0", d.get(pg + "caustic.enabled"))
+
+# fresh scenes: a property set after an evaluation is not seen by the
+# evaluated copy without a depsgraph update
+sc = reset_scene()
+add_opaque_scene(sc)
+sc.superluxcore.viewport.device = "CPU"
+sc.superluxcore.config.photongi.caustic_mode = "on"
+d = viewport_defs(sc)
+check("viewport cpu: mode=on forces caustic",
+      d.get(pg + "caustic.enabled") == "1", d.get(pg + "caustic.enabled"))
+
+sc = reset_scene()
+add_glass_scene(sc)
+sc.superluxcore.viewport.device = "CPU"
+sc.superluxcore.config.photongi.caustic_mode = "off"
+d = viewport_defs(sc)
+check("viewport cpu: mode=off",
+      d.get(pg + "caustic.enabled") == "0", d.get(pg + "caustic.enabled"))
+
 fails = [n for n, c, _ in results if not c]
 print(f"\n== e51: {len(results) - len(fails)}/{len(results)} passed" +
       (f" | FAILED: {fails}" if fails else ""), flush=True)

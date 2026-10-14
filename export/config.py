@@ -363,10 +363,14 @@ def convert(exporter, scene, context=None, engine=None):
         # Caustic auto-routing: under mode=auto the cache engages when a
         # transmissive caster exists, even if the PhotonGI master toggle
         # is off - refractive scenes get working caustics with zero setup
-        # (Corona-style). The preprocess is bounded and runs on final
-        # renders only, so viewport stays cache-free.
+        # (Corona-style). The CPU viewport (RTPATHCPU) builds it in the
+        # background and keeps it across camera moves; the GPU viewport,
+        # BIDIRCPU viewport and material preview stay cache-free.
         mode = getattr(config.photongi, "caustic_mode", "auto")
         core_decides = False
+        viewport_cache = (is_viewport_render and
+                          superluxcore_engine == "RTPATHCPU" and
+                          not in_material_shading_mode)
         if mode == "off":
             caustic_on = False
         elif mode == "on" or config.photongi.caustic_enabled:
@@ -375,15 +379,14 @@ def convert(exporter, scene, context=None, engine=None):
             caustic_on = True
         else:
             # Auto pays the scene scan only where a cache can build:
-            # every final engine owns a PhotonGI caustic pass except
-            # RTPATHCPU (RT lattice, and viewport-only anyway).
+            # every final engine owns a PhotonGI caustic pass, and the
+            # CPU viewport a background-built one.
             # Cycles Filter Glossy blurs the eye path's glossy/glass lobes
             # after low-pdf bounces; the caustic photons are traced
             # unblurred and the cache replaces those eye paths, so auto
             # keeps it off under the filter (the sharp caustic would come
             # back several times brighter than the Cycles reference).
-            caustic_on = (not is_viewport_render and
-                    superluxcore_engine != "RTPATHCPU" and
+            caustic_on = ((not is_viewport_render or viewport_cache) and
                     config.path.cycles_filter_glossy <= 0 and
                     _scene_has_transmissive(scene))
             # The path engines resolve an unset flag themselves
@@ -391,13 +394,22 @@ def convert(exporter, scene, context=None, engine=None):
             # caster test plus the gates the node scan can not see, e.g.
             # scattering media, where the cache is not validated
             core_decides = caustic_on and superluxcore_engine in (
-                "PATHCPU", "TILEPATHCPU", "PATHOCL", "TILEPATHOCL")
+                "PATHCPU", "TILEPATHCPU", "PATHOCL", "TILEPATHOCL",
+                "RTPATHCPU")
 
         # Otherwise always explicit: the core's own caustic.auto only
         # resolves an unset flag, so "off" (or a viewport/Filter Glossy
         # skip) must reach it as False rather than as a missing property
+        # The viewport cache runs on the core defaults (background
+        # updates every 8 spp, auto radius, auto photon depth): the
+        # PhotonGI panel settings are final-render ones
         definitions["path.photongi.caustic.enabled"] = (
-            caustic_on and not is_viewport_render)
+            caustic_on and (not is_viewport_render or viewport_cache))
+        if viewport_cache and caustic_on:
+            # Same photon depth as the final render (the core default 4
+            # drops chains through more than three glass interfaces)
+            definitions["path.photongi.photon.maxdepth"] = \
+                config.photongi.photon_maxdepth
         if (config.photongi.enabled or caustic_on) and not is_viewport_render:
             _convert_photongi_settings(context is not None, scene,
                                        definitions, config, caustic_on)
