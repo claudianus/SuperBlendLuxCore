@@ -142,7 +142,10 @@ def scene_flags(scene):
     for obj in scene.objects:
         if obj.type != "MESH" or obj.data is None:
             continue
-        for mat in getattr(obj.data, "materials", []):
+        # Slots, not mesh.materials: an Object-linked slot overrides the
+        # mesh material and only shows up on the object
+        for slot in obj.material_slots:
+            mat = slot.material
             if mat is None or mat in seen:
                 continue
             seen.add(mat)

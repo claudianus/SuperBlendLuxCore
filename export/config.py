@@ -386,6 +386,11 @@ def convert(exporter, scene, context=None, engine=None):
                     config.path.cycles_filter_glossy <= 0 and
                     _scene_has_transmissive(scene))
 
+        # Always explicit: the core's own path.photongi.caustic.auto only
+        # resolves an unset flag, so "off" (or a viewport/Filter Glossy
+        # skip) must reach it as False rather than as a missing property
+        definitions["path.photongi.caustic.enabled"] = (
+            caustic_on and not is_viewport_render)
         if (config.photongi.enabled or caustic_on) and not is_viewport_render:
             _convert_photongi_settings(context is not None, scene,
                                        definitions, config, caustic_on)
