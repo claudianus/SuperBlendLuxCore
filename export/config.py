@@ -366,6 +366,7 @@ def convert(exporter, scene, context=None, engine=None):
         # (Corona-style). The preprocess is bounded and runs on final
         # renders only, so viewport stays cache-free.
         mode = getattr(config.photongi, "caustic_mode", "auto")
+        core_decides = False
         if mode == "off":
             caustic_on = False
         elif mode == "on" or config.photongi.caustic_enabled:
@@ -385,8 +386,14 @@ def convert(exporter, scene, context=None, engine=None):
                     superluxcore_engine != "RTPATHCPU" and
                     config.path.cycles_filter_glossy <= 0 and
                     _scene_has_transmissive(scene))
+            # The path engines resolve an unset flag themselves
+            # (path.photongi.caustic.auto) on the exported scene: the same
+            # caster test plus the gates the node scan can not see, e.g.
+            # scattering media, where the cache is not validated
+            core_decides = caustic_on and superluxcore_engine in (
+                "PATHCPU", "TILEPATHCPU", "PATHOCL", "TILEPATHOCL")
 
-        # Always explicit: the core's own path.photongi.caustic.auto only
+        # Otherwise always explicit: the core's own caustic.auto only
         # resolves an unset flag, so "off" (or a viewport/Filter Glossy
         # skip) must reach it as False rather than as a missing property
         definitions["path.photongi.caustic.enabled"] = (
@@ -394,6 +401,8 @@ def convert(exporter, scene, context=None, engine=None):
         if (config.photongi.enabled or caustic_on) and not is_viewport_render:
             _convert_photongi_settings(context is not None, scene,
                                        definitions, config, caustic_on)
+        if core_decides:
+            definitions.pop("path.photongi.caustic.enabled", None)
 
         # Manual clamping wins; otherwise auto-clamp applies the value
         # suggested by a previous unclamped render (see

@@ -94,12 +94,16 @@ def export_defs():
 
 pg = "path.photongi."
 
-# 1. glass + auto + master off -> caustic on, indirect off
+# 1. glass + auto + master off -> flag left unset for the path engine's
+# own caustic.auto (it re-checks the exported scene: casters, scattering
+# media), caustic photon settings still exported, indirect off
 sc = reset_scene()
 add_glass_scene(sc)
 d = export_defs()
-check("auto: caustic on for glass (master off)",
-      d.get(pg + "caustic.enabled") == "1", d.get(pg + "caustic.enabled"))
+check("auto: path engine resolves caustic for glass (flag unset)",
+      pg + "caustic.enabled" not in d, d.get(pg + "caustic.enabled"))
+check("auto: caustic photon settings exported for glass",
+      pg + "caustic.maxsize" in d)
 check("auto: indirect stays off when master off",
       d.get(pg + "indirect.enabled") == "0", d.get(pg + "indirect.enabled"))
 
@@ -107,14 +111,16 @@ check("auto: indirect stays off when master off",
 sc = reset_scene()
 add_opaque_scene(sc)
 d = export_defs()
-check("auto: no caustic for opaque scene", pg + "caustic.enabled" not in d)
+check("auto: no caustic for opaque scene",
+      d.get(pg + "caustic.enabled") == "0", d.get(pg + "caustic.enabled"))
 
 # 3. glass + mode=off -> nothing
 sc = reset_scene()
 add_glass_scene(sc)
 sc.superluxcore.config.photongi.caustic_mode = "off"
 d = export_defs()
-check("off: caustic disabled despite glass", pg + "caustic.enabled" not in d)
+check("off: caustic disabled despite glass",
+      d.get(pg + "caustic.enabled") == "0", d.get(pg + "caustic.enabled"))
 
 # 4. opaque + mode=on + master off -> forced on
 sc = reset_scene()
@@ -129,8 +135,8 @@ sc = reset_scene()
 add_glass_scene(sc)
 sc.superluxcore.config.photongi.enabled = True
 d = export_defs()
-check("master on: caustic auto-still on",
-      d.get(pg + "caustic.enabled") == "1")
+check("master on: caustic auto still resolved by the engine",
+      pg + "caustic.enabled" not in d, d.get(pg + "caustic.enabled"))
 check("master on: indirect enabled",
       d.get(pg + "indirect.enabled") == "1")
 
@@ -148,7 +154,8 @@ add_glass_scene(sc)
 sc.superluxcore.config.photongi.caustic_mode = "off"
 sc.superluxcore.config.photongi.caustic_enabled = True
 d = export_defs()
-check("off beats legacy bool", pg + "caustic.enabled" not in d)
+check("off beats legacy bool",
+      d.get(pg + "caustic.enabled") == "0", d.get(pg + "caustic.enabled"))
 
 # 8. BIDIR + mode=on -> explicit opt-in is engine-agnostic (regression:
 # an engine startswith gate used to swallow on/legacy for non-PATH
