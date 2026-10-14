@@ -1,5 +1,7 @@
 _needs_reload = "bpy" in locals()
 
+import sys
+
 import bpy
 
 from .. import icons
@@ -117,6 +119,13 @@ def _node_alias_poll(cls, ntree):
     return getattr(ntree, "bl_idname", "") in _LEGACY_TREE_TYPES
 
 
+def _is_stale_class(cls):
+    obj = sys.modules.get(cls.__module__)
+    for part in cls.__qualname__.split("."):
+        obj = getattr(obj, part, None)
+    return obj is not cls
+
+
 def _register_legacy_idname_aliases():
     """Give every SuperLuxCore node/socket/tree class an alias under its
     upstream LuxCore* bl_idname so legacy .blend files keep working.
@@ -157,6 +166,12 @@ def _register_legacy_idname_aliases():
 
     for kind in _BPY_NODE_BASES:
         for cls in walk(kind):
+            # After a reinstall/reload the previous load's classes are
+            # still subclasses; their annotations point at unregistered
+            # PropertyGroups (TypeError at register) and their code is
+            # stale. Alias only the class its module currently defines.
+            if _is_stale_class(cls):
+                continue
             # Nodes and sockets derive bl_idname from the class name
             idname = getattr(cls, "bl_idname", None) or cls.__name__
             if not isinstance(idname, str):
