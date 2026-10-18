@@ -15,6 +15,9 @@ from ..utils.log import SuperLuxCoreLog
 from ..utils.errorlog import SuperLuxCoreErrorLog
 from ..export.config import convert_viewport_engine
 from . import session_worker
+from . import dlss_viewport
+from dataclasses import replace
+import os
 
 if _needs_reload:
     import importlib
@@ -25,7 +28,7 @@ if _needs_reload:
     importlib.reload(draw)
 
 
-def _worker(engine):
+def _worker(engine, context=None):
     """Lazily create the session worker (one per RenderEngine)."""
     worker = getattr(engine, "session_worker", None)
     if worker is None:
@@ -47,6 +50,58 @@ def _worker(engine):
             engine, redraw_hook=_marshal_redraw
         )
         engine.session_worker = worker
+    if context is not None:
+        vp = context.scene.superluxcore.viewport
+        requested = vp.use_denoiser and vp.denoiser == "DLSS" and not utils.in_material_shading_mode(context)
+        if not requested:
+            if getattr(engine, '_dlss_configuration_key', None) is not None:
+                previous = worker._dlss_signature[0]
+                worker.configure_dlss(None)
+                engine._dlss_configuration_key = None
+                if (getattr(previous, 'render_mode', 'NATIVE') != 'NATIVE' and
+                        engine.session is not None and getattr(engine, 'exporter', None) is not None):
+                    _submit_config_update(engine, worker, context.scene, context)
+            return worker
+        preferences = get_addon_preferences(context)
+        transparent = bool(utils.is_valid_camera(context.scene.camera) and
+                           export.blender_settings.transparent_film(context.scene))
+        render_mode = getattr(vp, 'dlss_render_mode', 'NATIVE')
+        output_size = utils.calc_filmsize(context.scene, context) if render_mode != 'NATIVE' else None
+        key = (requested, vp.device, utils.using_bidir_in_viewport(context.scene), preferences.gpu_backend,
+               preferences.dlss_library, preferences.dlss_runtime, transparent,
+               getattr(vp, 'dlss_preset', 'DEFAULT'),
+               render_mode, output_size,
+               os.environ.get('SUPERLUXCORE_DLSS_LIBRARY'),
+               os.environ.get('SUPERLUXCORE_DLSS_RUNTIME'),
+               os.environ.get('SUPERLUXCORE_DLSS_CACHE'))
+        if key != getattr(engine, '_dlss_configuration_key', None):
+            options, reason = None, ''
+            if requested:
+                if vp.device != "OCL" or utils.using_bidir_in_viewport(context.scene):
+                    reason = 'DLSS requires the realtime GPU path; ordinary render active'
+                elif preferences.gpu_backend != "CUDA":
+                    reason = 'DLSS requires the NVIDIA CUDA backend; ordinary render active'
+                else:
+                    options, reason = dlss_viewport.configuration(
+                        bpy.path.abspath(preferences.dlss_library) if preferences.dlss_library else '',
+                        bpy.path.abspath(preferences.dlss_runtime) if preferences.dlss_runtime else '',
+                        getattr(vp, 'dlss_preset', 'DEFAULT'), render_mode)
+                    if options is not None:
+                        options = replace(options, channels=4 if transparent else 3, output_size=output_size)
+            previous = worker._dlss_signature[0]
+            worker.configure_dlss(options, reason)
+            engine._dlss_configuration_key = key
+            if (engine.session is not None and getattr(engine, 'exporter', None) is not None and
+                    getattr(previous, 'render_mode', 'NATIVE') != getattr(options, 'render_mode', 'NATIVE')):
+                _submit_config_update(engine, worker, context.scene, context)
+        if (render_mode != 'NATIVE' and worker._dlss_signature[0] is not None and
+                worker.dlss_status.startswith('DLSS fallback: ')):
+            # A failed SR path must restore the user's full physical input,
+            # rather than leave an ordinary render at the reduced SR size.
+            reason = worker.dlss_status
+            worker.configure_dlss(None, reason)
+            if engine.session is not None and getattr(engine, 'exporter', None) is not None:
+                _submit_config_update(engine, worker, context.scene, context)
     return worker
 
 
@@ -66,6 +121,12 @@ _DYN_RES_TAIL_S = 0.4
 # all shrink quadratically - at 4K the readback alone is ~100 MB/frame.
 _INTERACTION_DOWNSCALE_PIXELS = 2_500_000
 _INTERACTION_DOWNSCALE_FACTOR = 2
+# Coherent DLSS frames cannot use sparse passes: every input pixel must
+# contain a sample. Bound their interaction cost with the actual film size.
+# This is temporary preview resolution; settled rendering always restores
+# the full film and the original transport settings.
+_DLSS_INTERACTION_PIXELS = 512 * 1024
+_DLSS_PREVIEW_MAX_WAIT_S = 10.0
 _RT_ENGINES = {"RTPATHOCL", "RTPATHCPU"}
 
 
@@ -81,6 +142,20 @@ def _dyn_res_value(pixels):
     return min(64, max(16, steady * 4))
 
 
+def _dlss_interaction_active(engine):
+    worker = getattr(engine, "session_worker", None)
+    signature = getattr(worker, "_dlss_signature", None)
+    return (getattr(engine, "_engine_type", "") == "RTPATHOCL"
+            and signature is not None and signature[0] is not None)
+
+
+def _dlss_render_size(engine, width, height):
+    worker = getattr(engine, 'session_worker', None)
+    options = getattr(worker, '_dlss_signature', (None, ''))[0]
+    resolve = getattr(options, 'input_size', None)
+    return resolve((width, height)) if resolve is not None else (width, height)
+
+
 def _interaction_film_scale(engine):
     """Linear film divisor during interaction bursts.
 
@@ -91,9 +166,52 @@ def _interaction_film_scale(engine):
     if getattr(engine, "_engine_type", "") not in _RT_ENGINES:
         return 1
     w, h = getattr(engine, "last_viewport_size", (0, 0))
+    if _dlss_interaction_active(engine):
+        rw, rh = _dlss_render_size(engine, w, h)
+        budget = _DLSS_INTERACTION_PIXELS
+        if w * h > budget:
+            # Match the cost of Native's existing half-width preview. A
+            # Quality SR input can be below the absolute cap yet still trace
+            # more pixels than that preview, making orbit slower than Native.
+            # Ceil the quarter area so odd dimensions keep Native's divisor.
+            budget = min(budget, (w * h + 3) // 4)
+        if rw * rh > budget:
+            return min(8, 2 ** math.ceil(.5 * math.log2(rw * rh / budget)))
+        return 1
     if w * h > _INTERACTION_DOWNSCALE_PIXELS:
         return _INTERACTION_DOWNSCALE_FACTOR
     return 1
+
+
+def _submit_config_update(engine, worker, scene, context):
+    # Interaction-scale restoration must target the latest viewport size.
+    # Keeping the startup dimensions here resized a live film back to the
+    # old window after a successful config resize.
+    engine.last_viewport_size = utils.calc_filmsize(scene, context)
+    props = engine.exporter.get_restart_config_props()
+    if _dlss_interaction_active(engine):
+        render_props = pysuperluxcore.Properties()
+        render_props.Set(props)
+        rw, rh = _dlss_render_size(engine, *engine.last_viewport_size)
+        render_props.Set(pysuperluxcore.Property("film.width", rw))
+        render_props.Set(pysuperluxcore.Property("film.height", rh))
+        props = render_props
+        scale = _interaction_film_scale(engine)
+        engine._film_scale = scale
+        engine._dyn_res_active = scale > 1
+        engine._dyn_res_until = time() + _DYN_RES_TAIL_S
+        worker.submit_resolution_reduction(0)
+        if scale > 1:
+            # Keep the exported full-size config untouched. Resize feedback
+            # uses the same coherent pixel budget as orbit; the accepted
+            # preview releases restoration to the latest full region size.
+            preview = pysuperluxcore.Properties()
+            preview.Set(props)
+            w, h = _dlss_render_size(engine, *engine.last_viewport_size)
+            preview.Set(pysuperluxcore.Property("film.width", max(16, w // scale)))
+            preview.Set(pysuperluxcore.Property("film.height", max(16, h // scale)))
+            props = preview
+    worker.submit_config(props)
 
 
 def _submit_film_scale(engine, worker, scale):
@@ -108,12 +226,47 @@ def _submit_film_scale(engine, worker, scale):
     w, h = getattr(engine, "last_viewport_size", (0, 0))
     if w <= 0 or h <= 0:
         return
+    w, h = _dlss_render_size(engine, w, h)
     props = pysuperluxcore.Properties()
     props.Set(pysuperluxcore.Property(
         "film.width", max(16, w // scale)))
     props.Set(pysuperluxcore.Property(
         "film.height", max(16, h // scale)))
     worker.submit_parse(props)
+
+
+def _restore_interaction(engine, worker, framebuffer):
+    """Restore full resolution after a fresh preview, with a bounded wait.
+
+    A fixed .4s tail can regrow a coherent film before its first complete
+    preview is delivered, throwing away the very work needed for feedback.
+    Only a DLSS upload belonging to the current session/edit and requested
+    preview size releases that hold. Failure or a stalled producer still
+    restores the physical film after the bounded deadline.
+    """
+    if not getattr(engine, "_dyn_res_active", False):
+        return
+    now = time()
+    until = getattr(engine, "_dyn_res_until", 0)
+    if now <= until:
+        return
+    scale = getattr(engine, "_film_scale", 1)
+    if (scale > 1 and _dlss_interaction_active(engine)
+            and now < until + _DLSS_PREVIEW_MAX_WAIT_S):
+        w, h = _dlss_render_size(engine, *getattr(engine, "last_viewport_size", (0, 0)))
+        expected = (max(16, w // scale), max(16, h // scale))
+        ready = (framebuffer is not None
+                 and framebuffer._dlss_owner == (id(engine.session), worker.mutation_seq)
+                 and (getattr(framebuffer, '_dlss_last_source_size', None) or
+                      (framebuffer._width, framebuffer._height)) == expected
+                 and not worker.phase
+                 and not getattr(engine, "_deferred_edit_jobs", None))
+        if not ready:
+            engine.tag_redraw()
+            return
+    engine._dyn_res_active = False
+    _submit_film_scale(engine, worker, 1)
+    worker.submit_resolution_reduction(0)
 
 
 def _set_stats(engine, text, sub):
@@ -151,6 +304,15 @@ def _submit_jobs(engine, worker, framebuffer, jobs, has_camera):
     _submit_film_scale(engine, worker, _interaction_film_scale(engine))
     engine._dyn_res_until = time() + _DYN_RES_TAIL_S
     engine._dyn_res_active = True
+    # Exporter jobs are incremental deltas, not complete snapshots. Keep
+    # independent changes in order, including when a new edit arrives on
+    # the first frame after the hold expires (before view_draw flushes it).
+    deferred = getattr(engine, "_deferred_edit_jobs", None)
+    if deferred is not None:
+        old_jobs, old_camera = deferred
+        jobs = old_jobs + jobs
+        has_camera = has_camera or old_camera
+        engine._deferred_edit_jobs = None
     if (
         framebuffer is not None
         and framebuffer._pending_reset
@@ -228,6 +390,7 @@ def force_session_restart(engine):
     session kept its copy of the scene) and used to crash. The worker
     stops the session off-thread; the next view_update() re-exports.
     """
+    engine._deferred_edit_jobs = None
     if getattr(engine, "session_worker", None) is not None:
         engine.session_worker.submit_stop()
     elif engine.session is not None:
@@ -239,7 +402,7 @@ def force_session_restart(engine):
 
 
 def view_update(engine, context, depsgraph, changes=None):
-    worker = _worker(engine)
+    worker = _worker(engine, context)
     _drain_worker_error(engine)
 
     if worker.is_starting or engine.viewport_fatal_error:
@@ -310,6 +473,13 @@ def view_update(engine, context, depsgraph, changes=None):
                     ).GetString()
                 except Exception:
                     engine._engine_type = ""
+                if _dlss_interaction_active(engine):
+                    render_props = pysuperluxcore.Properties()
+                    render_props.Set(config_props)
+                    rw, rh = _dlss_render_size(engine, *engine.last_viewport_size)
+                    render_props.Set(pysuperluxcore.Property('film.width', rw))
+                    render_props.Set(pysuperluxcore.Property('film.height', rh))
+                    config_props = render_props
                 worker.submit_start(superluxcore_scene, config_props)
         except Exception as error:
             engine.session = None
@@ -334,7 +504,7 @@ def view_update(engine, context, depsgraph, changes=None):
     # no scene re-export. Runs on the worker; the framebuffer keeps the
     # last frame until the new session produces samples (begin_reset).
     if changes & export.Change.CONFIG:
-        worker.submit_config(engine.exporter.get_restart_config_props())
+        _submit_config_update(engine, worker, depsgraph.scene_eval, context)
         changes &= ~export.Change.CONFIG
         if engine.framebuffer:
             engine.framebuffer.begin_reset(engine=engine)
@@ -361,9 +531,56 @@ def view_update(engine, context, depsgraph, changes=None):
         )
 
 
+def _schedule_startup_redraw(engine):
+    """Poll progress without repainting an unchanged preparation phase.
+
+    A timer can observe worker progress while the window stays idle. Only a
+    changed phase/progress schedules a draw; publication has its own immediate
+    redraw. The weak reference lets a closed viewport retire during a build.
+    """
+    if getattr(engine, "_startup_redraw_pending", False):
+        return
+    import weakref
+    try:
+        engine_ref = weakref.ref(engine)
+        repeat = True
+    except TypeError:
+        # Non-RNA test/legacy wrappers may not support weak references. Keep
+        # such a wrapper for only one short callback, never a repeating loop.
+        engine_ref = lambda: engine
+        repeat = False
+    worker = getattr(engine, "session_worker", None)
+    last = [(getattr(worker, "phase", ""), getattr(worker, "progress", None))]
+    engine._startup_redraw_pending = True
+
+    def redraw():
+        target = engine_ref()
+        if target is None:
+            return None
+        try:
+            worker = getattr(target, "session_worker", None)
+            if worker is None or not worker.is_starting:
+                target._startup_redraw_pending = False
+                return None
+            state = (getattr(worker, "phase", ""),
+                     getattr(worker, "progress", None))
+            if state != last[0]:
+                last[0] = state
+                target.tag_redraw()
+            if repeat:
+                return 0.1
+            target._startup_redraw_pending = False
+        except ReferenceError:
+            # The RNA struct can be retired independently of this wrapper.
+            pass
+        return None
+
+    bpy.app.timers.register(redraw, first_interval=0.1)
+
+
 def view_draw(engine, context, depsgraph):
     scene = depsgraph.scene_eval
-    worker = _worker(engine)
+    worker = _worker(engine, context)
     _drain_worker_error(engine)
 
     if worker.is_starting:
@@ -373,13 +590,27 @@ def view_draw(engine, context, depsgraph):
         _set_stats(engine, "Starting viewport render", phase)
         if engine.framebuffer:
             engine.framebuffer.draw(context, scene)
-        engine.tag_redraw()
+        _schedule_startup_redraw(engine)
         return
 
     if engine.viewport_fatal_error:
         _set_stats(engine, "Error:", engine.viewport_fatal_error)
         engine.tag_redraw()
         return
+
+    light_count = getattr(worker, "scene_light_count", None)
+    if engine.session is not None and light_count is not None:
+        token = (id(engine.session), light_count)
+        if getattr(engine, "_reported_scene_light_count", None) != token:
+            engine._reported_scene_light_count = token
+            stats = getattr(getattr(engine, "exporter", None), "stats", None)
+            if stats:
+                stats.light_count.value = light_count
+            if light_count > 1000:
+                SuperLuxCoreErrorLog.add_warning(
+                    f"The scene contains a lot of light sources ({light_count}), "
+                    "performance might suffer "
+                    "(each triangle of a meshlight counts as a separate light)")
 
     if engine.session is None:
         config = scene.superluxcore.config
@@ -461,7 +692,7 @@ def view_draw(engine, context, depsgraph):
         # the worker rebuilds the RenderConfig on the existing scene. The
         # framebuffer keeps the last image on screen (begin_reset), so the
         # user sees the resized old frame instead of a black flash.
-        worker.submit_config(engine.exporter.get_restart_config_props())
+        _submit_config_update(engine, worker, scene, context)
         changes &= ~export.Change.CONFIG
         engine.viewport_start_time = time()
         framebuffer.begin_reset(engine=engine)
@@ -543,13 +774,7 @@ def view_draw(engine, context, depsgraph):
 
     # Interaction settled: restore the configured (dense) reduction so
     # steady-state passes converge at full quality.
-    if getattr(engine, "_dyn_res_active", False) and (
-        time() > getattr(engine, "_dyn_res_until", 0)
-    ):
-        engine._dyn_res_active = False
-        # Film regrows first (one reset), then dense passes resume on it
-        _submit_film_scale(engine, worker, 1)
-        worker.submit_resolution_reduction(0)
+    _restore_interaction(engine, worker, framebuffer)
 
     if utils.in_material_shading_mode(context):
         paused = (
@@ -561,7 +786,6 @@ def view_draw(engine, context, depsgraph):
             # for a full frame (avoids UI freezes on session restarts)
             try:
                 if session is not None:
-                    _locked_session_call(engine, session.UpdateStats)
                     framebuffer.update_async(session, engine)
             except Exception:
                 pass
@@ -571,7 +795,8 @@ def view_draw(engine, context, depsgraph):
             if session is not None:
                 try:
                     stats = _locked_session_call(engine, session.GetStats)
-                    samples = stats.Get("stats.renderengine.pass").GetInt()
+                    # A light-only pass cannot complete a material preview.
+                    samples = stats.Get("stats.renderengine.pass.eye").GetInt()
                 except Exception:
                     pass
 
@@ -587,6 +812,14 @@ def view_draw(engine, context, depsgraph):
     rendered_time = time() - engine.viewport_start_time
     halt_time = scene.superluxcore.viewport.halt_time
     status_message = worker.phase if worker is not None else ""
+    vp = scene.superluxcore.viewport
+    use_dlss = vp.use_denoiser and vp.denoiser == "DLSS"
+    dlss_handled = False
+    if use_dlss and worker is not None:
+        dlss_handled = framebuffer.consume_dlss_result(engine, worker, session)
+        status_message = worker.dlss_status or "DLSS preparing; ordinary render active"
+    else:
+        framebuffer._dlss_owner = None
 
     if rendered_time > halt_time:
         # Put in pause... (non-blocking: if the worker is mid-edit the
@@ -602,8 +835,15 @@ def view_draw(engine, context, depsgraph):
 
         # ...and denoise
         use_oidn = context.scene.superluxcore.viewport.get_denoiser(context) == "OIDN"
-        if use_oidn and not framebuffer.denoised:
-            # The background worker only computes OIDN; the upload/draw
+        if use_dlss:
+            if not dlss_handled and session is not None:
+                framebuffer.update_async(session, engine)
+                reader = framebuffer._read_thread
+                if reader is not None and reader.is_alive():
+                    engine.tag_redraw()
+            status_message = "(Paused) " + status_message
+        elif use_oidn and not framebuffer.denoised:
+            # The background worker computes OIDN and reads its pixels; upload/draw
             # happens here on the main thread (GL-safe).
             if framebuffer.consume_denoise_result(engine):
                 pass  # fresh denoised image is already uploaded
@@ -628,14 +868,13 @@ def view_draw(engine, context, depsgraph):
         # because of tag_redraw() below).
         try:
             if session is not None:
-                _locked_session_call(engine, session.UpdateStats)
                 vp = scene.superluxcore.viewport
                 interactive = (
                     vp.denoise_interactive
                     and vp.get_denoiser(context) == "OIDN"
                     and not utils.in_material_shading_mode(context)
                 )
-                handled = (
+                handled = dlss_handled or (
                     framebuffer.interactive_denoise_tick(
                         engine, vp.min_samples
                     )

@@ -161,6 +161,12 @@ class LuxCoreLegacyBridge:
         if name.startswith("_"):
             return value
         try:
+            # Most accesses have no corresponding upstream member. Check the
+            # live storage first, before RNA lookup or recursive authored-leaf
+            # inspection. Bypass this bridge for id_data to avoid recursion.
+            raw = _legacy_root(super().__getattribute__("id_data"))
+            if raw is None or name not in raw:
+                return value
             # RNA descriptors can be rebuilt when Blender switches render
             # engines. Retaining a descriptor across renders leaves a stale
             # pointer; look up the current definition for this access.
@@ -171,7 +177,6 @@ class LuxCoreLegacyBridge:
             # a bridged pointer resolve via LegacyGroupView instead.
             if self.path_from_id() != "superluxcore":
                 return value
-            owner = self.id_data
             # Whether the current RNA value is authored decides the
             # shadowing. Note: RNA group members never surface in
             # owner["superluxcore"] (that dict only exists for storage
@@ -192,9 +197,6 @@ class LuxCoreLegacyBridge:
                 if len(value):
                     return value
             elif self.is_property_set(name):
-                return value
-            raw = _legacy_root(owner)
-            if raw is None or name not in raw:
                 return value
             member = raw[name]
             if prop.type == "POINTER":

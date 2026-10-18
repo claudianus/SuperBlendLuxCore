@@ -383,6 +383,102 @@ def _install_wheels():
     _update_manifest(wheel_list)
 
 
+def _site_packages_dir():
+    pyver = f"python{sys.version_info.major}.{sys.version_info.minor}"
+    return EXTENSIONS_FOLDER / ".local" / "lib" / pyver / "site-packages"
+
+
+def _bundled_engine_wheels():
+    """Return the bundled pysuperluxcore wheels matching ADDON_VERSION.
+
+    A release package ships the real engine wheel in wheels/. Development
+    checkouts may hold stale or empty placeholder files there, so only a
+    non-empty wheel of the exact add-on version counts.
+    """
+    if not ADDON_VERSION or not WHEEL_DL_FOLDER.is_dir():
+        return []
+    return [
+        path
+        for path in WHEEL_DL_FOLDER.glob(f"pysuperluxcore-{ADDON_VERSION}-*.whl")
+        if path.stat().st_size > 0
+    ]
+
+
+def _own_extension_id():
+    """Return (repo_module, pkg_id) of this extension, or None.
+
+    The package name of an extension is 'bl_ext.<repo_module>.<pkg_id>'.
+    """
+    parts = __package__.split(".")
+    if len(parts) >= 3 and parts[0] == "bl_ext":
+        return parts[1], parts[2]
+    return None
+
+
+def _engine_import_ok():
+    """True when pysuperluxcore imports and matches ADDON_VERSION."""
+    try:
+        import pysuperluxcore  # noqa: F401
+        from importlib.metadata import version as _pkg_version
+
+        return _pkg_version("pysuperluxcore") == ADDON_VERSION
+    except Exception:
+        return False
+
+
+def _resync_bundled_wheels():
+    """Re-extract the bundled wheels through Blender's own wheel sync.
+
+    Blender extracts extension wheels into a site-packages directory shared
+    by all extensions and rebuilds it from the set of *enabled* extensions.
+    If SuperLuxCore was not recorded as enabled when that happened (e.g.
+    Blender crashed before saving preferences) or the extraction was left
+    incomplete, the engine is missing and registration fails, which drops
+    SuperLuxCore from the render engine list until a reinstall.
+
+    This repeats the sync Blender runs when an extension is enabled, with
+    this extension included, so other extensions keep their wheels. The
+    engine's dist-info is removed first so a damaged extraction is written
+    again instead of being skipped as already installed.
+    """
+    own_id = _own_extension_id()
+    if own_id is None:
+        return False
+
+    try:
+        import bl_pkg
+        from bl_pkg import bl_extension_ops
+    except ImportError as err:
+        print(f"[BLC] Cannot repair engine install: {err}")
+        return False
+
+    site_packages = _site_packages_dir()
+    for dist_info in site_packages.glob("pysuperluxcore-*.dist-info"):
+        shutil.rmtree(dist_info, ignore_errors=True)
+
+    errors = []
+    try:
+        # pylint: disable=protected-access
+        enabled = bl_extension_ops._extensions_enabled() | {own_id}
+        bl_extension_ops._extensions_repo_sync_wheels(
+            bl_pkg.repo_cache_store_ensure(),
+            enabled,
+            error_fn=errors.append,
+        )
+    except Exception as err:
+        print(f"[BLC] Engine repair failed: {err!r}")
+        return False
+    for err in errors:
+        print(f"[BLC] Engine repair warning: {err}")
+
+    if str(site_packages) not in sys.path and site_packages.is_dir():
+        sys.path.append(str(site_packages))
+    import importlib
+
+    importlib.invalidate_caches()
+    return True
+
+
 class WheelSource(IntEnum):
     """Permitted values for wheel source (from BlendLuxHelper)."""
 
@@ -538,18 +634,31 @@ def ensure_pysuperluxcore():
     # is the content-hash check that reinstalls a rebuilt local wheel even
     # when its version string did not change.
     if ADDON_VERSION and _get_settings().get("wheel_source", 0) == WheelSource.PYPI:
-        try:
-            import pysuperluxcore  # noqa: F401
-            from importlib.metadata import version as _pkg_version
+        if _engine_import_ok():
+            print(
+                f"[BLC] pysuperluxcore {ADDON_VERSION} already installed "
+                "(bundled wheel) - skipping download"
+            )
+            return
 
-            if _pkg_version("pysuperluxcore") == ADDON_VERSION:
+        # A release package never falls through to the PyPI path below:
+        # the engine is not published there, and that path rewrites the
+        # shared site-packages with only this extension's wheels.
+        if _bundled_engine_wheels():
+            if "pysuperluxcore" in sys.modules:
                 print(
-                    f"[BLC] pysuperluxcore {ADDON_VERSION} already installed "
-                    "(bundled wheel) - skipping download"
+                    "[BLC] WARNING: a different pysuperluxcore version is "
+                    "already loaded - restart Blender to use "
+                    f"{ADDON_VERSION}"
                 )
                 return
-        except Exception:
-            pass
+            print(
+                f"[BLC] pysuperluxcore {ADDON_VERSION} is missing or damaged "
+                "- re-extracting the bundled wheels"
+            )
+            if _resync_bundled_wheels() and _engine_import_ok():
+                print(f"[BLC] pysuperluxcore {ADDON_VERSION} repaired")
+            return
 
     # Fetch wheels (download or copy from local source, depending on settings)
     # and install them

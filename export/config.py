@@ -492,6 +492,17 @@ def convert(exporter, scene, context=None, engine=None):
         aov_props = aovs.convert(exporter, scene, context, engine)
         config_props.Set(aov_props)
 
+        final_dlss = getattr(exporter, "final_dlss", None)
+        if context is None and final_dlss is not None and not final_dlss.failed:
+            from . import halt
+            reason = final_dlss.configure(config_props, halt.convert(scene))
+            if final_dlss.plan_note:
+                SuperLuxCoreErrorLog.add_warning(final_dlss.plan_note)
+            if reason:
+                final_dlss.failed = reason
+                final_dlss.backend.close()
+                SuperLuxCoreErrorLog.add_warning(reason)
+
         return config_props
     except Exception as error:
         msg = "Config: %s" % error
@@ -635,6 +646,9 @@ def convert_viewport_engine(context, scene, definitions, config):
         _fovea_defs("sampler.rtpathcpusampler")
     else:
         assert device == "OCL"
+        # Bound queued GPU work so resize/orbit cancellation can be observed.
+        # This preserves the full physical iteration count and final defaults.
+        definitions["rtpath.interactive.gpu"] = True
         # RTPATHOCL runs GPU light tracing natively (UpdateTaskCount turns
         # path.lighttracing.enable into a dedicated light-task population
         # that splats into the film), so LT viewports keep the RT
@@ -666,6 +680,16 @@ def convert_viewport_engine(context, scene, definitions, config):
         definitions["rtpath.resolutionreduction"] = steady_rr
 
         _convert_opencl_settings(scene, definitions, using_hybridbackforward)
+
+        if viewport.get_denoiser(context) == "DLSS":
+            from ..engine.dlss_viewport import producer_available
+            preferences = get_addon_preferences(context)
+            # SDK paths belong to the display worker. Missing/restored runtimes
+            # must not rebuild the render session or restart kernel compilation.
+            available, _ = producer_available(preferences.gpu_backend)
+            if available and not definitions.get("path.lighttracing.only", False):
+                definitions["rtpath.denoisingframes.enable"] = True
+                definitions["rtpath.denoisingframes.imagepipeline.enable"] = True
 
     return superluxcore_engine, sampler
 

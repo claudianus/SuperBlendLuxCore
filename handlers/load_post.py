@@ -32,7 +32,12 @@ def _setif_changed(obj, attr, value):
 
 
 def _init_SuperLuxCoreOnlineLibrary():
-    user_preferences = utils.get_addon_preferences(bpy.context)
+    try:
+        user_preferences = utils.get_addon_preferences(bpy.context)
+    except KeyError:
+        return
+    if user_preferences is None:
+        return
     scene = bpy.context.scene
     if scene is None:
         # load_post can fire before a context scene exists (background

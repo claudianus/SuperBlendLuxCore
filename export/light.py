@@ -425,7 +425,11 @@ def _convert_superluxcore_light(exporter, obj, depsgraph, superluxcore_scene, tr
         elif light.superluxcore.light_type == "hemi":
             # hemi
             if light.superluxcore.image:
-                _convert_infinite(definitions, light, scene, transform)
+                if not _convert_infinite(definitions, light, scene, transform):
+                    return _convert_cycles_light(
+                        exporter, obj, depsgraph, superluxcore_scene,
+                        transform, is_viewport_render, superluxcore_name,
+                        scene, prefix)
             else:
                 # Fallback
                 definitions["type"] = "constantinfinite"
@@ -1125,7 +1129,7 @@ def _convert_infinite(definitions, light_or_world, scene, transformation=None):
         definitions["type"] = "constantinfinite"
         # Signal that the image is missing
         definitions["gain"] = [x * light_or_world.superluxcore.gain for x in MISSING_IMAGE_COLOR]
-        return
+        return False
 
     definitions["type"] = "infinite"
     definitions["file"] = filepath
@@ -1143,6 +1147,7 @@ def _convert_infinite(definitions, light_or_world, scene, transformation=None):
         infinite_fix[0][0] = -1.0  # mirror the hdri map to match Cycles and old LuxBlend
         transformation = utils.luxutils.matrix_to_list(infinite_fix @ transformation.inverted())
         definitions["transformation"] = transformation
+    return True
 
 
 def calc_area_light_transformation(light, transform_matrix):

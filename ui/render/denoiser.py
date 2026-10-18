@@ -67,10 +67,22 @@ class SUPERLUXCORE_RENDER_PT_denoiser(RenderButtonsPanel, Panel):
             sub.prop(denoiser, "max_memory_MB")
             sub.prop(denoiser, "albedo_specular_passthrough_mode")
             sub.prop(denoiser, "prefilter_AOVs")
+        elif denoiser.type == "DLSS":
+            col.prop(denoiser, "dlss_preset")
+            col.prop(denoiser, "dlss_trace_reduction")
+            neural = col.column()
+            neural.enabled = denoiser.dlss_trace_reduction == '1'
+            neural.prop(denoiser, "dlss_input_reduction")
+            if denoiser.dlss_trace_reduction != '1':
+                layout.label(text="Raw passes and coverage requirements keep Native tracing.")
+            layout.label(text="Requires NVIDIA RTX with CUDA.", icon=icons.INFO)
+            layout.label(text="Reconstructs jittered render samples.")
+            layout.label(text="Unsupported inputs use OIDN.")
 
         layout.prop(denoiser, "to_combined")
 
         sub = layout.column(align=True)
+        sub.active = denoiser.type != "DLSS"
         sub.prop(denoiser, "periodic_refresh")
         row = sub.row()
         row.active = denoiser.periodic_refresh

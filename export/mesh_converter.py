@@ -42,6 +42,25 @@ def get_ndarray(
     return buffer
 
 
+def _weld_loop_keys(key_parts):
+    """Return the same ordered representatives/inverse as uint32 row unique.
+
+    Network byte order makes a bytewise row comparison identical to numeric
+    uint32 lexicographic order. This lets NumPy compare whole records instead
+    of dispatching a structured-field comparison for every key component.
+    Keep the earliest equal row: deformation samples use that representative.
+    Float attributes arrive as uint32 bits, including signed zeros/NaN payloads.
+    """
+    keys = np.ascontiguousarray(
+        np.concatenate(key_parts, axis=1, dtype=np.dtype(">u4")),
+    )
+    records = keys.view(np.dtype((np.void, keys.shape[1] * 4))).ravel()
+    _, representatives, inverse = np.unique(
+        records, return_index=True, return_inverse=True,
+    )
+    return representatives, inverse.ravel().astype(np.uint32, copy=False)
+
+
 def convert(
     obj,
     mesh_key,
@@ -184,11 +203,7 @@ def convert(
         key_parts += [v[:, None].view(np.uint32) for v in vert_aovs]
         weld_rep = None
         if len(loop_vertices):
-            _uniq_key, weld_rep, weld_inv = np.unique(
-                np.concatenate(key_parts, axis=1),
-                axis=0, return_index=True, return_inverse=True,
-            )
-            weld_inv = weld_inv.ravel().astype(np.uint32, copy=False)
+            weld_rep, weld_inv = _weld_loop_keys(key_parts)
             if len(weld_rep) == len(loop_vertices):
                 weld_rep = None  # nothing merged — keep the loop domain
 

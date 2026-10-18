@@ -91,26 +91,24 @@ class FrameBufferFinal:
 
         combined = render_layer.passes["Combined"]
         film = session.GetFilm()
-        if self._combined_output_type == plc.FilmOutputType.RGB_IMAGEPIPELINE:
-            size = self._width * self._height
-            rgb_pixels = np.empty([size, 3], dtype=np.float32)
-            film.GetOutputFloat(self._combined_output_type, rgb_pixels)
-            pixels = np.empty([size, 4], dtype=np.float32)
-            pixels[:, :3] = rgb_pixels
-            pixels[:, 3] = 1.0
-            del rgb_pixels
-            combined.rect.foreach_set(pixels.ravel())
-        elif (
-            self._combined_output_type == plc.FilmOutputType.RGBA_IMAGEPIPELINE
-        ):
-            size = self._width * self._height
-            pixels = np.empty([size, 4], dtype=np.float32)
-            film.GetOutputFloat(self._combined_output_type, pixels)
-            combined.rect.foreach_set(pixels.ravel())
-        else:
-            raise ValueError(
-                f"Unhandled Output Type {self._combined_output_type}"
-            )
+        native_width, native_height = film.GetWidth(), film.GetHeight()
+        channels = 3 if self._combined_output_type == plc.FilmOutputType.RGB_IMAGEPIPELINE else 4
+        if self._combined_output_type not in (plc.FilmOutputType.RGB_IMAGEPIPELINE, plc.FilmOutputType.RGBA_IMAGEPIPELINE):
+            raise ValueError(f"Unhandled Output Type {self._combined_output_type}")
+        native = np.empty((native_height, native_width, channels), np.float32)
+        film.GetOutputFloat(self._combined_output_type, native)
+        if (native_width, native_height) != (self._width, self._height):
+            final_dlss = getattr(engine, 'final_dlss', None)
+            if final_dlss is None or final_dlss.trace_reduction == 1:
+                raise RuntimeError('Final film differs from its output raster')
+            # This is a beauty-only low-resolution preview, never an AOV or a
+            # claimed native target film. The neural result replaces it later.
+            xs = np.minimum(((2 * np.arange(self._width) + 1) * native_width) // (2 * self._width), native_width - 1)
+            ys = np.minimum(((2 * np.arange(self._height) + 1) * native_height) // (2 * self._height), native_height - 1)
+            native = native[ys[:, None], xs]
+        pixels = np.ones((self._height, self._width, 4), np.float32)
+        pixels[:, :, :channels] = native
+        combined.rect.foreach_set(pixels.ravel())
 
         # Import AOVs, import light groups and trigger denoiser,
         # but only in final render, not in material preview mode
@@ -337,6 +335,37 @@ class FrameBufferFinal:
         self, engine, session, scene, render_layer, render_stopped
     ):
         """Refresh denoiser, taking aov into account."""
+        final_dlss = getattr(engine, 'final_dlss', None)
+        if final_dlss is not None and render_stopped and getattr(engine, '_dlss_final_cancelled', False):
+            # Esc must not start a second, expensive OIDN job. The draw has
+            # already read the frozen raw prefix, so publish that same image
+            # and discard any neural preview from an older sample interval.
+            combined = render_layer.passes['Combined']
+            denoised = render_layer.passes[engine.DENOISED_OUTPUT_NAME]
+            pixels = np.empty(self._width * self._height * 4, np.float32)
+            combined.rect.foreach_get(pixels)
+            denoised.rect.foreach_set(np.ascontiguousarray(
+                pixels.reshape(-1, 4)[:, :denoised.channels]).ravel())
+            self.denoiser_last_samples = 0
+            SuperLuxCoreDenoiser.refresh = False
+            detail = ('low-resolution traced beauty preview' if final_dlss.trace_reduction > 1
+                      else 'actual final raw film')
+            print('[DLSS/Final] Cancelled; keeping the ' + detail)
+            return
+        if final_dlss is not None and not final_dlss.failed:
+            if final_dlss.result is not None:
+                denoised = render_layer.passes[engine.DENOISED_OUTPUT_NAME]
+                pixels = final_dlss.result.reshape(-1, 4)
+                channels = denoised.channels
+                denoised.rect.foreach_set(np.ascontiguousarray(pixels[:, :channels]).ravel())
+                self.denoiser_last_samples = final_dlss.samples
+                SuperLuxCoreDenoiser.refresh = False
+            return
+        if final_dlss is not None and final_dlss.failed and not getattr(self, '_dlss_fallback_reset', False):
+            # A previous neural preview must not suppress final OIDN when a
+            # later/incomplete interval fails, even if integer SPP is equal.
+            self.denoiser_last_samples = 0
+            self._dlss_fallback_reset = True
         if not engine.has_denoiser():
             return
 
@@ -389,7 +418,8 @@ class FrameBufferFinal:
             )
             session.Parse(denoiser_pipeline_props)
 
-            if not (was_paused := session.IsInPause()):
+            session_active = session.IsStarted()
+            if session_active and not (was_paused := session.IsInPause()):
                 session.Pause()
 
             try:
@@ -423,7 +453,7 @@ class FrameBufferFinal:
             except RuntimeError as error:
                 print(f"Error on import of denoised result: {error}")
 
-            if not was_paused and session.IsInPause():
+            if session_active and not was_paused and session.IsStarted() and session.IsInPause():
                 session.Resume()
 
             # Add denoiser log entry

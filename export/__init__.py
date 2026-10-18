@@ -38,7 +38,7 @@ from .caches.object_cache import (
 )
 from .caches import persistent_scene
 from . import image
-from .recorded_scene import RecordedScene  # noqa: F811 keep name for reload
+from .recorded_scene import RecordedScene, DeferredScene  # noqa: F811 keep name for reload
 
 if _needs_reload:
     import importlib
@@ -187,6 +187,12 @@ class Exporter(object):
         if result is None:
             return None
         superluxcore_scene, config_props = result
+        final_dlss = getattr(self, "final_dlss", None)
+        if final_dlss is not None and not final_dlss.failed:
+            previous_note = final_dlss.plan_note
+            final_dlss.prepare_scene(superluxcore_scene, config_props)
+            if final_dlss.plan_note and final_dlss.plan_note != previous_note:
+                SuperLuxCoreErrorLog.add_warning(final_dlss.plan_note)
 
         scene = depsgraph.scene_eval
         renderengine_type = config_props.Get("renderengine.type", ["PATHCPU"]).GetString()
@@ -576,7 +582,9 @@ class Exporter(object):
         superluxcore_scene = (
             pentry["scene"]
             if pentry is not None
-            else pysuperluxcore.Scene(
+            else DeferredScene(pysuperluxcore.Scene, pysuperluxcore.Properties,
+                               image_resize_policy_props)
+            if is_viewport_render else pysuperluxcore.Scene(
                 pysuperluxcore.Properties(), image_resize_policy_props
             )
         )
@@ -876,14 +884,14 @@ class Exporter(object):
             stats.export_time_config.value += time() - config_start
 
         light_count = superluxcore_scene.GetLightCount()
-        if light_count > 1000:
+        if light_count is not None and light_count > 1000:
             msg = (
                 f"The scene contains a lot of light sources ({light_count}), "
                 "performance might suffer "
                 f"(each triangle of a meshlight counts as a separate light)"
             )
             SuperLuxCoreErrorLog.add_warning(msg)
-        if stats:
+        if stats and light_count is not None:
             stats.light_count.value = light_count
 
         # Create the renderconfig
@@ -946,6 +954,10 @@ class Exporter(object):
             scene.superluxcore.config, "free_blender_image_buffers", True
         ):
             image.ImageExporter.free_blender_buffers()
+
+        if isinstance(superluxcore_scene, DeferredScene):
+            superluxcore_scene.pin_files(
+                temp.name for temp in image.ImageExporter.temp_images.values())
 
         # Do not hold reference to temporary data
         self.scene = None
@@ -1586,19 +1598,24 @@ class Exporter(object):
         if changes is None:
             changes = Change.NONE
 
-        # Relevant during final render
-        imagepipeline_props = imagepipeline.convert(depsgraph.scene, context)
-        if self.imagepipeline_cache.diff(imagepipeline_props):
-            changes |= Change.IMAGEPIPELINE
-
-        if final:
-            # Halt conditions are only used during final render
-            halt_props = halt.convert(depsgraph.scene)
-            if self.halt_cache.diff(halt_props):
-                changes |= Change.HALT
-
+        changes = self._render_settings_changes(depsgraph.scene, context, changes, final)
         # Do not hold reference to temporary data
         self.scene = None
+        return changes
+
+    def get_final_changes(self, scene):
+        """Read live final settings without retaining an evaluated depsgraph."""
+        supports_live_transform.cache_clear()
+        return self._render_settings_changes(scene, None, Change.NONE, True)
+
+    def _render_settings_changes(self, scene, context, changes, final):
+        imagepipeline_props = imagepipeline.convert(scene, context)
+        if self.imagepipeline_cache.diff(imagepipeline_props):
+            changes |= Change.IMAGEPIPELINE
+        if final:
+            halt_props = halt.convert(scene)
+            if self.halt_cache.diff(halt_props):
+                changes |= Change.HALT
         return changes
 
     def update(self, depsgraph, context, changes):
