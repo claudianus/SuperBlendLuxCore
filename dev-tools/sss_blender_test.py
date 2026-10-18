@@ -16,7 +16,9 @@ from mathutils import Vector
 import numpy as np
 
 PROFILE = Path(os.environ['BLENDER_USER_RESOURCES']).resolve()
-sys.path.insert(0, str(PROFILE/'extensions/.local/lib/python3.13/site-packages'))
+if os.environ.get('BLENDER_USER_EXTENSIONS'):
+    assert Path(bpy.utils.user_resource('EXTENSIONS')).resolve()==PROFILE/'extensions'
+sys.path.insert(0, os.environ.get('SLC_SSS_NATIVE_ROOT', str(PROFILE/'extensions/.local/lib/python3.13/site-packages')))
 PACKAGE = 'bl_ext.user_default.superluxcore'
 bpy.ops.preferences.addon_enable(module=PACKAGE)
 import pysuperluxcore as slc
@@ -24,10 +26,19 @@ import pysuperluxcore as slc
 OUT = Path(os.environ['SLC_SSS_OUT']).resolve()
 OUT.mkdir(parents=True,exist_ok=True)
 native = Path(slc.pysuperluxcore.__file__).resolve()
-assert native.is_relative_to(PROFILE)
+if os.environ.get('SLC_SSS_NATIVE_ROOT'):
+    expected=Path(os.environ['SLC_SSS_NATIVE_ROOT'])/'pysuperluxcore'/native.name
+    assert native==expected.resolve(),(native,expected.resolve())
+else:
+    assert native.is_relative_to(PROFILE)
 config_export = importlib.import_module(PACKAGE+'.export.config')
 errors = importlib.import_module(PACKAGE+'.utils.errorlog').SuperLuxCoreErrorLog
 s = bpy.context.scene
+if os.environ.get('SLC_SSS_FRESH_SCENE')=='1':
+    assert bpy.context.window is not None
+    s=bpy.data.scenes.new('SSS installed validation')
+    s.world=bpy.data.worlds.new('SSS validation world')
+    bpy.context.window.scene=s
 bpy.ops.object.select_all(action='SELECT')
 bpy.ops.object.delete(use_global=False)
 cfg = s.superluxcore
@@ -70,10 +81,13 @@ for index,(preset,ior) in enumerate((('skin_light',1.4),('skin_dark',1.4),('marb
     principled = mat.node_tree.nodes.get('Principled BSDF')
     principled.inputs['Base Color'].default_value = (*node.inputs['Subsurface Color'].default_value,1)
     principled.inputs['IOR'].default_value = ior
+    if 'Subsurface IOR' in principled.inputs:
+        principled.inputs['Subsurface IOR'].default_value = ior
     principled.inputs['Roughness'].default_value = .4
     principled.inputs['Subsurface Weight'].default_value = 1
     principled.inputs['Subsurface Radius'].default_value = node.inputs['Subsurface Radius'].default_value
     principled.inputs['Subsurface Scale'].default_value = node.inputs['Subsurface Scale'].default_value
+    principled.inputs['Subsurface Anisotropy'].default_value = node.inputs['Subsurface Anisotropy'].default_value
     materials.append(mat)
     x = (index-1)*.23
     bpy.ops.mesh.primitive_uv_sphere_add(segments=48,ring_count=32,radius=.09,location=(x,0,.105))
