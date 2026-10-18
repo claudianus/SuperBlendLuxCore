@@ -316,9 +316,9 @@ class SuperLuxCoreConfigPath(PropertyGroup):
     depth_volume: IntProperty(name="Volume", default=-1, min=-1, soft_max=128,
                               description="Maximum number of volume bounces "
                                           "(as Cycles' Volume bounces: 0 = "
-                                          "single scattering). -1: volume "
-                                          "scattering counts against the "
-                                          "Diffuse depth")
+                                          "single scattering). Unset default: "
+                                          "automatic SSS depth, otherwise Diffuse "
+                                          "depth. Explicit -1: use Diffuse depth")
 
     hybridbackforward_enable: BoolProperty(name="Add Light Tracing", default=True,
                                            description=HYBRID_BACKFORWARD_DESC)

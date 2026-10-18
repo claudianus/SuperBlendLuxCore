@@ -837,7 +837,12 @@ def _convert_path(
     definitions["path.pathdepth.specular"] = path.depth_specular
     # Same +1 convention as diffuse/glossy (the depth counts vertices)
     volume_depth = blender_settings.path_depth(scene, "depth_volume", path.depth_volume)
-    definitions["path.pathdepth.volume"] = volume_depth + 1 if volume_depth >= 0 else 0
+    # An unset -1 must stay absent: the engine assigns dense SSS walks
+    # their own depth budget. Exporting the legacy sentinel 0 here marks
+    # it as an explicit limit and disables that correction. Preserve an
+    # authored -1 and all nonnegative limits, including Cycles overrides.
+    if volume_depth >= 0 or path.is_property_set("depth_volume"):
+        definitions["path.pathdepth.volume"] = volume_depth + 1 if volume_depth >= 0 else 0
 
     if not utils.using_photongi_debug_mode(is_viewport_render, scene):
         if device == "OCL":
