@@ -1,5 +1,7 @@
 # CPU SSS installed delivery and matched raw comparison
 
+This earlier study is retained as history. See [the interior-loop update](2026-10-19-sss-interior-loop.md) for the current installed delivery.
+
 The core default now enables a thickness-gated joint direction/free-flight
 proposal for isotropic homogeneous SSS. The Blender spectral default and
 physical material inputs are preserved. No denoising, clamping, reduced

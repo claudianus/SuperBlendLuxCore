@@ -5,10 +5,11 @@ from pathlib import Path
 import numpy as np
 
 ap=argparse.ArgumentParser();ap.add_argument('--evidence',type=Path,required=True)
-a=ap.parse_args();root=a.evidence.resolve()
-references={engine:np.load(root/directory/'linear.npy').astype(np.float64)
+ap.add_argument('--references',type=Path)
+a=ap.parse_args();root=a.evidence.resolve();reference_root=(a.references or root).resolve()
+references={engine:np.load(reference_root/directory/'linear.npy').astype(np.float64)
             for engine,directory in [('SUPERLUXCORE','reference-native-prelim'),('CYCLES','reference-cycles')]}
-regions=np.load(root/'quality-new-64-s17/regions.npy')
+regions=np.load(reference_root/'quality-new-64-s17/regions.npy')
 masks={'whole':regions>=0,'bulk':(regions>0)&(regions<=3),'thin':regions>3,'sss':regions>0}
 rows={}
 for record_path in root.glob('*/result.json'):

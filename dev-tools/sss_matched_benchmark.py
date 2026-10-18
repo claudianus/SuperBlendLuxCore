@@ -50,6 +50,8 @@ original_convert=config_export.convert
 def configure(*args,**kwargs):
     props=original_convert(*args,**kwargs)
     props.Set(slc.Property('renderengine.seed',seed))
+    if 'SLC_SSS_FASTLOOP' in os.environ:
+        props.Set(slc.Property('path.sss.fastloop.enable',os.environ['SLC_SSS_FASTLOOP']=='1'))
     if 'SLC_SSS_GUIDING' in os.environ:
         props.Set(slc.Property('path.sss.guiding.enable',os.environ['SLC_SSS_GUIDING']=='1'))
     props.Set(slc.Property('film.outputs.ssscount.type','SAMPLECOUNT'))
@@ -131,6 +133,7 @@ record=dict(engine=engine,threads=s.render.threads,size=[s.render.resolution_x,s
             dwivedi_classic=os.environ.get('SUPERLUXCORE_SSS_DWIVEDI_CLASSIC'),
             dwivedi_forward=os.environ.get('SUPERLUXCORE_SSS_DWIVEDI_FORWARD'),
             configured_sss_guiding=os.environ.get('SLC_SSS_GUIDING','native default'),
+            configured_sss_fastloop=os.environ.get('SLC_SSS_FASTLOOP','native default'),
             mean_rgb=pixels[:,:,:3].mean(axis=(0,1),dtype=np.float64).tolist(),max_rgb=float(pixels[:,:,:3].max()),
             errors=[e.message for e in errors.errors],**capture)
 # Geometric first-hit regions are identical for both engines. Masks separate
