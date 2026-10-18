@@ -1,6 +1,6 @@
 Windows DLSS experimental build / 윈도우 DLSS 실험판
 
-This is an opt-in prerelease for Windows x64 and Blender 5.2 / Python 3.13. The internal engine and add-on version remains 2.11.34; the experimental release tag identifies this separate snapshot. Do not combine its wheel with the stable 2.11.34 add-on.
+This is an opt-in prerelease for Windows x64 and Blender 5.2 / Python 3.13. The distribution version is `2.11.34+dlss.exp20261019`, with native renderer version 2.11.34. This unique wheel identity prevents reuse of the stable 2.11.34 wheel cache. Install the complete experimental ZIP and restart Blender after changing native builds.
 
 Install the **windows_x64.zip** asset through Blender → Edit → Preferences → Get Extensions → Install from Disk. The ZIP includes the matching renderer wheel, pinned CUDA NVRTC 12.9.86, the optional CUDA DLSS helper, and the official NVIDIA release Ray Reconstruction runtime. No additional pip install is needed. NVIDIA runtime terms are included separately inside the wheel.
 
@@ -14,7 +14,7 @@ Included work:
 
 Validation boundaries:
 
-- This Windows build must pass CUDA kernel compilation, Windows renderer build/import, DLSS helper ABI/loading and payload/RECORD checks, plus isolated stock Blender ZIP installation and CPU render before publication. These checks run on GPU-less CI and do not execute NGX.
+- This Windows build must pass CUDA kernel compilation, Windows renderer build/import, DLSS helper ABI/loading and payload/RECORD checks, plus isolated stock Blender stable-to-experimental upgrade, DLSS selection with explicit CPU fallback, and CPU render before publication. These checks run on GPU-less CI and do not execute NGX.
 - The Phase70 source baseline previously passed macOS CPU/Metal camera, 720p still/animation, frame-delivery/lifetime, EXR roundtrip and original heavy-scene functional tests. Those results are not Windows/RTX rendering or performance evidence.
 - Actual RTX/NGX image quality, temporal stability, performance and full-scene acceptance remain incomplete. This is not a claim of DLSS 5 neural rendering, frame generation, full feature support, production quality, or a cold-start speedup.
 - Known open issues include concurrent progressive/adaptive data-channel coherence, four shared-diagonal Metal intersection cases, slow preparation/resize, low-sample noise, and denoiser smearing in the heavy scene. The visual quality gate remains false.
