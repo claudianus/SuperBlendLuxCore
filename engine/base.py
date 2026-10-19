@@ -215,11 +215,15 @@ class SuperLuxCoreRenderEngine(bpy.types.RenderEngine):
                 # in-flight job could re-publish the session we are
                 # discarding here.
                 worker.submit_stop()
-            try:
-                if getattr(self, "session", None) is not None and self.session.IsStarted():
-                    self.session.Stop()
-            except Exception:
-                pass
+            else:
+                # No worker owns this legacy session. With a worker, a UI
+                # Stop here would bypass its lock and race film reads,
+                # OIDN, scene edits, or the queued worker Stop itself.
+                try:
+                    if getattr(self, "session", None) is not None and self.session.IsStarted():
+                        self.session.Stop()
+                except Exception:
+                    pass
             del self.session
             self.session = None
             self.exporter = None

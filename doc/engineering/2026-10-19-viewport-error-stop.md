@@ -1,0 +1,5 @@
+# Viewport draw error recovery: one Stop owner
+
+The published fix3 view_draw exception handler enqueued a worker Stop and then called Stop directly on the UI thread, outside the shared session lock. Production-body tests reproduce owner-lock bypass for reader/OIDN/edit/idle paths. The worker already owns Stop and its shared lock. Only the worker-less legacy path now calls Stop on the UI thread. Healthy draws, cleanup of failed visible state and the original error message remain unchanged. No renderer/helper/kernel/default change.
+
+This is a confirmed Python ownership defect, not proof of the tester's actual Windows10 RTX5070Ti crash cause. Four baseline failures and three controls become seven passes under deterministic modeled native operations. Full installed ZIP upgrade tests remain scoped to CPU/OIDN and source-body thread ownership; actual RTX normal-launch viewport, DLSS quality/speed and broad-goal acceptance remain pending. Existing releases are immutable. Experimental candidate version2.11.34+dlss.exp20261019.fix4.
