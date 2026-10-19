@@ -15,6 +15,9 @@ fixture=Path(__file__).with_name('sss_blender_test.py')
 prefix=fixture.read_text().split('# Verify the real Blender RNA state')[0]
 assert prefix.count('materials = []')==1
 exec(compile(prefix,str(fixture),'exec'))
+# Capture the loaded payload before rendering; separately record dependency
+# reconciliation/removal instead of losing the completed raw film receipt.
+native_identity_before=hashlib.sha256(native.read_bytes()).hexdigest()
 
 engine=os.environ.get('SLC_SSS_ENGINE','SUPERLUXCORE')
 seed=int(os.environ.get('SLC_SSS_SEED','17'))
@@ -91,6 +94,10 @@ def draw(self,engine,session,scene,render_stopped):
 framebuffer.draw=draw
 original_start=slc.RenderSession.Start
 def start(self):
+    if os.environ.get('SLC_SSS_EXPORT_NATIVE')=='1':
+        export_dir=OUT/'native-scene'
+        export_dir.mkdir(exist_ok=True)
+        self.GetRenderConfig().Export(str(export_dir))
     t=time.monotonic()
     result=original_start(self)
     capture['preparation_seconds']=time.monotonic()-t
@@ -124,7 +131,9 @@ else:
 record=dict(engine=engine,threads=s.render.threads,size=[s.render.resolution_x,s.render.resolution_y],
             spp=samples,seed=seed,spectral=bool(engine=='SUPERLUXCORE' and cfg.config.spectral_enable),
             seconds=elapsed,finite=bool(np.isfinite(pixels).all()),
-            native_sha256=hashlib.sha256(native.read_bytes()).hexdigest(),
+            native_sha256=native_identity_before,
+            native_present_after_render=native.exists(),
+            native_file_sha256_after_render=hashlib.sha256(native.read_bytes()).hexdigest() if native.exists() else None,
             rr_throughput=os.environ.get('SUPERLUXCORE_SSS_RR_THROUGHPUT') is not None,
             shadow_volume=os.environ.get('SUPERLUXCORE_SSS_SHADOW_VOLUME') is not None,
             deferred_boundary=os.environ.get('SUPERLUXCORE_SSS_DEFER_BOUNDARY') is not None,
