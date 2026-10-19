@@ -821,6 +821,12 @@ def view_draw(engine, context, depsgraph):
     else:
         framebuffer._dlss_owner = None
 
+    # Selection alone never proves a neural image was produced. Until a
+    # current-session DLSS result owns the display, retain ordinary OIDN.
+    use_oidn = vp.get_denoiser(context) == "OIDN" or (use_dlss and not dlss_handled)
+    if use_dlss and not dlss_handled:
+        status_message += "; OIDN fallback"
+
     if rendered_time > halt_time:
         # Put in pause... (non-blocking: if the worker is mid-edit the
         # pause is simply retried on the next draw instead of freezing)
@@ -834,8 +840,7 @@ def view_draw(engine, context, depsgraph):
         status_message = status_message or "(Paused)"
 
         # ...and denoise
-        use_oidn = context.scene.superluxcore.viewport.get_denoiser(context) == "OIDN"
-        if use_dlss:
+        if use_dlss and dlss_handled:
             if not dlss_handled and session is not None:
                 framebuffer.update_async(session, engine)
                 reader = framebuffer._read_thread
@@ -871,7 +876,7 @@ def view_draw(engine, context, depsgraph):
                 vp = scene.superluxcore.viewport
                 interactive = (
                     vp.denoise_interactive
-                    and vp.get_denoiser(context) == "OIDN"
+                    and use_oidn
                     and not utils.in_material_shading_mode(context)
                 )
                 handled = dlss_handled or (

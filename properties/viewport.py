@@ -242,7 +242,7 @@ class SuperLuxCoreViewportSettings(bpy.types.PropertyGroup):
     denoisers = [
         ("OIDN", "Intel Open Image Denoiser", "Denoising is only performed once the viewport render pauses", 0),
         ("OPTIX", "OptiX", "Denoises continuously during viewport rendering", 1),
-        ("DLSS", "DLSS Ray Reconstruction", "Reconstruct independent GPU frames on NVIDIA RTX; unavailable inputs keep the ordinary render", 2),
+        ("DLSS", "DLSS Ray Reconstruction (Experimental)", "Experimental reconstruction of independent CUDA frames on NVIDIA RTX; unavailable or failed inputs use OIDN", 2),
     ]
     denoiser: EnumProperty(
         update=_update_viewport_settings,

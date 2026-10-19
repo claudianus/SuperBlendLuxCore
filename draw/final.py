@@ -10,6 +10,7 @@ from ..export.aovs import get_denoiser_imgpipeline_props
 from ..properties.denoiser import SuperLuxCoreDenoiser
 from ..properties.display import SuperLuxCoreDisplaySettings
 from ..utils import view_layer as utils_view_layer
+from ..utils.errorlog import SuperLuxCoreErrorLog
 from .utils import ConvertFilmChannelOutput
 
 
@@ -408,7 +409,6 @@ class FrameBufferFinal:
 
         if refresh_denoised:
             print("Refreshing DENOISED")
-            self.denoiser_last_samples = samples
             self.denoiser_last_time = time()
 
             # Update the imagepipeline
@@ -451,8 +451,24 @@ class FrameBufferFinal:
                     execute_imagepipeline=False,
                 )
             except RuntimeError as error:
-                print(f"Error on import of denoised result: {error}")
+                # A failed worker has no publishable denoised image. Never
+                # mark these samples successful or replace Combined with an
+                # uninitialized/stale pipeline buffer.
+                self.denoiser_last_samples = 0
+                combined = render_layer.passes['Combined']
+                denoised = render_layer.passes[output_name]
+                raw = np.empty(self._width * self._height * 4, np.float32)
+                combined.rect.foreach_get(raw)
+                denoised.rect.foreach_set(np.ascontiguousarray(
+                    raw.reshape(-1, 4)[:, :denoised.channels]).ravel())
+                SuperLuxCoreDenoiser.refresh = False
+                if session_active and not was_paused and session.IsStarted() and session.IsInPause():
+                    session.Resume()
+                SuperLuxCoreErrorLog.add_error('Denoising failed; keeping noisy Combined: ' + str(error))
+                engine.update_stats("Denoising failed", str(error))
+                return
 
+            self.denoiser_last_samples = samples
             if session_active and not was_paused and session.IsStarted() and session.IsInPause():
                 session.Resume()
 

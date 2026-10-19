@@ -108,10 +108,16 @@ class SUPERLUXCORE_RENDER_PT_viewport_settings_denoiser(RenderButtonsPanel, Pane
         if viewport.get_denoiser(context) == "DLSS":
             col.prop(viewport, "dlss_preset")
             col.prop(viewport, "dlss_render_mode")
-            col.label(text="Requires NVIDIA RTX and the optional DLSS runtime")
+            preferences = utils.get_addon_preferences(context)
+            col.prop(preferences, "gpu_backend", text="GPU Backend")
+            if preferences.gpu_backend != "CUDA":
+                warning = col.column()
+                warning.alert = True
+                warning.label(text="DLSS unavailable: select CUDA", icon=icons.INFO)
+            col.label(text="Requires NVIDIA RTX, CUDA and DLSS runtime")
             if viewport.device != "OCL":
                 col.label(text="Select GPU to use DLSS", icon=icons.INFO)
-            col.label(text="Unsupported frames retain the ordinary render")
+            col.label(text="Unavailable or failed DLSS uses OIDN")
         elif viewport.get_denoiser(context) == "OPTIX":
             col.prop(viewport, "min_samples")
         else:
