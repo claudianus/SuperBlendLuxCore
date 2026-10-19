@@ -93,7 +93,7 @@ def convert(exporter, scene, context=None, engine=None):
             _add_output(definitions, "RGBA_IMAGEPIPELINE", pipeline_index)
 
         pipeline_index += 1
-        add_DENOISER_AOVs = ((final and denoiser.enabled and denoiser.type == "OIDN")
+        add_DENOISER_AOVs = ((final and denoiser.enabled and denoiser.type in {"OIDN", "DLSS"})
                          or (not final and scene.superluxcore.viewport.use_denoiser))
 
         # AOVs
@@ -290,7 +290,9 @@ def get_denoiser_imgpipeline_props(context, scene, pipeline_index):
 
     if scene.superluxcore.denoiser.type == "BCD":
         index = get_BCD_props(definitions, scene, index)
-    elif scene.superluxcore.denoiser.type == "OIDN":
+    elif scene.superluxcore.denoiser.type in {"OIDN", "DLSS"}:
+        # DLSS owns its independent-frame path. Keep the existing OIDN
+        # pipeline available for unsupported/runtime-failed final inputs.
         index = get_OIDN_props(definitions, scene, index)
 
     index = imagepipeline.convert_defs(context, scene, definitions, index)

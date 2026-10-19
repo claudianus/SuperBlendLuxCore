@@ -27,7 +27,9 @@ def render(engine, depsgraph):
     print("=" * 50)
     scene = depsgraph.scene_eval
     SuperLuxCoreErrorLog.clear()
-    statistics = scene.superluxcore.statistics.get_active()
+    # Exported geometry outlives the evaluated depsgraph. Statistics must
+    # belong to the original scene so they remain valid after its release.
+    statistics = depsgraph.scene.superluxcore.statistics.get_active()
 
     if utils.is_valid_camera(scene.camera):
         tonemapper = scene.camera.data.superluxcore.imagepipeline.tonemapper
@@ -39,6 +41,7 @@ def render(engine, depsgraph):
     _check_halt_conditions(engine, scene)
 
     layer = depsgraph.view_layer_eval
+    layer_name = layer.name
 
     print('[Engine/Final] Rendering layer "%s"' % layer.name)
 
@@ -63,12 +66,62 @@ def render(engine, depsgraph):
         # Blender skips the rest of the render layers anyway
         return
 
-    print('[Engine/Final] Finished rendering layer "%s"' % layer.name)
+    print('[Engine/Final] Finished rendering layer "%s"' % layer_name)
     
 
 def _render_layer(engine, depsgraph, statistics, view_layer):
     engine.reset()
+    engine.final_dlss = None
+    engine._dlss_final_cancelled = False
+    engine._dlss_fallback_reported = False
+    try:
+        from .dlss_final import final_options, FinalDLSS
+        options, reason = final_options(depsgraph.scene_eval, engine, utils.get_addon_preferences(bpy.context))
+        if options is not None:
+            try:
+                engine.final_dlss = FinalDLSS(options.backend(),
+                                             transparent=blender_settings.transparent_film(depsgraph.scene_eval),
+                                             input_reduction=(1 if getattr(options, 'trace_reduction', 1) > 1 else 2 if options.render_mode == 'PERFORMANCE' else 1),
+                                             trace_reduction=getattr(options, 'trace_reduction', 1),
+                                             output_size=options.output_size,
+                                             native_input_reduction=int(getattr(depsgraph.scene_eval.superluxcore.denoiser, 'dlss_input_reduction', '1')))
+            except (RuntimeError, OSError) as error:
+                reason = 'DLSS final initialization failed: %s; using OIDN' % error
+        if reason:
+            SuperLuxCoreErrorLog.add_warning(reason)
+        return _render_layer_impl(engine, depsgraph, statistics, view_layer)
+    finally:
+        final_dlss = engine.final_dlss
+        if final_dlss is not None:
+            print('[DLSS/Final] samples=%d evaluations=%d fallback=%s' %
+                  (final_dlss.samples, final_dlss.evaluations, final_dlss.failed or 'none'))
+        _close_final_resources(engine)
+
+
+def _close_final_resources(engine):
+    """Retire native ownership even when SDK/session cleanup raises."""
+    controller = getattr(engine, 'final_dlss', None)
+    try:
+        if controller is not None:
+            controller.close()
+    finally:
+        try:
+            if engine.session is not None and engine.session.IsStarted():
+                engine.session.Stop()
+        finally:
+            engine.session = None
+            engine.final_dlss = None
+            if controller is not None:
+                controller._source_scene = None
+                controller.pipeline = None
+            exporter = getattr(engine, 'exporter', None)
+            if exporter is not None:
+                exporter.final_dlss = None
+
+
+def _render_layer_impl(engine, depsgraph, statistics, view_layer):
     engine.exporter = export.Exporter(statistics)
+    engine.exporter.final_dlss = engine.final_dlss
     scene = depsgraph.scene_eval
 
     if scene.superluxcore.config.external_process and not engine.is_preview:
@@ -86,7 +139,8 @@ def _render_layer(engine, depsgraph, statistics, view_layer):
                 "[BLC] WARNING: no halt condition set — the external "
                 "render runs until the process is killed"
             )
-        external_render.run(config_props, superluxcore_scene, scene)
+        external_render.run(config_props, superluxcore_scene, scene,
+                            beauty_index=engine.aov_imagepipelines.get("DENOISED", 0))
         # Drop the exporter (its caches still hold the exported numpy
         # arrays); returning releases the depsgraph too.
         engine.exporter = None
@@ -100,6 +154,15 @@ def _render_layer(engine, depsgraph, statistics, view_layer):
         return
 
     engine.framebuffer = FrameBufferFinal(scene, depsgraph)
+
+    # All evaluated geometry, motion and object/pass maps have been exported.
+    # Keep only original-scene settings for live halt/image-pipeline changes;
+    # Blender can now release its render-resolution mesh copies before the
+    # native BVH and GPU staging buffers allocate another copy of the scene.
+    scene = depsgraph.scene
+    depsgraph = None
+    if not engine.is_preview:
+        _release_evaluated_scene(engine)
 
     # Create session
     start = time()
@@ -146,29 +209,59 @@ def _render_layer(engine, depsgraph, statistics, view_layer):
     FAST_REFRESH_DURATION = 1 if engine.is_animation else 5
 
     while True:
+        final_dlss = engine.final_dlss
+        # Wait on the native frame condition (with the GIL released), rather
+        # than limiting the lossless producer/consumer handshake to 5 samples/s.
+        # Bound the wait so pause, settings and cancellation remain responsive.
+        dlss_active = final_dlss is not None and not final_dlss.failed
+        frame_wait = 50 if dlss_active and not SuperLuxCoreDisplaySettings.paused and not engine.session.IsInPause() else 0
+        dlss_updated = final_dlss.poll(engine.session, frame_wait) if dlss_active and not _stop_requested(engine) else False
         now = time()
+        if final_dlss is not None and final_dlss.failed and not getattr(engine, '_dlss_fallback_reported', False):
+            # A config wrapper retains its session. Drop it before rebuilding
+            # the failed low-raster GPU resources to avoid a duplicate scene.
+            session_config = None
+            final_dlss.restore_native(engine)
+            session_config = engine.session.GetRenderConfig()
+            stats = utils_render.update_stats(engine.session)
+            SuperLuxCoreErrorLog.add_warning('DLSS final fallback to OIDN: ' + final_dlss.failed)
+            engine._dlss_fallback_reported = True
         manual_refresh_requested = SuperLuxCoreDisplaySettings.refresh or SuperLuxCoreDenoiser.refresh
-        update_stats = (now - last_stat_refresh) > _stat_refresh_interval(start, scene)
-        time_until_film_refresh = depsgraph.scene.superluxcore.display.interval - (now - last_film_refresh)
+        update_stats = dlss_updated or (dlss_active and engine.session.HasDone()) or (now - last_stat_refresh) > _stat_refresh_interval(start, scene)
+        time_until_film_refresh = scene.superluxcore.display.interval - (now - last_film_refresh)
         fast_refresh = now - start < FAST_REFRESH_DURATION
+        if dlss_active:
+            # Keep all raw/AOV passes together, but avoid redrawing unchanged
+            # data while waiting for the next independent input.
+            fast_refresh &= dlss_updated and now - last_film_refresh >= 1 / 5
 
         if SuperLuxCoreDisplaySettings.paused:
             if not engine.session.IsInPause():
                 engine.session.Pause()
-                utils_render.update_status_msg(stats, engine, depsgraph.scene, session_config, time_until_film_refresh=0)
-                engine.framebuffer.draw(engine, engine.session, depsgraph.scene, render_stopped=False)
+                utils_render.update_status_msg(stats, engine, scene, session_config, time_until_film_refresh=0)
+                engine.framebuffer.draw(engine, engine.session, scene, render_stopped=False)
                 engine.update_stats("", "Paused")
         else:
             if engine.session.IsInPause():
                 engine.session.Resume()
 
         # Do session update (imagepipeline, lightgroups)
-        changes = engine.exporter.get_changes(depsgraph)
+        changes = engine.exporter.get_final_changes(scene)
         engine.exporter.update_session(changes, engine.session)
+        if final_dlss is not None and changes & export.Change.HALT:
+            final_dlss.sync_halt(engine.session, export.halt.convert(scene))
+        # A halt target changes neither the traced interval nor neural history.
+        # Keep reconstructing every input up to the synchronized new cap.
+        if changes & ~export.Change.HALT and final_dlss is not None and not final_dlss.failed:
+            final_dlss.invalidate(engine.session, 'Final render settings changed; using OIDN for the current raw film')
+            if final_dlss.trace_reduction > 1:
+                session_config = None
+                final_dlss.restore_native(engine)
+                session_config = engine.session.GetRenderConfig()
 
         if engine.session.IsInPause():
             if changes or manual_refresh_requested:
-                engine.framebuffer.draw(engine, engine.session, depsgraph.scene, render_stopped=False)
+                engine.framebuffer.draw(engine, engine.session, scene, render_stopped=False)
         else:
             if fast_refresh or update_stats or changes or manual_refresh_requested or (time_until_film_refresh <= 0):
                 # We have to check the stats often to see if a halt condition is met
@@ -178,10 +271,13 @@ def _render_layer(engine, depsgraph, statistics, view_layer):
                 # Refresh quickly when user changed something or requested a refresh via button
                 draw_film |= changes or manual_refresh_requested
 
-                stats = utils_render.update_stats(engine.session)
+                # poll() already updated convergence before acknowledging this
+                # exact input. Do not repeat the expensive film read/merge.
+                stats = (engine.session.GetStats() if dlss_updated and not final_dlss.failed and not changes
+                         else utils_render.update_stats(engine.session))
                 if draw_film:
                     time_until_film_refresh = 0
-                utils_render.update_status_msg(stats, engine, depsgraph.scene, session_config, time_until_film_refresh)
+                utils_render.update_status_msg(stats, engine, scene, session_config, time_until_film_refresh)
 
                 # Compute and print the optimal clamp value. Done only once after a warmup phase.
                 # Only do this if clamping is disabled, otherwise the value is meaningless.
@@ -190,7 +286,7 @@ def _render_layer(engine, depsgraph, statistics, view_layer):
                 # this check then would never record the suggestion.
                 samples = stats.Get("stats.renderengine.pass").GetInt()
                 if not checked_optimal_clamp and samples > clamp_warmup_samples:
-                    clamp_value = utils_render.find_suggested_clamp_value(engine.session, depsgraph.scene)
+                    clamp_value = utils_render.find_suggested_clamp_value(engine.session, scene)
                     print("Recommended clamp value:", clamp_value)
                     checked_optimal_clamp = True
 
@@ -201,10 +297,10 @@ def _render_layer(engine, depsgraph, statistics, view_layer):
                 last_stat_refresh = now
                 if draw_film:
                     # Show updated film (this operation is expensive)
-                    engine.framebuffer.draw(engine, engine.session, depsgraph.scene, render_stopped=False)
-                    last_film_refresh = now
+                    engine.framebuffer.draw(engine, engine.session, scene, render_stopped=False)
+                    last_film_refresh = time() if dlss_active else now
 
-            utils_render.update_status_msg(stats, engine, depsgraph.scene, session_config, time_until_film_refresh)
+            utils_render.update_status_msg(stats, engine, scene, session_config, time_until_film_refresh)
 
         # Check before we sleep
         if _stop_requested(engine):
@@ -213,7 +309,8 @@ def _render_layer(engine, depsgraph, statistics, view_layer):
         # Don't use up too much CPU time for this refresh loop, but stay responsive
         # Note: The engine Python code seems to be threaded by Blender,
         # so the interface would not even hang if we slept for minutes here
-        sleep(1 / 5)
+        if not dlss_active or final_dlss.failed or engine.session.IsInPause():
+            sleep(1 / 5)
 
         # Check after we slept, before the next possible expensive operation
         if _stop_requested(engine):
@@ -221,16 +318,31 @@ def _render_layer(engine, depsgraph, statistics, view_layer):
 
     # User wants to stop or halt condition is reached
     # Update stats to refresh film and draw the final result
-    stats = utils_render.update_stats(engine.session)
-    utils_render.update_status_msg(stats, engine, depsgraph.scene, session_config, time_until_film_refresh=0)
-    engine.framebuffer.draw(engine, engine.session, depsgraph.scene, render_stopped=True)
+    if engine.final_dlss is not None:
+        engine._dlss_final_cancelled = _stop_requested(engine)
+        if engine._dlss_final_cancelled and not engine.final_dlss.failed:
+            engine.final_dlss.invalidate(engine.session, 'Render cancelled; keeping the traced film preview', release=False)
+        if engine.session.IsInPause():
+            engine.session.Resume()
+        engine.session.Stop()
+        stats = engine.session.GetStats()
+    else:
+        stats = utils_render.update_stats(engine.session)
+    utils_render.update_status_msg(stats, engine, scene, session_config, time_until_film_refresh=0)
+    engine.framebuffer.draw(engine, engine.session, scene, render_stopped=True)
     engine.update_stats("Render", "Stopping session...")
     if engine.session.IsInPause():
         engine.session.Resume()
-    engine.session.Stop()
+    if engine.session.IsStarted():
+        engine.session.Stop()
     # Clean up
     del engine.session
     engine.session = None
+
+
+def _release_evaluated_scene(engine):
+    """Call Blender only after evaluated scene data and maps are exported."""
+    engine.free_blender_memory()
 
 
 def _stop_requested(engine):
@@ -253,28 +365,20 @@ def _stat_refresh_interval(start, scene):
 def _check_halt_conditions(engine, scene):
     enabled_layers = [layer for layer in scene.view_layers if layer.use]
     needs_halt_condition = len(enabled_layers) > 1 or engine.is_animation
-
-    is_halt_enabled = True
-
-    if len(enabled_layers) > 1:
-        # When we have multiple render layers, we need a halt condition for each one
-        for layer in enabled_layers:
-            layer_halt = layer.superluxcore.halt
-            if layer_halt.enable:
-                # The layer overrides the global halt conditions
-                has_halt_condition = layer_halt.is_enabled()
-                is_halt_enabled &= has_halt_condition
-
-                if not has_halt_condition:
-                    SuperLuxCoreErrorLog.add_error('Halt condition missing for render layer "%s"' % layer.name)
-            else:
-                is_halt_enabled = False
-
-    # Global halt conditions
-    if not is_halt_enabled:
-        is_halt_enabled = scene.superluxcore.halt.is_enabled()
-
-    if needs_halt_condition and not is_halt_enabled:
+    if not needs_halt_condition:
+        return
+    missing = False
+    for layer in enabled_layers:
+        layer_halt = layer.superluxcore.halt
+        halt = layer_halt if layer_halt.enable else scene.superluxcore.halt
+        # Read RNA properties directly: Python convenience methods are not
+        # available on every evaluated PropertyGroup in stock Blender.
+        enabled = halt.enable and (halt.use_time or halt.use_samples
+                                    or halt.use_noise_thresh or halt.use_noise_level)
+        if not enabled:
+            missing = True
+            SuperLuxCoreErrorLog.add_error('Halt condition missing for render layer "%s"' % layer.name)
+    if missing:
         raise Exception("Missing halt condition (check error log)")
 
 

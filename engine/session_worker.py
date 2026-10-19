@@ -32,22 +32,31 @@ from collections import deque
 import pysuperluxcore
 
 
-def _uses_vulkan(config_props):
-    """True when opencl.devices.select picks a VULKAN_GPU device.
+
+def _uses_device_type(config_props, device_type):
+    """True when the renderer selects the requested device type.
 
     Position i of the selection string addresses opencl.device.<i> of
     pysuperluxcore.GetOpenCLDeviceDescs() (same order the render engine sees:
     OpenCL, CUDA, Metal, Vulkan).
     """
     try:
-        select = config_props.Get("opencl.devices.select").GetString()
-        if not select:
-            return False
+        select = config_props.Get("opencl.devices.select", [""]).GetString()
         descs = pysuperluxcore.GetOpenCLDeviceDescs()
+        if not select:
+            # Default selection in OCLRenderEngine prefers Metal over
+            # duplicate Apple OpenCL GPUs; CUDA takes precedence if present.
+            # Vulkan is explicit-only. Keep other backend fill policies.
+            if device_type != "METAL_GPU" or not config_props.Get(
+                    "opencl.gpu.use", [True]).GetBool():
+                return False
+            types = {descs.Get(name).GetString() for name in descs.GetAllNames()
+                     if name.startswith("opencl.device.") and name.endswith(".type")}
+            return "METAL_GPU" in types and "CUDA_GPU" not in types
         for i, flag in enumerate(select):
             if flag == "1" and descs.Get(
                     "opencl.device." + str(i) + ".type"
-            ).GetString() == "VULKAN_GPU":
+            ).GetString() == device_type:
                 return True
     except Exception:
         pass
@@ -65,10 +74,22 @@ def precompile_kernels(config_props, renderconfig, progress_cb=None):
     ``(index, count)`` per compiled kernel (0-based index).
     """
     renderengine_type = config_props.Get("renderengine.type", ["PATHCPU"]).GetString()
-    if not (
-        renderengine_type.endswith("OCL")
-        and not renderconfig.HasCachedKernels()
-    ):
+    if not renderengine_type.endswith("OCL"):
+        return False
+    # KernelCacheFill renders unrelated matte test scenes for both PATHOCL
+    # and RTPATHOCL, without the actual scene's spectral/options/type set.
+    # Its .ck presence check is not a Metal binary-archive lookup. Starting
+    # the real session below already compiles its exact Metal program on
+    # this worker, so the generic fill only adds startup work and memory.
+    if _uses_device_type(config_props, "METAL_GPU"):
+        return False
+    # Coherent DLSS frames start one exact realtime program below. The
+    # generic filler first compiles an unused PATHOCL program and cannot
+    # represent this scene's guide/material feature set.
+    if (renderengine_type == "RTPATHOCL" and config_props.Get(
+            "rtpath.denoisingframes.enable", [False]).GetBool()):
+        return False
+    if renderconfig.HasCachedKernels():
         return False
     # Copy config props so we can pass scene.epsilon.min,
     # scene.epsilon.max and opencl.devices.select to the kernel filler.
@@ -78,7 +99,7 @@ def precompile_kernels(config_props, renderconfig, progress_cb=None):
         # Only pre-compile for tiled path if requested, since it's rarely
         # used
         engines.append("TILEPATHOCL")
-    if _uses_vulkan(config_props):
+    if _uses_device_type(config_props, "VULKAN_GPU"):
         # A Vulkan cold compile is tens of minutes per engine variant
         # (clspv + MoltenVK pipeline specialization) - fill only the
         # engine the session will actually start instead of warming both.
@@ -91,6 +112,54 @@ def precompile_kernels(config_props, renderconfig, progress_cb=None):
     else:
         pysuperluxcore.KernelCacheFill(props, progress_cb)
     return True
+
+
+def _film_resize_props(previous, current):
+    """Return validated RT film dimensions; other config edits restart.
+
+    Compare complete exported configs, including imagepipeline/halt fields.
+    RenderSession.Parse already has a film-edit path for the RT engines,
+    preserving scene acceleration structures and compiled device kernels.
+    """
+    if previous is None:
+        return None
+    engine_type = current.Get("renderengine.type", [""]).GetString()
+    # Repeated CPU film edits produced NaNs in the full light-traced
+    # Junk Shop probe. Retain its known-good complete restart path.
+    if (engine_type != "RTPATHOCL" or
+            previous.Get("renderengine.type", [""]).GetString() != engine_type):
+        return None
+    names = set(current.GetAllNames())
+    if names != set(previous.GetAllNames()):
+        return None
+    changed = {name for name in names
+               if str(previous.Get(name)) != str(current.Get(name))}
+    film_fields = {"film.width", "film.height"}
+    policy_fields = {"rtpath.resolutionreduction", "rtpath.resolutionreduction.preview",
+                     "rtpath.resolutionreduction.preview.step"}
+    if (not changed <= film_fields | policy_fields or
+            not names & {"film.width", "film.height"}):
+        return None
+    # Old wheels accept unknown Parse keys without applying the policy.
+    # Retain a complete restart until the matching native API is present.
+    if (changed & policy_fields and
+            getattr(pysuperluxcore, "RT_FILM_RESOLUTION_POLICY_VERSION", 0) < 1):
+        return None
+    # Coherent CUDA uses this same Parse film-edit path for interaction
+    # previews. A dimensions-only UI resize need not discard its session,
+    # acceleration structures and DLSS consumer with a full Stop/Start.
+    coherent_cuda = (current.Get("rtpath.denoisingframes.enable", [False]).GetBool()
+                     and _uses_device_type(current, "CUDA_GPU"))
+    if not (_uses_device_type(current, "METAL_GPU") or coherent_cuda):
+        return None
+    props = pysuperluxcore.Properties()
+    if not changed:
+        return props
+    for name in ("film.width", "film.height", "rtpath.resolutionreduction",
+                 "rtpath.resolutionreduction.preview", "rtpath.resolutionreduction.preview.step"):
+        if name in names:
+            props.Set(current.Get(name))
+    return props
 
 
 class SessionWorker:
@@ -148,6 +217,9 @@ class SessionWorker:
         # the next start job so a config edit during startup never starts
         # a session with stale settings.
         self._pending_config = None
+        self._config_props = None
+        self._scene_payload = None
+        self.scene_light_count = None
         # Generation counter for start jobs: a superseded start (a newer
         # export landed while it was queued) skips its build.
         self._start_seq = 0
@@ -155,6 +227,9 @@ class SessionWorker:
         # start): film reads record it at kickoff so the framebuffer can
         # tell post-edit pixels from pre-edit ones (hold-last-frame).
         self.mutation_seq = 0
+        self._dlss_worker = None
+        self._dlss_signature = (None, "")
+        self.dlss_status = ""
 
         self._thread = threading.Thread(
             target=self._run, daemon=True, name="SuperLuxCoreSessionWorker"
@@ -182,16 +257,21 @@ class SessionWorker:
         """Restart the session on the reused scene with new config props.
         Coalesces: only the newest pending config is applied."""
         with self._cond:
-            if self.session is None:
-                # No live session: fold into the pending start (or stash
-                # for when one arrives - e.g. mid-fatal-restart).
-                self._pending_config = config_props
-                return
-            for job in self._queue:
+            for job in reversed(self._queue):
                 if job[0] == "config":
                     job[1] = config_props
+                    self._pending_config = None
+                    break
+                if job[0] == "config_edit":
+                    job[1][0] = config_props
+                    self._pending_config = None
                     break
             else:
+                if self.session is None:
+                    # No queued config owns this update: fold it into the
+                    # pending start, as for ordinary startup config edits.
+                    self._pending_config = config_props
+                    return
                 self._queue.append(["config", config_props])
             self._cond.notify()
 
@@ -204,6 +284,30 @@ class SessionWorker:
                 self._queue[-1][1].extend(ops)
             else:
                 self._queue.append(["edit", list(ops)])
+            self._cond.notify()
+
+    def submit_config_and_edit(self, config_props, ops):
+        """Keep a resized raster and its camera delta in one worker job.
+
+        Camera ops are incremental: coalescing retains all of them in order,
+        while only the latest complete config is needed.
+        """
+        if not ops:
+            self.submit_config(config_props)
+            return
+        with self._cond:
+            if (self.session is None and not self._lifecycle_busy
+                    and not any(job[0] in ("start", "config", "config_edit") for job in self._queue)):
+                # A fatal, truly session-less worker needs a fresh complete
+                # export, which covers these scene deltas too.
+                self._pending_config = config_props
+                return
+            self._pending_config = None
+            if self._queue and self._queue[-1][0] == "config_edit":
+                self._queue[-1][1][0] = config_props
+                self._queue[-1][1][1].extend(ops)
+            else:
+                self._queue.append(["config_edit", [config_props, list(ops)]])
             self._cond.notify()
 
     def submit_parse(self, props):
@@ -239,9 +343,11 @@ class SessionWorker:
         against a scene the restart is about to discard or the engine is
         being torn down; the follow-up full export re-covers them)."""
         with self._cond:
+            self._start_seq += 1
             for job in self._queue:
                 if job[0] == "start":
                     self._starting -= 1
+                    _discard_scene_payload(job[1][0])
             self._queue.clear()
             self._pending_config = None
             self._queue.append(("stop", None))
@@ -250,8 +356,67 @@ class SessionWorker:
     def shutdown(self):
         """Worker teardown (engine deleted): stop the session and exit."""
         with self._cond:
+            self._start_seq += 1
             self._shutdown = True
+            for job in self._queue:
+                if job[0] == "start":
+                    self._starting -= 1
+                    _discard_scene_payload(job[1][0])
+            self._queue.clear()
             self._cond.notify()
+        if self._dlss_worker is not None:
+            self._dlss_worker.shutdown()
+
+    def configure_dlss(self, options, reason=""):
+        """Main-thread path snapshot; SDK creation never occurs here."""
+        signature = (options, reason)
+        with self._cond:
+            if signature == self._dlss_signature:
+                return
+            self._dlss_signature = signature
+            self.dlss_status = reason
+            for job in self._queue:
+                if job[0] == "dlss_config":
+                    job[1] = options
+                    break
+            else:
+                self._queue.append(["dlss_config", options])
+            self._cond.notify()
+
+    def take_dlss_result(self, session):
+        """Only owned arrays cross to the main thread; no renderer calls."""
+        consumer = self._dlss_worker
+        if consumer is None:
+            return None
+        error = consumer.pop_error()
+        if error:
+            self.dlss_status = "DLSS fallback: " + error[1]
+        result = consumer.take(session, self.mutation_seq)
+        if result is not None:
+            self.dlss_status = "DLSS Ray Reconstruction"
+        return result
+
+    def _stop_dlss_worker(self):
+        consumer = self._dlss_worker
+        if consumer is not None:
+            consumer.shutdown()
+            if not consumer.join(15):
+                raise RuntimeError("DLSS backend has not finished teardown")
+            self._dlss_worker = None
+
+    def _do_dlss_config(self, options):
+        self._stop_dlss_worker()
+        if options is None:
+            return
+        from .dlss_stream import DLSSFrameWorker
+        def notify():
+            engine = self._get_engine()
+            if engine is not None and self._redraw_hook is not None:
+                self._redraw_hook(engine.tag_redraw)
+        self._dlss_worker = DLSSFrameWorker(
+            lambda: (self.session, self.mutation_seq), self.session_lock,
+            options.backend, options.postprocessor, notify, output_size=getattr(options, 'output_size', None))
+        self._dlss_worker.start()
 
     # ------------------------------------------------------------------
     # Main-thread polling
@@ -306,13 +471,20 @@ class SessionWorker:
                 self._error = (job[0], error)
                 self.phase = ""
                 self.progress = None
-                if job[0] in ("start", "config", "edit", "parse"):
+                if job[0] in ("start", "config", "config_edit", "edit", "parse"):
                     # The session is unusable (stopped or half-edited):
                     # drop it so the next view_update re-exports fresh.
                     self._stop_session()
+                    self._drop_scene_payload()
                     self._publish(None)
         # Shutdown: stop whatever session is still live.
-        self._stop_session()
+        try:
+            self._stop_dlss_worker()
+        except Exception as error:
+            self._error = ("dlss", error)
+        finally:
+            self._stop_session()
+            self._drop_scene_payload()
 
     def _execute(self, job):
         kind, payload = job
@@ -320,6 +492,8 @@ class SessionWorker:
             self._do_start(*payload)
         elif kind == "config":
             self._do_config(payload)
+        elif kind == "config_edit":
+            self._do_config(*payload)
         elif kind == "edit":
             self._do_edit(payload)
         elif kind == "parse":
@@ -328,9 +502,12 @@ class SessionWorker:
             self._do_res_reduction(payload)
         elif kind == "stop":
             self._do_stop()
+        elif kind == "dlss_config":
+            self._do_dlss_config(payload)
 
     def _stop_session(self):
         session, self.session = self.session, None
+        self._config_props = None
         if session is not None:
             try:
                 with self.session_lock:
@@ -340,13 +517,39 @@ class SessionWorker:
 
     def _do_stop(self):
         self._stop_session()
-        self.scene = None
+        self._drop_scene_payload()
         self._publish(None)
 
+    def _drop_scene_payload(self):
+        self.scene = None
+        self.scene_light_count = None
+        payload, self._scene_payload = self._scene_payload, None
+        if payload is not None:
+            _discard_scene_payload(payload)
+
+    def _publish_started(self, session):
+        """Publish, then schedule settings received during construction.
+
+        A submission after publish already queues its own config job; it
+        is newer than the session-less pending value and takes precedence.
+        Stop/start jobs supersede the construction too.
+        """
+        self.mutation_seq += 1
+        self._publish(session)
+        with self._cond:
+            pending, self._pending_config = self._pending_config, None
+            if pending is not None and not self._shutdown and not any(
+                job[0] in ("config", "config_edit", "start", "stop") for job in self._queue
+            ):
+                self._queue.appendleft(["config", pending])
+                self._cond.notify()
+
     def _do_start(self, superluxcore_scene, config_props, seq):
+        session = None
         try:
             if seq != self._start_seq:
                 # A newer export landed while this job sat in the queue.
+                _discard_scene_payload(superluxcore_scene)
                 return
             self._lifecycle_busy = True
             # A config change that queued behind this start wins over
@@ -359,7 +562,20 @@ class SessionWorker:
             # A previous session must not keep rendering alongside the
             # new one (a superseded start leaves a live session behind).
             self._stop_session()
+            self._drop_scene_payload()
+            build = getattr(superluxcore_scene, "_build_pending_scene", None)
+            if build is not None:
+                self._scene_payload = superluxcore_scene
+                self.phase = "Building scene"
+                superluxcore_scene = build(
+                    lambda: self._shutdown or seq != self._start_seq)
+                if superluxcore_scene is None:
+                    self._drop_scene_payload()
+                    self.phase = ""
+                    return
             self.scene = superluxcore_scene
+            count = getattr(superluxcore_scene, "GetLightCount", None)
+            self.scene_light_count = count() if count is not None else None
             self.phase = "Creating render config"
             renderconfig = pysuperluxcore.RenderConfig(config_props, superluxcore_scene)
 
@@ -370,20 +586,43 @@ class SessionWorker:
             precompile_kernels(config_props, renderconfig, progress_cb)
             self.progress = None
 
+            if self._shutdown or seq != self._start_seq:
+                self._drop_scene_payload()
+                self.phase = ""
+                return
+
             self.phase = "Starting session"
             session = pysuperluxcore.RenderSession(renderconfig)
             session.Start()
-            self.phase = ""
-            self.mutation_seq += 1
-            self._publish(session)
+            with self._cond:
+                superseded = self._shutdown or seq != self._start_seq
+                if not superseded:
+                    self.phase = ""
+                    self._config_props = pysuperluxcore.Properties()
+                    self._config_props.Set(config_props)
+                    self._publish_started(session)
+            if superseded:
+                session.Stop()
+                self._drop_scene_payload()
+                self.phase = ""
+                return
+        except BaseException:
+            if session is not None:
+                try:
+                    session.Stop()
+                except Exception:
+                    traceback.print_exc()
+            raise
         finally:
             self._lifecycle_busy = False
             with self._cond:
                 self._starting -= 1
 
-    def _do_config(self, config_props):
+    def _do_config(self, config_props, scene_ops=()):
         """https://github.com/LuxCoreRender/BlendLuxCore/issues/577
 
+        Metal RT dimension-only edits use the existing film-edit Parse path.
+        Other edits still rebuild a complete config/session as below.
         The old code mutated the RenderConfig of the running session,
         which leaked (every stopped session kept its scene copy) and
         crashed on some SuperLuxCore versions. We build a fresh RenderConfig
@@ -402,6 +641,40 @@ class SessionWorker:
 
         self._lifecycle_busy = True
         try:
+            resize_props = _film_resize_props(self._config_props, config_props)
+            if resize_props is not None:
+                if not resize_props.GetAllNames():
+                    # A coalesced resize may already match the live config.
+                    # Do not resume/Parse or invalidate an in-flight image
+                    # when no rendering state actually changes.
+                    if scene_ops:
+                        self._do_edit(scene_ops)
+                    return
+                self.phase = "Resizing film"
+                with self.session_lock:
+                    if old.IsInPause():
+                        old.Resume()
+                    if scene_ops:
+                        # Do not let a film read observe the new dimensions
+                        # with the previous camera. Both native boundaries
+                        # belong to a single published mutation generation.
+                        old.BeginSceneEdit()
+                        try:
+                            _replay_ops(self.scene, scene_ops)
+                        except Exception:
+                            try:
+                                old.EndSceneEdit()
+                            except Exception:
+                                pass
+                            raise
+                        old.EndSceneEdit()
+                    old.Parse(resize_props)
+                    self.mutation_seq += 1
+                self._config_props = pysuperluxcore.Properties()
+                self._config_props.Set(config_props)
+                self.phase = ""
+                self._publish(old)
+                return
             self.phase = "Reconfiguring session"
             # The worker keeps the exported scene alive itself (the
             # RenderConfig ctor is non-owning): do NOT fetch it via
@@ -414,6 +687,11 @@ class SessionWorker:
                 return
             with self.session_lock:
                 old.Stop()
+                if scene_ops:
+                    # A full restart applies the recorded camera/scene delta
+                    # after stopping the old tracer and before starting its
+                    # replacement on the same scene owner.
+                    _replay_ops(scene, scene_ops)
             # engine.session still points at the old (stopped) session
             # until the replacement publishes: readers keep seeing its
             # last film instead of a black frame.
@@ -432,8 +710,9 @@ class SessionWorker:
             session = pysuperluxcore.RenderSession(renderconfig)
             session.Start()
             self.phase = ""
-            self.mutation_seq += 1
-            self._publish(session)
+            self._config_props = pysuperluxcore.Properties()
+            self._config_props.Set(config_props)
+            self._publish_started(session)
         finally:
             self._lifecycle_busy = False
 
@@ -445,7 +724,7 @@ class SessionWorker:
             # session (the scene is shared, order is preserved).
             with self._cond:
                 if self._lifecycle_busy or any(
-                    j[0] in ("start", "config") for j in self._queue
+                    j[0] in ("start", "config", "config_edit") for j in self._queue
                 ):
                     self._queue.append(["edit", ops])
                 # else: truly session-less (startup failed); the
@@ -498,8 +777,22 @@ class SessionWorker:
             session, "SetRuntimeResolutionReduction", None
         )
         if set_reduction is not None:
-            with self.session_lock:
+            engine_type = self._config_props.Get(
+                "renderengine.type", [""]).GetString() if self._config_props is not None else ""
+            if engine_type == "RTPATHOCL":
+                # This native setter only stores runtimeResolutionReduction
+                # atomically (or ignores it for coherent frames). The RT
+                # render thread reads it at a frame boundary. This worker
+                # owns session Start/Stop, so a concurrent film read cannot
+                # invalidate the pinned session or require a film lock here.
+                # Waiting for readback would delay every queued edit behind
+                # a frame which the edit is about to invalidate anyway.
                 set_reduction(value)
+            else:
+                # RTPATHCPU also updates sampler shared data: retain its
+                # existing synchronization with film reads and scene edits.
+                with self.session_lock:
+                    set_reduction(value)
 
     def _do_parse(self, props):
         session = self.session
@@ -507,7 +800,27 @@ class SessionWorker:
             return
         with self.session_lock:
             session.Parse(props)
+            # Interaction previews resize through a partial Parse rather
+            # than a complete config job. Keep these live dimensions in
+            # the comparison cache so an otherwise-identical exported
+            # full-size config still restores the physical film.
+            if self._config_props is not None:
+                for name in ("film.width", "film.height"):
+                    if props.IsDefined(name):
+                        self._config_props.Set(props.Get(name))
             self.mutation_seq += 1
+            resume_dlss = self._dlss_worker is not None and any(
+                name.startswith(("film.imagepipeline", "film.radiancescales"))
+                for name in props.GetAllNames())
+            if resume_dlss and session.IsInPause():
+                session.Resume()
+        if resume_dlss:
+            engine = self._get_engine()
+            if engine is not None:
+                try:
+                    engine.viewport_start_time = time.time()
+                except ReferenceError:
+                    pass
 
 
 def _replay_ops(scene, ops):
@@ -515,3 +828,8 @@ def _replay_ops(scene, ops):
     can drive it without a worker."""
     for name, args, kwargs in ops:
         getattr(scene, name)(*args, **kwargs)
+
+
+def _discard_scene_payload(scene):
+    if getattr(scene, "_build_pending_scene", None) is not None:
+        scene.close()

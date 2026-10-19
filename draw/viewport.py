@@ -4,6 +4,7 @@ from ..export import blender_settings
 import bpy
 import gpu
 from gpu_extras.batch import batch_for_shader
+from mathutils import Matrix
 
 import threading
 import time
@@ -44,7 +45,7 @@ def _mutation_seq(engine):
 
 def _fetch_pixels(output_type, transparent,
                   superluxcore_session, execute_imagepipeline, lock=None,
-                  seq_probe=None):
+                  seq_probe=None, snapshot_box=None):
     """Blocking film readback + imagepipeline. Runs the device-queue
     drain; with the GIL released by pysuperluxcore this is safe to call on a
     worker thread. ``lock`` (the session worker's session_lock) keeps
@@ -65,6 +66,10 @@ def _fetch_pixels(output_type, transparent,
     bufferdepth = 4 if transparent else 3
 
     def read():
+        if execute_imagepipeline:
+            # UpdateFilm can drain the device queue. Keep it beside the
+            # readback on the background worker, never on view_draw().
+            superluxcore_session.UpdateStats()
         film = superluxcore_session.GetFilm()
         w, h = film.GetWidth(), film.GetHeight()
         # Zeros, not np.empty: GetOutputFloat early-returns without touching
@@ -72,7 +77,25 @@ def _fetch_pixels(output_type, transparent,
         # without imagepipelines). Garbage here would bypass the empty-film
         # gate in _accept_pixels and upload as a white viewport.
         data = np.zeros(w * h * bufferdepth, dtype=np.float32)
-        film.GetOutputFloat(output_type, data, 0, execute_imagepipeline)
+        if hasattr(film, "GetOutputFloatSnapshot"):
+            metadata = film.GetOutputFloatSnapshot(
+                output_type, data, 0, execute_imagepipeline
+            )
+            w = metadata.Get("snapshot.width").GetInt()
+            h = metadata.Get("snapshot.height").GetInt()
+            data = data[:w * h * bufferdepth]
+            if snapshot_box is not None:
+                snapshot_box["snapshot"] = {
+                    "ready": metadata.Get("snapshot.ready").GetBool(),
+                    "copied": metadata.Get("snapshot.copied").GetBool(),
+                    "camera_supported": metadata.Get("snapshot.camera.supported").GetBool(),
+                    "requested": metadata.Get("snapshot.camera.requested").GetUnsignedLongLong(),
+                    "applied": metadata.Get("snapshot.camera.applied").GetUnsignedLongLong(),
+                    "session_token": id(superluxcore_session),
+                    "metadata": metadata,
+                }
+        else:
+            film.GetOutputFloat(output_type, data, 0, execute_imagepipeline)
         return data, w, h
 
     seq = None
@@ -89,10 +112,10 @@ def _fetch_pixels(output_type, transparent,
     return data, width, height, seq
 
 
-def run_denoiser(session, lock, box):
+def run_denoiser(session, lock, box, output_type, transparent, seq_probe):
     """Denoiser worker (background thread).
 
-    Only the OIDN compute runs here. Everything touching GL or Blender
+    OIDN and its film readback run here. Everything touching GL or Blender
     (framebuffer.update/draw, tag_redraw) must happen on the main thread,
     so the worker only raises a flag that view_draw() consumes. (Calling
     .run() instead of .start() here used to freeze the whole UI for the
@@ -103,21 +126,30 @@ def run_denoiser(session, lock, box):
     free them off the main thread.
     """
     try:
-        film = session.GetFilm()
+        if box.get("cancelled"):
+            return
+        def denoise_and_read():
+            if box.get("cancelled"):
+                return
+            session.UpdateStats()
+            session.GetFilm().ApplyOIDN(0)
+            if not box.get("cancelled"):
+                box["data"], box["width"], box["height"], box["mut_seq"] = _fetch_pixels(
+                    output_type, transparent, session, False, seq_probe=seq_probe,
+                    snapshot_box=box,
+                )
+
         if lock is None:
-            film.ApplyOIDN(0)  # Apply on first stage in pipeline
+            denoise_and_read()
         else:
             with lock:
-                film.ApplyOIDN(0)
+                denoise_and_read()
     except Exception:
         import traceback
 
         traceback.print_exc()
     finally:
-        # Always signal completion: without done=True a failed worker
-        # leaves _denoise_box stuck on "not done" - the pause path would
-        # restart OIDN forever on every draw. A failed run simply
-        # uploads whatever the channel holds (raw image).
+        # Always signal completion; a cancelled/failed job has no pixels.
         box["done"] = True
 
 
@@ -126,16 +158,10 @@ class FrameBuffer:
 
     def __init__(self, engine, context, scene):
         filmsize = utils.calc_filmsize(scene, context)
-        # Track the live film dims when a session exists: interaction
-        # downscaling resizes the film via Parse() so the real film can
-        # legitimately differ from the configured size
-        session = getattr(engine, "session", None)
-        if session is not None:
-            try:
-                film = session.GetFilm()
-                filmsize = (film.GetWidth(), film.GetHeight())
-            except Exception:
-                pass
+        # Bootstrap from Blender dimensions. The background read supplies
+        # the exact live size to _accept_pixels(), including dynamic scale.
+        # Native width/height getters take filmMutex and can block the UI
+        # behind a GPU drain or OIDN even though they look like cheap reads.
         self._width, self._height = filmsize
         self._border = utils.calc_blender_border(scene, context)
         self._view_rect = self._calc_view_rect(context, scene, self._border)
@@ -179,11 +205,14 @@ class FrameBuffer:
         self._pending_burst_deadline = 0.0
         # Worker mutation counter value at the moment begin_reset() ran:
         # a readback with box.mut_seq > this provably ran AFTER the edit
-        # landed (session_lock makes reads/edits mutually exclusive), so
-        # its pixels are post-reset. ``_shown_mut_seq`` is the generation
-        # of the frame currently on screen.
+        # landed (session_lock makes reads/edits mutually exclusive).
+        # Asynchronous RT camera application is identified separately by
+        # the native snapshot epoch; submission alone is not proof of it.
         self._reset_mut_seq = 0
         self._shown_mut_seq = 0
+        self._snapshot_session = None
+        self._snapshot_epoch = 0
+        self._last_snapshot = None
         # Async readback: GetOutputFloat (film download + imagepipeline) runs
         # on a worker thread so the device-queue drain doesn't stall the UI.
         self._read_thread = None
@@ -196,6 +225,10 @@ class FrameBuffer:
         # raw film updates are suppressed (avoids raw/denoised alternation).
         self._interactive_denoise = False
         self._last_interactive_denoise = 0.0
+        self._dlss_owner = None
+        self._dlss_last_frame_id = 0
+        self._dlss_last_scene_epoch = 0
+        self._dlss_last_source_size = None
 
     @classmethod
     def _transition_from(cls, old_framebuffer, engine, context, scene):
@@ -224,9 +257,12 @@ class FrameBuffer:
                     new_fb.buffer = gpu.types.Buffer(
                         "FLOAT",
                         [new_fb._width * new_fb._height * new_depth],
-                        resampled.reshape(-1).astype(np.float32),
+                        resampled.reshape(-1).astype(np.float32, copy=False),
                     )
                     new_fb._from_transition = True
+                    # A second resize can arrive before any new film read.
+                    # Carry the held pixels forward through that replacement.
+                    new_fb._last_pixels = resampled
             except Exception:
                 # Any failure here just falls back to the default (black) buffer
                 pass
@@ -273,31 +309,13 @@ class FrameBuffer:
                 pass
 
     def needs_replacement(self, context, scene, engine=None):
-        # The framebuffer dims track the LIVE film (_accept_pixels
-        # resizes on the fetched dims), so compare against the actual
-        # film, not the configured size: during an interaction
-        # downscale Parse the film dims legitimately differ from
-        # calc_filmsize and must not trigger a rebuild thrash
-        session = getattr(engine, "session", None) if engine is not None else None
-        live_dims = None
-        if session is not None:
-            try:
-                film = session.GetFilm()
-                live_dims = (film.GetWidth(), film.GetHeight())
-            except Exception:
-                live_dims = None
-        expected = live_dims or utils.calc_filmsize(scene, context)
-        if (self._width, self._height) != expected:
-            return True
-        valid_cam = utils.is_valid_camera(scene.camera)
-        if valid_cam:
-            if (
-                self._transparent
-                != blender_settings.transparent_film(scene)
-            ):
-                return True
-        elif self._transparent:
-            # By default (if no camera is available), the film is not transparent
+        # Film size changes are handled by _accept_pixels() without
+        # replacing the framebuffer (or discarding its pending read).
+        # draw() independently reanchors the quad to the current region.
+        # Do not query the live film here: its getters acquire filmMutex.
+        # Use the same policy as construction: material preview is opaque
+        # even when the final-render film is transparent.
+        if self._transparent != self._initialize_transparency(scene, context):
             return True
         if self._border != utils.calc_blender_border(scene, context):
             return True
@@ -333,8 +351,8 @@ class FrameBuffer:
                 frame_h * (bmax_y - bmin_y),
             )
         return (
-            region_w * bmin_x + 1,
-            region_h * bmin_y + 1,
+            region_w * bmin_x,
+            region_h * bmin_y,
             region_w * (bmax_x - bmin_x),
             region_h * (bmax_y - bmin_y),
         )
@@ -355,27 +373,36 @@ class FrameBuffer:
         ``session`` pins the denoiser to the session the caller just
         paused - engine.session may be swapped to a new session (or None)
         by the worker while the denoiser runs."""
-        self._denoise_box = {"done": False}
+        if self.is_denoiser_active():
+            return False
+        self._denoise_box = {"done": False, "cancelled": False}
         sess = session if session is not None else engine.session
         self._denoise_session = sess
+        worker = getattr(engine, "session_worker", None)
         self._denoiser_thread = threading.Thread(
             target=run_denoiser,
-            args=(sess, _session_lock(engine), self._denoise_box),
+            args=(sess, _session_lock(engine), self._denoise_box,
+                  self._output_type, self._transparent,
+                  lambda: getattr(worker, "mutation_seq", 0)),
             daemon=True,
             name="SuperLuxCoreViewportDenoise",
         )
         self._denoiser_thread.start()
+        return True
 
     def is_denoiser_active(self):
         return self._denoiser_thread and self._denoiser_thread.is_alive()
 
     def reset_denoiser(self):
         self.denoised = False
-        # No join: a stale worker only flips its private box, which
-        # consume_denoise_result() ignores because _denoise_box moved on.
+        if self._denoise_box is not None:
+            self._denoise_box["cancelled"] = True
+        # Keep tracking a running worker until it exits. New work is
+        # bounded to one thread, without joining on Blender's UI thread.
         self._denoise_session = None
         self._denoise_box = None
-        self._denoiser_thread = None
+        if not self.is_denoiser_active():
+            self._denoiser_thread = None
         self._interactive_denoise = False
 
     # Max time to keep showing the previous frame after a film reset before
@@ -420,6 +447,31 @@ class FrameBuffer:
         # The denoised frames are stale now; raw updates resume until the
         # interactive denoiser re-engages.
         self._interactive_denoise = False
+        self._dlss_owner = None
+
+    def consume_dlss_result(self, engine, worker, session):
+        """Main-thread upload of worker-postprocessed pixels; no native calls."""
+        result = worker.take_dlss_result(session)
+        token = (id(session), worker.mutation_seq)
+        if result is not None:
+            depth = 4 if self._transparent else 3
+            if (not result.image_pipeline_applied or result.session is not engine.session or
+                    result.mutation_sequence != worker.mutation_seq or
+                    result.pixels.ndim != 3 or result.pixels.shape[2] != depth):
+                self._dlss_owner = None
+                return False
+            height, width = result.pixels.shape[:2]
+            if self._accept_pixels(result.pixels.reshape(-1), width, height,
+                                   force=True, mut_seq=result.mutation_sequence):
+                self._pending_reset = False
+                self._from_transition = False
+                self._dlss_owner = token
+                self._dlss_last_frame_id = result.frame_id
+                self._dlss_last_scene_epoch = result.scene_epoch
+                self._dlss_last_source_size = getattr(result, 'source_size', (width, height))
+        if worker.dlss_status != "DLSS Ray Reconstruction":
+            self._dlss_owner = None
+        return self._dlss_owner == token
 
     def consume_denoise_result(self, engine, final=True):
         """Apply a finished background denoise on the MAIN thread.
@@ -438,42 +490,47 @@ class FrameBuffer:
         # so interactive_denoise_tick() can tell "finished" from "died".
         self._denoiser_thread = None
         denoise_session = self._denoise_session
-        if denoise_session is None or denoise_session is not engine.session:
+        if (denoise_session is None or denoise_session is not engine.session
+                or box.get("cancelled") or box.get("data") is None
+                or box.get("mut_seq") != _mutation_seq(engine)):
             return False
-        lock = _session_lock(engine)
-        try:
-            # Non-blocking on the UI thread: skip this draw rather than
-            # stall behind a worker edit.
-            if lock is None:
-                denoise_session.UpdateStats()
-            elif lock.acquire(blocking=False):
-                try:
-                    denoise_session.UpdateStats()
-                finally:
-                    lock.release()
-            else:
-                return False
-        except RuntimeError:
+        # All native work finished on the worker under the session lock.
+        # Upload the owned array; never acquire a session lock on the UI.
+        if not self._accept_pixels(box["data"], box["width"], box["height"],
+                                   force=True, mut_seq=box["mut_seq"],
+                                   snapshot=box.get("snapshot")):
             return False
-        self.update(
-            denoise_session, engine, execute_imagepipeline=False, force=True
-        )
         if final:
             self.denoised = True
         return True
 
-    def _accept_pixels(self, data, width, height, force=False, mut_seq=None):
+    def _accept_pixels(self, data, width, height, force=False, mut_seq=None,
+                       snapshot=None):
         """Swap newly fetched pixels into the GPU buffer (main thread).
 
-        ``mut_seq`` is the worker's mutation counter sampled when the
-        read kicked off. session_lock makes reads and edits mutually
-        exclusive, so a read with mut_seq > the value captured at
-        begin_reset() provably ran after the pending edit landed - only
-        those reads can show the post-reset film. Newer-but-pre-reset
-        reads are still accepted: they refresh the held frame with
-        converged content instead of freezing on it during a sustained
-        orbit."""
+        ``mut_seq`` fences worker mutations; the optional native snapshot
+        identifies the camera actually applied to the film. An earlier
+        completed camera can refresh the display during sustained orbit,
+        while only a current camera satisfies the pending reset.
+        """
         now = time.time()
+        if mut_seq is not None and mut_seq < self._shown_mut_seq:
+            return False
+        camera_current = True
+        if snapshot is not None:
+            # Native has not copied an unsampled/reset film. Even a forced
+            # denoise upload must not present that untouched caller buffer.
+            if not snapshot["ready"] or not snapshot["copied"]:
+                return False
+            if (snapshot["session_token"] == self._snapshot_session
+                    and snapshot["applied"] < self._snapshot_epoch):
+                return False
+            # An older completed camera remains displayable during orbit,
+            # with its own transforms, until a newer camera produces pixels.
+            camera_current = (not snapshot["camera_supported"] or
+                              snapshot["applied"] >= snapshot["requested"])
+        if force and mut_seq is not None:
+            self._shown_mut_seq = mut_seq
         if not force and mut_seq is not None:
             if mut_seq > self._shown_mut_seq:
                 # First read of a new generation.
@@ -482,6 +539,7 @@ class FrameBuffer:
                 )
                 if (
                     post_reset
+                    and snapshot is None
                     and not np.any(data > 0.0)
                     and now < self._pending_reset_deadline
                 ):
@@ -489,14 +547,19 @@ class FrameBuffer:
                     # keep the previous frame instead of flashing black.
                     return False
                 self._shown_mut_seq = mut_seq
-                if post_reset:
+                if post_reset and camera_current:
                     self._pending_reset = False
         elif self._pending_reset and not force:
             # No generation info (sync path): legacy gate.
-            if np.any(data > 0.0) or now >= self._pending_reset_deadline:
-                self._pending_reset = False
+            if (snapshot is not None or np.any(data > 0.0)
+                    or now >= self._pending_reset_deadline):
+                if camera_current:
+                    self._pending_reset = False
             else:
                 return False
+        if (snapshot is not None and camera_current and self._pending_reset
+                and (mut_seq is None or mut_seq > self._reset_mut_seq)):
+            self._pending_reset = False
         if self._interactive_denoise and not force:
             # Denoised frames own the display; raw uploads would alternate
             # with them and flicker.
@@ -508,13 +571,20 @@ class FrameBuffer:
         if (width, height) != (self._width, self._height):
             self._width, self._height = width, height
             self._texture = None
-        # Keep a copy of the last rendered pixels so a replacement framebuffer
-        # can show them (resampled) while the new session starts up
-        self._last_pixels = data.reshape(height, width, bufferdepth).copy()
+        # Each completed read owns a fresh array which no worker mutates
+        # after publication. Retain that owner through the view for resize
+        # transitions; copying it again on the UI costs ~140 MB at 4K RGBA.
+        self._last_pixels = data.reshape(height, width, bufferdepth)
         self.buffer = gpu.types.Buffer(
             "FLOAT", [width * height * bufferdepth], data
         )
         self._pixels_dirty = True
+        if snapshot is not None:
+            self._snapshot_session = snapshot["session_token"]
+            self._snapshot_epoch = snapshot["applied"]
+            self._last_snapshot = snapshot
+        else:
+            self._last_snapshot = None
         return True
 
     def update(
@@ -543,6 +613,7 @@ class FrameBuffer:
         try:
             # The probe runs while we still hold the lock, so mut_seq
             # labels the fetched pixels with their exact generation.
+            snapshot_box = {}
             data, width, height, mut_seq = _fetch_pixels(
                 self._output_type,
                 self._transparent,
@@ -552,12 +623,14 @@ class FrameBuffer:
                 seq_probe=lambda: (
                     _mutation_seq(engine) if engine is not None else None
                 ),
+                snapshot_box=snapshot_box,
             )
         finally:
             if lock is not None:
                 lock.release()
         return self._accept_pixels(
-            data, width, height, force, mut_seq=mut_seq
+            data, width, height, force, mut_seq=mut_seq,
+            snapshot=snapshot_box.get("snapshot"),
         )
 
     def start_async_update(
@@ -588,6 +661,7 @@ class FrameBuffer:
                         output_type, transparent,
                         superluxcore_session, execute_imagepipeline, lock,
                         seq_probe=lambda: getattr(worker, "mutation_seq", 0),
+                        snapshot_box=box,
                     )
                 )
             except Exception:
@@ -612,8 +686,13 @@ class FrameBuffer:
         self._read_thread = None
         if self._read_session is not superluxcore_session or box["data"] is None:
             return False
+        if engine is not None and box["mut_seq"] != _mutation_seq(engine):
+            # An edit landed after this read. Keep the last image until a
+            # read of the current film arrives instead of flashing backwards.
+            return False
         return self._accept_pixels(
-            box["data"], box["width"], box["height"], mut_seq=box["mut_seq"]
+            box["data"], box["width"], box["height"], mut_seq=box["mut_seq"],
+            snapshot=box.get("snapshot"),
         )
 
     def update_async(
@@ -680,7 +759,9 @@ class FrameBuffer:
                         lock.release()
                 else:
                     return False
-                pass_count = stats.Get("stats.renderengine.pass").GetInt()
+                # Light paths do not establish camera coverage. The native
+                # eye counter also excludes inactive coarse RT tasks.
+                pass_count = stats.Get("stats.renderengine.pass.eye").GetInt()
             except RuntimeError:
                 return False
             if pass_count < max(1, min_samples):
@@ -697,18 +778,47 @@ class FrameBuffer:
     def draw(self, context=None, scene=None):
         if context is not None and scene is not None:
             self.sync_view_transform(context, scene)
-        format = "RGBA16F" if self._transparent else "RGB16F"
+        # RR output is scene-linear HDR until the display shader applies the
+        # view transform. Preserve its float32 precision at upload: half-float
+        # rounding was visible in the original-scene framebuffer regression.
+        high_precision = self._dlss_owner is not None
+        # Blender exposes RGBA32F, but not RGB32F. Opaque RR results need
+        # an explicit unit alpha for that texture layout.
+        format = "RGBA32F" if high_precision else ("RGBA16F" if self._transparent else "RGB16F")
         # Re-create the GPU texture only when new pixels arrived; drawing
         # the same texture every frame churns VRAM for nothing (and the old
         # texture was never explicitly freed).
         if getattr(self, "_pixels_dirty", True) or getattr(self, "_texture", None) is None:
+            texture_data = self.buffer
+            if high_precision and not self._transparent:
+                rgba = np.empty((self._height, self._width, 4), dtype=np.float32)
+                rgba[:, :, :3] = self._last_pixels
+                rgba[:, :, 3] = 1.0
+                texture_data = gpu.types.Buffer("FLOAT", [rgba.size], rgba)
             self._texture = gpu.types.GPUTexture(
                 size=(self._width, self._height),
                 layers=0,
                 is_cubemap=False,
                 format=format,
-                data=self.buffer,
+                data=texture_data,
             )
             self._pixels_dirty = False
         self.shader.uniform_sampler("image", self._texture)
-        self.batch.draw(self.shader)
+        # Blender's inherited UI projection includes a subpixel offset. It
+        # interpolates bright film edges even for a matching 1:1 texture and
+        # region. Own the region-pixel transform, then restore both matrices
+        # so overlays and other engines retain the host's original state.
+        _, _, region_w, region_h = gpu.state.viewport_get()
+        projection = gpu.matrix.get_projection_matrix().copy()
+        with gpu.matrix.push_pop():
+            try:
+                gpu.matrix.load_matrix(Matrix.Identity(4))
+                gpu.matrix.load_projection_matrix(Matrix((
+                    (2 / region_w, 0, 0, -1),
+                    (0, 2 / region_h, 0, -1),
+                    (0, 0, -1, 0),
+                    (0, 0, 0, 1),
+                )))
+                self.batch.draw(self.shader)
+            finally:
+                gpu.matrix.load_projection_matrix(projection)

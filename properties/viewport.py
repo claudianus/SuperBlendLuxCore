@@ -19,6 +19,17 @@ def _update_viewport_settings(self, context):
                     area.tag_redraw()
 
 
+def _update_dlss_preset(self, context):
+    # This option is consumed from context.scene by _worker(). It only
+    # changes reconstruction: avoid tagging the physical scene for export.
+    window_manager = getattr(context, "window_manager", None)
+    if window_manager is not None:
+        for window in window_manager.windows:
+            for area in window.screen.areas:
+                if area.type == "VIEW_3D":
+                    area.tag_redraw()
+
+
 class SuperLuxCoreViewportSettings(bpy.types.PropertyGroup):
     halt_time: IntProperty(
         update=_update_viewport_settings,
@@ -231,6 +242,7 @@ class SuperLuxCoreViewportSettings(bpy.types.PropertyGroup):
     denoisers = [
         ("OIDN", "Intel Open Image Denoiser", "Denoising is only performed once the viewport render pauses", 0),
         ("OPTIX", "OptiX", "Denoises continuously during viewport rendering", 1),
+        ("DLSS", "DLSS Ray Reconstruction (Experimental)", "Experimental reconstruction of independent CUDA frames on NVIDIA RTX; unavailable or failed inputs use OIDN", 2),
     ]
     denoiser: EnumProperty(
         update=_update_viewport_settings,
@@ -238,14 +250,37 @@ class SuperLuxCoreViewportSettings(bpy.types.PropertyGroup):
         items=denoisers,
         default="OPTIX",
     )
+    dlss_preset: EnumProperty(
+        update=_update_dlss_preset,
+        name="DLSS Model",
+        items=[
+            ("DEFAULT", "SDK Default", "Use the NVIDIA runtime's default Ray Reconstruction model", 0),
+            ("D", "Transformer D", "Request model D; brightness, detail and noise can differ by scene", 4),
+            ("E", "Transformer E", "Request model E; brightness, detail and noise can differ by scene", 5),
+            ("F", "RR2 F", "Request model F; brightness, detail and noise can differ by scene", 6),
+        ],
+        default="DEFAULT",
+        description="Ray Reconstruction model hint; changing it resets DLSS history without restarting the renderer",
+    )
+    dlss_render_mode: EnumProperty(
+        update=_update_viewport_settings,
+        name="DLSS Render Scale",
+        items=[
+            ("NATIVE", "Native", "Render every display pixel with Ray Reconstruction", 0),
+            ("QUALITY", "67% Input", "Trace at two thirds of each dimension and reconstruct the display resolution", 1),
+            ("PERFORMANCE", "50% Input", "Trace at half of each dimension and reconstruct the display resolution; fine detail can differ", 2),
+        ],
+        default="NATIVE",
+        description="Viewport input resolution only; canonical final render settings are unchanged",
+    )
     min_samples: IntProperty(
         update=_update_viewport_settings,
         name="Min. Samples",
         default=1,
         min=0,
         description=(
-            "Minimum amount of samples to be rendered before viewport denoiser is "
-            "enabled"
+            "Minimum average camera samples per pixel before interactive "
+            "denoising starts. Light tracing does not count toward this threshold"
         ),
     )
 
@@ -267,6 +302,8 @@ class SuperLuxCoreViewportSettings(bpy.types.PropertyGroup):
     def get_denoiser(self, context):
         if not self.use_denoiser:
             return None
+        if self.denoiser == "DLSS":
+            return "DLSS"
         if self.can_use_optix_denoiser(context):
             # It's possible that either OptiX or OIDN is used, depending on user choice
             return self.denoiser

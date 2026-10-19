@@ -238,6 +238,24 @@ def main():
     ltype = get(props, "scene.lights.__WORLD_BACKGROUND_LIGHT__.type")
     check("world_native_sky2", ltype == "sky2", f"type={ltype}")
 
+    # --- 8) Legacy SUN/Hemi with missing external HDRI -> falls back to
+    #        Cycles directional SUN light instead of pink constantinfinite ---
+    obj8, sun8 = new_light("sun_missing_hemi", "SUN", pinned=False)
+    sun8.energy = 1.0
+    sun8.angle = 0.2
+    missing_img = bpy.data.images.new("missing_hdri", width=1, height=1)
+    missing_img.source = "FILE"
+    missing_img.filepath = "//nonexistent_hdri_file_12345.exr"
+    sun8.superluxcore.use_cycles_settings = False
+    sun8.superluxcore.light_type = "hemi"
+    sun8.superluxcore.image = missing_img
+    check("sun_missing_hemi_resolves_cycles",
+          misc.use_cycles_compat(sun8.superluxcore) is True)
+    props8 = convert(obj8)
+    ltype8 = get(props8, "scene.lights.sun_missing_hemi.type")
+    check("sun_missing_hemi_type_distant", ltype8 == "distant",
+          f"type={ltype8}")
+
     failed = [name for name, ok in RESULTS if not ok]
     print(f"[E45-TEST] {len(RESULTS) - len(failed)}/{len(RESULTS)} passed")
     if failed:

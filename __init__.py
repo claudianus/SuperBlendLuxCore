@@ -43,7 +43,12 @@ luxloader.ensure_pysuperluxcore()
 try:
     import pysuperluxcore
 except ImportError as error:
-    msg = f"\n\nCould not import pysuperluxcore. \n\nImportError: {error}"
+    msg = (
+        f"\n\nCould not import pysuperluxcore. \n\nImportError: {error}\n\n"
+        "Try restarting Blender. If this persists, disable and re-enable "
+        "SuperLuxCore in Preferences > Add-ons so Blender extracts its "
+        "engine again; reinstall it only if that fails."
+    )
     # Raise from None to suppress the unhelpful
     # "during handling of the above exception, ..."
     raise RuntimeError(msg) from error

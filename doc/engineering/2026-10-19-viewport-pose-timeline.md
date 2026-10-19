@@ -1,0 +1,25 @@
+# 2026-10-19 — Independent requested/applied camera pose timeline
+
+이전 turn은 exact consume fence와 preview/current-generation 계약의 bounded progress였다. 이번 단위는 production 기능을 바꾸지 않고 UI 요청, 네이티브 snapshot, accepted buffer의 카메라 자세를 독립적으로 연결했다. Public Windows/Linux fix4, 기본 Blender 설치와 기존 WIP/품질/default는 보존했다. 기존 whole baseline ZIP을 재사용했으며 native/kernel 재빌드와 새 ZIP 복제를 하지 않았다.
+
+Stock Blender5.2.2 isolated profile, 원본 GenmaB 582objects/39materials/31images/1,094,248polys/70,986,225texels, original scene SHA f63059830408f03dc6fb803f4fe924815cb7c35ad3aeb95e9cd13d140f1bbfed. Private native8d0be06ed9d6cb0bb5550b3dc1013f89f09171d119ae6f9b8da2a4d24fad5df8, draw5b165fd8dca299676e06d1b79f4d747282dd768fd5df577aa2f8283ddfa94694, frozen engine/worker/270adapter installation identities verified. This native is not the public Windows/Linux fix4 binary.
+
+Oracle는 exporter/native 카메라 helper를 사용하지 않는다. Blender 요청 rotation, pivot/view_location, view_distance에서 world origin/forward/up을 만들고 원자적 snapshot의 ctow에서 읽은 위치/방향과 비교한다. Retained vectors are independently recomputed in analyze_timeline.py. Position tolerance max(1e-4,2e-6*norm(origin)), forward/up vector difference2e-5. Blender view_matrix RNA는 setter 직후 재계산 전 값을 반환할 수 있어 initial read는 큰 차이가 있었다. 따라서 stale view_matrix 값을 요청 자세로 쓰지 않고 요청 rotation/pivot/distance를 직접 사용했다. Native가 대응한 자세 기록은 초기 설정과 일치했다.
+
+Distinct unchanged-adapter diagnostics: pose-only41/41ready snapshots, C-call-stage42/42, initial cache-probe failure case31/31, corrected cache case86/86 모두 UI에서 요청했던 카메라 벡터와 대응했다. 같은 프레임 반복 관측이 포함되며200독립 GPU/ray 샘플이나 universal Metal position 해결로 주장하지 않는다. 픽셀/광선/재질/반사/볼륨/색 일치 oracle은 이 테스트에 없다. Actual NGX evaluations0.
+
+Orbit30회 중 첫 회는 초기 자세와 동일한 control이며 실제 변경은29회였다. 최종 corrected case에서는29changed requests 중11개 자세가 이후 ready-copy로 관측되고6개가 accepted buffer로 관측됐으나, 다음 UI 요청 전에 ready-copy가 관측된 changed pose는0개였다. Coalescing으로 모든 중간 요청을 렌더해야 한다는 뜻은 아니다. Current-generation/native-camera-current/raster 조건의 기존 strict upload 지표도0/30orbit2/14resize로 실패했다. First observed copy time is an upper observation bound including read/delivery scheduling, not pure native completion or screen presentation latency. Accepted-buffer observation is not physical display present. Legacy worker-tag responses는 최신 pose 완료 증거가 아니다.
+
+호출 경계는 threading c-profile로 기존 pybind 호출의 inclusive elapsed를 측정했다. Cache query를 추가하지 않은 native-stage orbit에서 UpdateStats median0.000070s/p95~0.00106s, GetOutputFloatSnapshot median0.25159s/p95~0.25516s. 따라서 이 실행에서 UpdateStats throttling을 주된 해법으로 삼을 근거는 없다. 별도의 corrected cache case는 다른 shared/instrumented 실행이므로 두 실행 사이 속도비를 만들지 않는다. Corrected case의 snapshot median은~0.06313s로 달랐으며, 이전252ms를 모든 실행의 고정 cost로 일반화하지 않는다.
+
+최초 completed-frame cache probe는 pybind C-call arg.__self__를 세션으로 오인해 GetStats 접근에 실패했다. 해당 실패 run/harness/error를 보존했으며 frame interval 결과로 사용하지 않는다. 호출 프레임의 실제 superluxcore_session을 읽도록 수정하고, 작은 실제 Metal scene에서3/3cache probes 통과 후 corrected heavy case에서 errors0를 확인했다. 원래 fetch session_lock 안에서 바로 갱신된 통계 cache만 조회했다. Native source/wheel/code에는 변화가 없다.
+
+Corrected heavy orbit의 native reported completed-frame interval cache observations34건은 min0.233831s, median0.263348s, p95~0.507014s, max0.946832s였다. UI request interval은0.15s. 캐시 관측은 같은 완료 frame을 반복 포함하며 독립 frame 모집단의 분포가 아니다. frameTime은 render work 외 camera application/readback/imagepipeline service도 포함하므로 순수 GPU kernel cost로 부르지 않는다. Source ReadViewportOutput의 queued wait deadline은250ms. 이 경계와 native work 비용을 다음에 분해해야 하며, timeout만 늘리거나 품질/경로를 줄여 통과시키지 않는다.
+
+Pinned original wheel에서 SUPERLUXCORE_METAL_PROFILE toggle 문자열을 확인했다. 기존 profiler는 dispatch마다 command buffer를 commit해 정상 batching과 다르므로 다음 bounded 진단에 사용해도 GPU 비용 shares에만 한정한다. 정상 throughput/속도 개선율로 쓰지 않는다. 실제 renderer/imagepipeline 비용이 밝혀진 뒤에만 native scheduling 변경을 선택한다. Atomic camera/pixel metadata, session/generation acknowledgement, lease/capacity/timeout/Stop cancellation 계약은 유지한다.
+
+Pose-only와 corrected final 실제 스크린샷을 직접 검수했다. 방/통로/바닥은 보이나 dark areas와 coarse colored spectral speckles가 매우 큰 미수렴 화면이다. Final quality/DLSS quality acceptance가 아니다. 다른 두 중간 진단 화면은 별도 품질 승인으로 쓰지 않았다. Corrected final native RGB와 display arrays는 보존했다.
+
+감독 child6개는 모두 exit0/reaped, residual owned PIDs0이며 최종 read-only ps에서 matching Blender/test process0. 자체 profile306736746logical bytes와 완료된 세 중간 진단의 중복 raw arrays를 digest/shape/dtype/finite manifest 기록 후 제거했다. 총990857898logical bytes 정리. 모든 screenshot/log/JSON/failed evidence, 마지막 corrected case의 native/display raw arrays와 기존 원본 ZIP/wheel은 보존했다. Primary draw/base/original scene SHA를 확인했다. 다른 작업/process/파일은 제거하지 않았다.
+
+Workspace evidence: dev-tools/reviews/2026-10-19/viewport-pose-timeline/report.json, timeline-analysis.json, goal-acceptance-matrix.json, next-profiler-availability.json, cleanup.json, visual-review.json. Full GPU guides/RTX NGX realtime/final/animation/quality/speed, actual Windows10 RTX5070Ti normal-start crash retest, universal Metal parity, heavy latest-camera response와 current CPU/Metal image adoption은 미완료다. 유료 서버 종료 상태를 유지하고 새 결제/SSH 재시도는 하지 않았다. Goal은 active/incomplete이며 이번 turn은 authoritative 진단을 추가한 progress다.

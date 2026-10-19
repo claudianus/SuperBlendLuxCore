@@ -177,6 +177,10 @@ class SuperLuxCoreAddonPreferences(AddonPreferences):
     use_library: BoolProperty(name="Use SuperLuxCore Online Library", default=True)
 
     display_superluxcore_logs: BoolProperty(name="Show SuperLuxCore Logs", default=True)
+    dlss_library: StringProperty(name="DLSS Backend", subtype="FILE_PATH",
+        description="Optional SuperLuxCore DLSS library; leave empty to use the installed package")
+    dlss_runtime: StringProperty(name="NVIDIA DLSS Runtime", subtype="DIR_PATH",
+        description="Optional licensed NVIDIA runtime directory; leave empty for automatic discovery")
 
     # Read-only string property, returns the current date
     def get_pysuperluxcore_version(self):
@@ -224,6 +228,11 @@ class SuperLuxCoreAddonPreferences(AddonPreferences):
         split = row.split(factor=SPLIT_FACTOR)
         split.label(text="Image Nodes:")
         split.prop(self, "image_node_thumb_default")
+
+        box = layout.box()
+        box.label(text="Optional DLSS installation")
+        box.prop(self, "dlss_library")
+        box.prop(self, "dlss_runtime")
 
         row = layout.row()
         row.label(text="Community:")

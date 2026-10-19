@@ -2,9 +2,11 @@
 
 import tempfile
 import os
+import weakref
 import bpy
 import PyOpenColorIO as ocio
 from .. import utils
+from .recorded_scene import temporary_image_files
 
 
 class ImageExporter:
@@ -74,6 +76,10 @@ class ImageExporter:
             with tempfile.NamedTemporaryFile(
                 delete=False, suffix=extension
             ) as temp_image:
+                # A source reload or failed unpack can drop the cache entry
+                # without cleanup(). Scene readers still pin the pathname.
+                weakref.finalize(temp_image, temporary_image_files.remove,
+                                 temp_image.name)
                 packed.filepath = temp_image.name
                 print(
                     f"[BLC] Unpacking image '{image.name}' to temp file "
@@ -293,7 +299,7 @@ class ImageExporter:
             filepath = temp_image.name
             temp_image.close()
             print("Deleting temporary image:", filepath)
-            os.remove(filepath)
+            temporary_image_files.remove(filepath)
 
         cls.temp_images.clear()
         cls.used_images.clear()

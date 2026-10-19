@@ -33,8 +33,39 @@ class SuperLuxCoreDenoiser(PropertyGroup):
     type_items = [
         ("BCD", "Bayesian Collaborative Denoiser", "", 0),
         ("OIDN", "Intel Open Image Denoiser", "", 1),
+        ("DLSS", "NVIDIA DLSS Ray Reconstruction (Experimental)", "Reconstruct independent CUDA samples; unsupported inputs use OIDN", 2),
     ]
     type: EnumProperty(name="Type", items=type_items, default="OIDN")
+    dlss_preset: EnumProperty(
+        name="DLSS Model",
+        items=[
+            ("DEFAULT", "SDK Default", "Use the NVIDIA runtime's default Ray Reconstruction model", 0),
+            ("D", "Transformer D", "Request model D; brightness, detail and noise can differ by scene", 4),
+            ("E", "Transformer E", "Request model E; brightness, detail and noise can differ by scene", 5),
+            ("F", "RR2 F", "Request model F; brightness, detail and noise can differ by scene", 6),
+        ],
+        default="DEFAULT",
+        description="Ray Reconstruction model hint for this scene; raw radiance and AOVs are preserved",
+    )
+    dlss_input_reduction: EnumProperty(
+        name="Neural Input",
+        items=[
+            ('1', 'Native', 'Reconstruct using the output resolution', 0),
+            ('2', 'Half', 'Use a half-size neural input while tracing raw passes and coverage at full output resolution', 1),
+        ],
+        default='1',
+        description="Raw passes stay at output resolution; Half reduces neural workload while full-resolution path tracing continues",
+    )
+
+    dlss_trace_reduction: EnumProperty(
+        name="Ray-traced Input",
+        items=[
+            ('1', 'Native', 'Trace the complete output raster and preserve canonical raw passes', 0),
+            ('2', 'Half', 'Trace half width and height for opaque beauty; canonical passes and coverage requirements retain native tracing', 1),
+        ],
+        default='1',
+        description="Optional physical Super Resolution. Half traces a quarter of the camera pixels; full-resolution raw/AOV requirements retain Native",
+    )
 
     # BCD settings
     scales: IntProperty(name="Scales", default=3, min=1, soft_max=5,

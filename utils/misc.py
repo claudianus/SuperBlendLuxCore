@@ -6,6 +6,7 @@ built, which avoids "ImportError: cannot import name 'xxx' from partially
 initialised module "bl_ext.blc_dbg.superluxcore.utils".
 """
 
+import os
 import bpy
 
 def get_name_with_lib(datablock):
@@ -200,6 +201,24 @@ def tag_new_light_world(engine):
                 pass
 
 
+def _image_is_resolvable(image):
+    """True when an Image datablock has usable backing data (packed,
+    generated, or an existing file on disk)."""
+    if image is None:
+        return False
+    try:
+        if image.packed_file is not None:
+            return True
+        if image.source == "FILE":
+            if not image.filepath:
+                return False
+            path = bpy.path.abspath(image.filepath, library=image.library)
+            return os.path.isfile(os.path.abspath(path))
+        return True
+    except Exception:
+        return False
+
+
 def use_cycles_compat(sl_props):
     """True: the light/world datablock resolves to the Cycles-compatible
     translation layer (Blender energy/color/shape are converted
@@ -221,6 +240,22 @@ def use_cycles_compat(sl_props):
         owner = sl_props.id_data
     except AttributeError:
         owner = None
+
+    # Legacy Blender 2.7x HEMI lamps were converted to SUN lamps in 2.8+.
+    # When such a SUN lamp carries LuxCore's "hemi" mode pointing at a
+    # missing external HDRI, Cycles ignores the missing HDRI and renders
+    # the lamp as a directional SUN light, whereas native "hemi" export
+    # would replace the directional sun with a full-sphere magenta
+    # constantinfinite environment.
+    try:
+        if (isinstance(owner, bpy.types.Light)
+                and owner.type == "SUN"
+                and getattr(sl_props, "light_type", None) == "hemi"
+                and getattr(sl_props, "image", None) is not None
+                and not _image_is_resolvable(sl_props.image)):
+            return True
+    except Exception:
+        pass
 
     try:
         if sl_props.is_property_set("use_cycles_settings"):
