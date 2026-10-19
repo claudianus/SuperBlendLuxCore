@@ -158,3 +158,5 @@ docs live alongside in `doc/`.
 - [2026-10-19: Independent requested/applied camera pose timeline](2026-10-19-viewport-pose-timeline.md): corrected86/86bounded pose matches; stats-call vs snapshot wait and cached frame intervals; failed probe preserved/repaired; no product/performance promotion.
 
 - [2026-10-19: Metal kernel cost shares and requested wrap-up](2026-10-19-metal-kernel-cost-wrap-up.md): LT/VC71.54percent in altered-batching profiler; no optimization promotion; publicfix4 digests reverified, own resources cleaned, full goal incomplete.
+
+- [2026-10-19: Repository consolidation and storage maintenance](2026-10-19-repository-consolidation.md): preserve current source, integrate release/worktree history, retire generated caches, and retain immutable evidence.
